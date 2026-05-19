@@ -16,7 +16,8 @@ interface PlayerPanelProps {
   bestOf: number
   isActive: boolean
   isBust: boolean
-  visits: VisitRecord[]
+  visits: VisitRecord[]      // current leg — for last 3 visits display
+  allVisits: VisitRecord[]   // all legs — for match average
   className?: string
 }
 
@@ -43,10 +44,11 @@ export function PlayerPanel({
   isActive,
   isBust,
   visits,
+  allVisits,
   className,
 }: PlayerPanelProps) {
   const legsNeeded = Math.ceil(bestOf / 2)
-  const avg = runningAverage(visits, playerId)
+  const avg = runningAverage(allVisits, playerId)  // match average across all legs
   const recent = lastThreeVisits(visits, playerId)
 
   return (

@@ -59,8 +59,7 @@ export function bestLeg(legs: LegForStats[], playerId: string): number | null {
 }
 
 export function checkoutPercentage(visits: VisitForStats[]): number {
-  const checkoutOpportunities = visits.filter((v) => v.runningRemainder !== undefined)
   const checkouts = visits.filter((v) => v.isCheckout)
-  if (checkoutOpportunities.length === 0) return 0
-  return (checkouts.length / checkoutOpportunities.length) * 100
+  if (visits.length === 0) return 0
+  return (checkouts.length / visits.length) * 100
 }

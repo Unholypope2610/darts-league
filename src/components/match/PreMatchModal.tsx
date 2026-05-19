@@ -6,16 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
-import type { PlayerMeta } from "@/types/api"
+
+type ModalPlayer = { id: string; name: string; avatarUrl: string | null }
 
 interface PreMatchModalProps {
   open: boolean
-  playerA: PlayerMeta
-  playerB: PlayerMeta
+  playerA: ModalPlayer
+  playerB: ModalPlayer
   defaultBestOf?: number
   defaultStartingScore?: number
   defaultFinishType?: string
   onStart: (config: { starterId: string; bestOf: number; startingScore: number; finishType: string }) => void
+  onClose?: () => void
 }
 
 export function PreMatchModal({
@@ -26,6 +28,7 @@ export function PreMatchModal({
   defaultStartingScore = 501,
   defaultFinishType = "DOUBLE_OUT",
   onStart,
+  onClose,
 }: PreMatchModalProps) {
   const [starter, setStarter] = useState<string>(playerA.id)
   const [bestOf, setBestOf] = useState<number>(defaultBestOf)
@@ -33,7 +36,7 @@ export function PreMatchModal({
   const [finishType, setFinishType] = useState<string>(defaultFinishType)
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.() }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Match Setup</DialogTitle>
@@ -59,7 +62,7 @@ export function PreMatchModal({
             <Select value={String(bestOf)} onValueChange={(v) => setBestOf(Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {[3, 5, 7, 9, 11].map((n) => (
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
                   <SelectItem key={n} value={String(n)}>Best of {n} legs</SelectItem>
                 ))}
               </SelectContent>
@@ -69,7 +72,7 @@ export function PreMatchModal({
           {/* Finish type */}
           <div className="flex flex-col gap-2">
             <Label>Finish Type</Label>
-            <Select value={finishType} onValueChange={setFinishType}>
+            <Select value={finishType} onValueChange={(v) => { if (v) setFinishType(v) }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="DOUBLE_OUT">Double Out</SelectItem>

@@ -24,5 +24,5 @@ export const createDivisionSchema = z.object({
 
 export const generateFixturesSchema = z.object({
   divisionId: z.string().optional(),
-  doubleRoundRobin: z.boolean().default(false),
+  rounds: z.number().int().min(1).max(10).default(1),
 })

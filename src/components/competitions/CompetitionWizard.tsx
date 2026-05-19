@@ -139,7 +139,7 @@ export function CompetitionWizard() {
               <Select value={String(bestOf)} onValueChange={(v) => setValue("bestOf", Number(v))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {[3, 5, 7, 9, 11].map((n) => <SelectItem key={n} value={String(n)}>Bo{n}</SelectItem>)}
+                  {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => <SelectItem key={n} value={String(n)}>Bo{n}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

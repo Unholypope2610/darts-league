@@ -4,6 +4,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { useGenerateFixtures } from "@/hooks/useFixtures"
 
@@ -14,12 +15,12 @@ interface GenerateFixturesModalProps {
 }
 
 export function GenerateFixturesModal({ competitionId, open, onClose }: GenerateFixturesModalProps) {
-  const [doubleRoundRobin, setDoubleRoundRobin] = useState(false)
+  const [rounds, setRounds] = useState(1)
   const { mutate, isPending } = useGenerateFixtures(competitionId)
 
   function handleGenerate() {
     mutate(
-      { doubleRoundRobin },
+      { rounds },
       {
         onSuccess: () => {
           toast.success("Fixtures generated!")
@@ -30,25 +31,39 @@ export function GenerateFixturesModal({ competitionId, open, onClose }: Generate
     )
   }
 
+  const roundLabels: Record<number, string> = {
+    1: "1× each",
+    2: "2× each (home & away)",
+    3: "3× each",
+    4: "4× each",
+    5: "5× each",
+    6: "6× each",
+    7: "7× each",
+    8: "8× each",
+    9: "9× each",
+    10: "10× each",
+  }
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Generate Fixtures</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          <Label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={doubleRoundRobin}
-              onChange={(e) => setDoubleRoundRobin(e.target.checked)}
-              className="w-4 h-4 rounded"
-            />
-            <div>
-              <p className="font-medium">Double Round Robin</p>
-              <p className="text-xs text-muted-foreground">Each pair plays twice (home & away)</p>
-            </div>
-          </Label>
+          <div className="flex flex-col gap-1.5">
+            <Label>How many times does each pair play?</Label>
+            <Select value={String(rounds)} onValueChange={(v) => { if (v) setRounds(Number(v)) }}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="min-w-[320px]">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <SelectItem key={n} value={String(n)}>{roundLabels[n]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button onClick={handleGenerate} disabled={isPending} className="w-full">
             {isPending ? "Generating…" : "Generate Fixtures"}
           </Button>

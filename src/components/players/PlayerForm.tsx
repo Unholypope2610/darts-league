@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Player } from "@prisma/client"
+import type { Player } from "@/types/api"
 
 interface PlayerFormProps {
   defaultValues?: Partial<Player>
@@ -23,8 +23,9 @@ export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel 
     setValue,
     watch,
     formState: { errors },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<PlayerFormValues>({
-    resolver: zodResolver(createPlayerSchema),
+    resolver: zodResolver(createPlayerSchema) as any,
     defaultValues: {
       name: defaultValues?.name ?? "",
       nickname: defaultValues?.nickname ?? "",

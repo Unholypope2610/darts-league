@@ -1,27 +1,14 @@
 "use client"
 
-import { Sidebar } from "./Sidebar"
-import { TopBar } from "./TopBar"
-import { MobileNav } from "./MobileNav"
+import { NavBar } from "./NavBar"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar — hidden on mobile */}
-      <aside className="hidden md:flex md:flex-col md:w-60 md:shrink-0 border-r border-border">
-        <Sidebar />
-      </aside>
-
-      {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          {children}
-        </main>
-      </div>
-
-      {/* Mobile bottom nav */}
-      <MobileNav />
+    <div className="flex flex-col min-h-screen" style={{ background: "#080808" }}>
+      <NavBar />
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-6">
+        {children}
+      </main>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Trophy } from "lucide-react"
-import type { Competition } from "@prisma/client"
+import type { Competition } from "@/types/api"
 
 const TYPE_LABELS: Record<string, string> = {
   SINGLE_LEAGUE: "League",

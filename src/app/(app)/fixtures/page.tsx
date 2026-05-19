@@ -14,7 +14,7 @@ interface GlobalFixture {
   status: string
   matchId?: string | null
   scheduledAt?: string | null
-  competition: { id: string; name: string }
+  competition: { id: string; name: string; bestOf: number; startingScore: number; finishType: string }
   playerA: { id: string; name: string; avatarUrl?: string | null }
   playerB: { id: string; name: string; avatarUrl?: string | null }
   match?: { playerAScore: number; playerBScore: number } | null

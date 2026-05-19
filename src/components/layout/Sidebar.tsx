@@ -31,17 +31,22 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <div className="flex flex-col h-full bg-[hsl(var(--sidebar-background))]">
+    <div className="flex flex-col h-full" style={{ background: "#050505" }}>
       {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-5 border-b border-[hsl(var(--sidebar-border))]">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
-          <Crosshair className="w-5 h-5 text-primary-foreground" />
+      <div className="relative flex items-center gap-3 px-5 py-6">
+        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-500 shadow-[0_0_16px_rgba(16,185,129,0.5)]">
+          <Crosshair className="w-5 h-5 text-black" strokeWidth={2.5} />
         </div>
-        <span className="font-bold text-lg tracking-tight">Darts League</span>
+        <div className="flex flex-col">
+          <span className="text-white font-black text-base tracking-widest uppercase leading-none">Darts</span>
+          <span className="text-emerald-500 font-black text-base tracking-widest uppercase leading-none">League</span>
+        </div>
+        {/* green accent line */}
+        <div className="absolute bottom-0 left-5 right-5 h-px bg-gradient-to-r from-emerald-500/60 via-emerald-500/20 to-transparent" />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive =
@@ -51,13 +56,16 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                "group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150",
                 isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-[hsl(var(--sidebar-foreground))] hover:bg-muted hover:text-foreground",
+                  ? "text-emerald-400 bg-emerald-500/10"
+                  : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5",
               )}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+              )}
+              <Icon className={cn("w-4 h-4 shrink-0 transition-colors", isActive ? "text-emerald-400" : "text-zinc-600 group-hover:text-zinc-300")} />
               {item.label}
             </Link>
           )
@@ -65,12 +73,10 @@ export function Sidebar() {
       </nav>
 
       {/* User button */}
-      <div className="px-4 py-4 border-t border-[hsl(var(--sidebar-border))]">
+      <div className="px-4 py-4 border-t border-white/5">
         <UserButton
           appearance={{
-            elements: {
-              avatarBox: "w-8 h-8",
-            },
+            elements: { avatarBox: "w-8 h-8" },
           }}
         />
       </div>

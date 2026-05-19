@@ -18,6 +18,7 @@ export function LiveScoringLayout() {
     bestOf,
     currentTurnPlayerId,
     visits,
+    allVisits,
     isBustDialogOpen,
     confirmBust,
   } = useLiveMatchStore()
@@ -43,6 +44,7 @@ export function LiveScoringLayout() {
             isActive={isAActive}
             isBust={isBustA}
             visits={visits}
+            allVisits={allVisits}
           />
           <PlayerPanel
             playerId={playerB.id}
@@ -54,6 +56,7 @@ export function LiveScoringLayout() {
             isActive={!isAActive}
             isBust={isBustB}
             visits={visits}
+            allVisits={allVisits}
           />
         </div>
 

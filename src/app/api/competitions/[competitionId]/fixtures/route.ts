@@ -20,6 +20,7 @@ export async function GET(
       playerB: true,
       match: true,
       division: true,
+      competition: { select: { id: true, name: true, bestOf: true, startingScore: true, finishType: true } },
     },
     orderBy: [{ matchday: "asc" }, { createdAt: "asc" }],
   })
@@ -57,13 +58,13 @@ export async function POST(
     ? competition.divisions.filter((d) => d.id === parsed.data.divisionId)
     : competition.divisions
 
-  const allFixtures = []
+  const allFixtures: unknown[] = []
 
   for (const division of divisionsToGenerate) {
     const playerIds = division.players.map((p) => p.playerId)
     if (playerIds.length < 2) continue
 
-    const generated = generateFixtures(playerIds, parsed.data.doubleRoundRobin)
+    const generated = generateFixtures(playerIds, parsed.data.rounds)
 
     const fixtures = await prisma.$transaction(
       generated.map((f) =>

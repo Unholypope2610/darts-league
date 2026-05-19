@@ -11,14 +11,23 @@ interface PageProps {
 
 export default function TablePage({ params }: PageProps) {
   const { competitionId } = use(params)
-  const { data: rows, isLoading } = useLeagueTable(competitionId)
+  const { data: divisions, isLoading } = useLeagueTable(competitionId)
 
   if (isLoading) return <Skeleton className="h-64 rounded-xl" />
 
   return (
-    <div className="flex flex-col gap-4">
-      <h2 className="font-semibold">Standings</h2>
-      <LeagueTable rows={rows ?? []} topQualifyCount={4} />
+    <div className="flex flex-col gap-8">
+      {divisions?.map((division) => (
+        <div key={division.divisionId} className="flex flex-col gap-3">
+          {divisions.length > 1 && (
+            <h2 className="font-black text-lg text-white">{division.divisionName}</h2>
+          )}
+          <LeagueTable rows={division.rows} topQualifyCount={4} />
+        </div>
+      ))}
+      {!divisions?.length && (
+        <p className="text-muted-foreground text-sm">No standings yet — play some matches first.</p>
+      )}
     </div>
   )
 }

@@ -3,6 +3,8 @@ import { immer } from "zustand/middleware/immer"
 import type { FinishType } from "@/lib/utils/darts"
 import { getNewRemainder, isMatchOver, matchWinner } from "@/lib/utils/darts"
 import type { MatchWithLegs, PlayerMeta, VisitRecord, RecordVisitResponse } from "@/types/api"
+import { announceVisit, announceMatchWin } from "@/lib/utils/speech"
+import { toast } from "sonner"
 
 interface LiveMatchStore {
   // Match metadata
@@ -21,7 +23,8 @@ interface LiveMatchStore {
   currentTurnPlayerId: string | null
   playerARemainder: number
   playerBRemainder: number
-  visits: VisitRecord[]
+  visits: VisitRecord[]       // current leg only
+  allVisits: VisitRecord[]    // all legs — used for match average
 
   // Keypad
   dartInput: string
@@ -31,6 +34,7 @@ interface LiveMatchStore {
   isBustDialogOpen: boolean
   isLegWinAnimating: boolean
   legWinnerId: string | null
+  pendingNextStarter: string | null   // loser ID queued to throw first next leg
   isMatchWon: boolean
   winnerId: string | null
   isSubmitting: boolean
@@ -67,11 +71,13 @@ const initialState = {
   playerARemainder: 501,
   playerBRemainder: 501,
   visits: [],
+  allVisits: [],
   dartInput: "",
   dartsUsedThisVisit: 3,
   isBustDialogOpen: false,
   isLegWinAnimating: false,
   legWinnerId: null,
+  pendingNextStarter: null,
   isMatchWon: false,
   winnerId: null,
   isSubmitting: false,
@@ -96,6 +102,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.playerBLegsWon = match.playerBScore
         state.winnerId = match.winnerId
         state.isMatchWon = match.winnerId !== null
+
+        // All visits across every leg for match average
+        state.allVisits = match.legs.flatMap((l) => l.visits)
 
         // Find the active leg (last leg without a winner)
         const activeLeg = match.legs.find((l) => !l.winnerId)
@@ -193,17 +202,28 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
         if (!res.ok) {
           const err = await res.json()
-          set((s) => { s.error = err.error ?? "Failed to record visit"; s.isSubmitting = false })
+          const msg = err.error ?? "Failed to record visit"
+          set((s) => { s.error = msg; s.isSubmitting = false })
+          toast.error(msg)
           return
         }
 
         const data: RecordVisitResponse = await res.json()
+
+        // Announce the visit — "requires X" is the OTHER player's remainder (they throw next)
+        const isCurrentPlayerA = state.currentTurnPlayerId === state.playerA?.id
+        const otherRemainder = isCurrentPlayerA ? state.playerBRemainder : state.playerARemainder
+        const otherPlayerName = isCurrentPlayerA
+          ? (state.playerB?.name ?? "")
+          : (state.playerA?.name ?? "")
+        announceVisit(score, otherRemainder, otherPlayerName, data.isCheckout, data.isBust)
 
         set((s) => {
           s.dartInput = ""
           s.dartsUsedThisVisit = 3
           s.isSubmitting = false
           s.visits.push(data.visit)
+          s.allVisits.push(data.visit)
           s.undoStack.push(data.visit.id)
 
           if (data.isBust) {
@@ -225,8 +245,13 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           if (data.legWinnerId) {
             s.legWinnerId = data.legWinnerId
             s.isLegWinAnimating = true
-            if (data.legWinnerId === state.playerA?.id) s.playerALegsWon += 1
-            else s.playerBLegsWon += 1
+            if (data.legWinnerId === state.playerA?.id) {
+              s.playerALegsWon += 1
+              s.pendingNextStarter = state.playerB?.id ?? null  // loser throws first
+            } else {
+              s.playerBLegsWon += 1
+              s.pendingNextStarter = state.playerA?.id ?? null
+            }
           }
 
           if (data.matchWinnerId) {
@@ -234,6 +259,13 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             s.isMatchWon = true
           }
         })
+
+        // Announce match win after the leg animation plays out
+        if (data.matchWinnerId) {
+          const winnerName =
+            data.matchWinnerId === state.playerA?.id ? state.playerA?.name : state.playerB?.name
+          if (winnerName) setTimeout(() => announceMatchWin(winnerName), 2400)
+        }
       } catch {
         set((s) => { s.error = "Network error"; s.isSubmitting = false })
       }
@@ -261,6 +293,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           s.isSubmitting = false
           s.undoStack.pop()
           s.visits = s.visits.filter((v) => v.id !== data.removedVisitId)
+          s.allVisits = s.allVisits.filter((v) => v.id !== data.removedVisitId)
           s.playerARemainder = data.playerARemainder
           s.playerBRemainder = data.playerBRemainder
           s.currentTurnPlayerId = data.currentTurnPlayerId
@@ -283,10 +316,15 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
     },
 
     dismissLegWin: () => {
+      const { pendingNextStarter, isMatchWon } = get()
       set((state) => {
         state.isLegWinAnimating = false
         state.legWinnerId = null
+        state.pendingNextStarter = null
       })
+      if (!isMatchWon && pendingNextStarter) {
+        get().startNewLeg(pendingNextStarter)
+      }
     },
 
     startNewLeg: async (starterId: string) => {

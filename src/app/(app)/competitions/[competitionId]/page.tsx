@@ -70,15 +70,13 @@ export default function CompetitionOverviewPage({ params }: PageProps) {
       )}
 
       {/* Standings preview */}
-      {tableRows && tableRows.length > 0 && (
+      {tableRows && tableRows.length > 0 && tableRows[0].rows.length > 0 && (
         <div>
           <h3 className="font-semibold mb-3">Standings</h3>
-          <LeagueTable rows={tableRows.slice(0, 6)} />
-          {tableRows.length > 6 && (
-            <Link href={`/competitions/${competitionId}/table`} className="block text-center mt-3 text-sm text-primary hover:underline">
-              View full table
-            </Link>
-          )}
+          <LeagueTable rows={tableRows[0].rows.slice(0, 6)} />
+          <Link href={`/competitions/${competitionId}/table`} className="block text-center mt-3 text-sm text-primary hover:underline">
+            View full table →
+          </Link>
         </div>
       )}
     </div>

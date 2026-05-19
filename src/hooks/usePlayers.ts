@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { Player } from "@prisma/client"
+import type { Player } from "@/types/api"
 
 export function usePlayers() {
   return useQuery<Player[]>({

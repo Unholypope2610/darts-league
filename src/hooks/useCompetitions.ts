@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { Competition } from "@prisma/client"
+import type { Competition } from "@/types/api"
 
 export function useCompetitions() {
   return useQuery<Competition[]>({

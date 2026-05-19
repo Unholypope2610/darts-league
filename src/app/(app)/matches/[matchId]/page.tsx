@@ -23,7 +23,8 @@ export default function MatchSummaryPage({ params }: PageProps) {
   if (isLoading) return <Skeleton className="h-64 rounded-xl" />
   if (!match) return <p className="text-muted-foreground">Match not found.</p>
 
-  const allVisits = match.legs.flatMap((l) => l.visits)
+  const m = match
+  const allVisits = m.legs.flatMap((l) => l.visits)
 
   function calcStats(playerId: string) {
     const pVisits = allVisits.filter((v) => v.playerId === playerId && !v.isBust)
@@ -36,7 +37,7 @@ export default function MatchSummaryPage({ params }: PageProps) {
       avg: totalDarts > 0 ? formatAverage((totalScore / totalDarts) * 3) : "0.00",
       s180s,
       highestCheckout,
-      legsWon: match.playerAId === playerId ? match.playerAScore : match.playerBScore,
+      legsWon: m.playerAId === playerId ? m.playerAScore : m.playerBScore,
     }
   }
 

@@ -35,7 +35,7 @@ export default function UsersSettingsPage() {
   })
 
   const { mutate: updateUser } = useMutation({
-    mutationFn: ({ id, ...data }: { id: string; role?: string; playerId?: string | null }) =>
+    mutationFn: ({ id, ...data }: { id: string; role?: string; playerId?: string | null | undefined }) =>
       fetch("/api/admin/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...data }) }).then((r) => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "users"] })
@@ -90,7 +90,7 @@ export default function UsersSettingsPage() {
                   <td className="px-4 py-3">
                     <Select
                       value={user.role}
-                      onValueChange={(role) => updateUser({ id: user.id, role })}
+                      onValueChange={(role) => { if (role) updateUser({ id: user.id, role }) }}
                     >
                       <SelectTrigger className="w-28 h-7 text-xs">
                         <SelectValue />
