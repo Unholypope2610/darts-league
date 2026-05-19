@@ -1,0 +1,95 @@
+import { NextResponse } from "next/server"
+import { auth } from "@clerk/nextjs/server"
+import { prisma } from "@/lib/prisma"
+import { generateFixtures } from "@/lib/algorithms/fixture-generator"
+import { generateFixturesSchema } from "@/lib/validations/competition.schema"
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ competitionId: string }> },
+) {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { competitionId } = await params
+
+  const fixtures = await prisma.fixture.findMany({
+    where: { competitionId },
+    include: {
+      playerA: true,
+      playerB: true,
+      match: true,
+      division: true,
+    },
+    orderBy: [{ matchday: "asc" }, { createdAt: "asc" }],
+  })
+
+  return NextResponse.json(fixtures)
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ competitionId: string }> },
+) {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { competitionId } = await params
+  const body = await req.json()
+  const parsed = generateFixturesSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+  }
+
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    include: {
+      divisions: {
+        include: { players: true },
+        orderBy: { tier: "asc" },
+      },
+    },
+  })
+  if (!competition) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  // Determine which division(s) to generate for
+  const divisionsToGenerate = parsed.data.divisionId
+    ? competition.divisions.filter((d) => d.id === parsed.data.divisionId)
+    : competition.divisions
+
+  const allFixtures = []
+
+  for (const division of divisionsToGenerate) {
+    const playerIds = division.players.map((p) => p.playerId)
+    if (playerIds.length < 2) continue
+
+    const generated = generateFixtures(playerIds, parsed.data.doubleRoundRobin)
+
+    const fixtures = await prisma.$transaction(
+      generated.map((f) =>
+        prisma.fixture.create({
+          data: {
+            competitionId,
+            divisionId: division.id,
+            matchday: f.matchday,
+            playerAId: f.playerAId,
+            playerBId: f.playerBId,
+            status: "SCHEDULED",
+          },
+          include: { playerA: true, playerB: true },
+        }),
+      ),
+    )
+    allFixtures.push(...fixtures)
+  }
+
+  // Activate the competition if it was in DRAFT
+  if (competition.status === "DRAFT") {
+    await prisma.competition.update({
+      where: { id: competitionId },
+      data: { status: "ACTIVE" },
+    })
+  }
+
+  return NextResponse.json(allFixtures, { status: 201 })
+}

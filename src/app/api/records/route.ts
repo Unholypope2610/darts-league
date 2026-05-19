@@ -1,0 +1,132 @@
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { auth } from "@clerk/nextjs/server"
+
+export async function GET() {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const [allVisits, allLegs, allMatches] = await Promise.all([
+    prisma.visit.findMany({
+      where: { isBust: false },
+      include: {
+        player: { select: { id: true, name: true, avatarUrl: true } },
+        leg: {
+          include: {
+            match: {
+              include: {
+                fixture: { include: { competition: { select: { id: true, name: true, season: true } } } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.leg.findMany({
+      where: { winnerId: { not: null } },
+      include: {
+        starter: { select: { id: true, name: true, avatarUrl: true } },
+        match: {
+          include: {
+            fixture: { include: { competition: { select: { id: true, name: true, season: true } } } },
+          },
+        },
+      },
+    }),
+    prisma.match.findMany({
+      where: { completedAt: { not: null } },
+      include: {
+        playerA: { select: { id: true, name: true, avatarUrl: true } },
+        playerB: { select: { id: true, name: true, avatarUrl: true } },
+        legs: { include: { visits: true } },
+        fixture: { include: { competition: { select: { id: true, name: true, season: true } } } },
+      },
+    }),
+  ])
+
+  // Highest checkout
+  const checkoutVisits = allVisits
+    .filter((v) => v.isCheckout)
+    .sort((a, b) => b.scoreThrown - a.scoreThrown)
+  const highestCheckout = checkoutVisits[0]
+    ? {
+        player: checkoutVisits[0].player,
+        score: checkoutVisits[0].scoreThrown,
+        date: checkoutVisits[0].createdAt,
+        competition: checkoutVisits[0].leg.match.fixture?.competition ?? null,
+      }
+    : null
+
+  // Best leg (fewest darts to finish)
+  const completedLegs = allLegs.filter((l) => l.winnerId && l.dartsThrown > 0)
+  completedLegs.sort((a, b) => a.dartsThrown - b.dartsThrown)
+  const bestLeg = completedLegs[0]
+    ? {
+        player: completedLegs[0].starter,
+        darts: completedLegs[0].dartsThrown,
+        date: completedLegs[0].createdAt,
+        competition: completedLegs[0].match.fixture?.competition ?? null,
+      }
+    : null
+
+  // Most 180s all-time per player
+  const s180Counts: Record<string, { player: { id: string; name: string; avatarUrl: string | null }; count: number }> = {}
+  for (const v of allVisits) {
+    if (v.scoreThrown === 180) {
+      if (!s180Counts[v.playerId]) s180Counts[v.playerId] = { player: v.player, count: 0 }
+      s180Counts[v.playerId].count++
+    }
+  }
+  const most180s = Object.values(s180Counts).sort((a, b) => b.count - a.count).slice(0, 10)
+
+  // Highest match average per match
+  type MatchAvgEntry = {
+    player: { id: string; name: string; avatarUrl: string | null }
+    average: number
+    matchId: string
+    competition: { id: string; name: string; season: string } | null
+    date: Date
+  }
+  let highestAverage: MatchAvgEntry | null = null
+  for (const match of allMatches) {
+    for (const pId of [match.playerAId, match.playerBId]) {
+      const player = pId === match.playerAId ? match.playerA : match.playerB
+      const playerVisits = match.legs.flatMap((l) => l.visits).filter((v) => v.playerId === pId && !v.isBust)
+      const totalDarts = playerVisits.reduce((a, v) => a + v.dartsUsed, 0)
+      const totalScore = playerVisits.reduce((a, v) => a + v.scoreThrown, 0)
+      if (totalDarts === 0) continue
+      const avg = (totalScore / totalDarts) * 3
+      if (!highestAverage || avg > highestAverage.average) {
+        highestAverage = {
+          player,
+          average: avg,
+          matchId: match.id,
+          competition: match.fixture?.competition ?? null,
+          date: match.startedAt,
+        }
+      }
+    }
+  }
+
+  // Top career averages
+  const careerStats: Record<string, { player: { id: string; name: string; avatarUrl: string | null }; totalScore: number; totalDarts: number }> = {}
+  for (const v of allVisits) {
+    if (!careerStats[v.playerId]) careerStats[v.playerId] = { player: v.player, totalScore: 0, totalDarts: 0 }
+    careerStats[v.playerId].totalScore += v.scoreThrown
+    careerStats[v.playerId].totalDarts += v.dartsUsed
+  }
+  const topAverages = Object.values(careerStats)
+    .filter((s) => s.totalDarts > 0)
+    .map((s) => ({ player: s.player, average: (s.totalScore / s.totalDarts) * 3 }))
+    .sort((a, b) => b.average - a.average)
+    .slice(0, 10)
+
+  return NextResponse.json({
+    highestCheckout,
+    bestLeg,
+    most180s,
+    highestAverage,
+    topAverages,
+  })
+}

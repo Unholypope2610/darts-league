@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 158 64% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 158 64% 52%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-border: 220 13% 91%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 5.5%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 5.5%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 158 64% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 158 64% 52%;
+    --sidebar-background: 240 10% 5.5%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-border: 240 3.7% 13%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Monospace font for all score/stat displays */
+  .font-score {
+    font-family: var(--font-mono), "JetBrains Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+
+  /* Darts brand colors */
+  --color-live: #10b981;       /* emerald-500 — live matches, wins */
+  --color-relegation: #ef4444; /* red-500 — relegation zone */
+  --color-promotion: #10b981;  /* emerald-500 — promotion zone */
+  --color-trophy: #f59e0b;     /* amber-500 — champions, top seed */
+}
+
+/* Prevent zoom on iOS during rapid number input */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+/* Score display animation */
+@keyframes score-flash {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.score-flash {
+  animation: score-flash 0.2s ease-in-out;
+}

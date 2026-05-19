@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  role      String   @default("PLAYER")
+  createdAt DateTime @default(now())
+  playerId  String?  @unique
+  player    Player?  @relation(fields: [playerId], references: [id])
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  name      String
+  nickname  String?
+  avatarUrl String?
+  hand      String   @default("RIGHT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user            User?
+  divisionPlayers DivisionPlayer[]
+  fixturesAsA     Fixture[]        @relation("PlayerA")
+  fixturesAsB     Fixture[]        @relation("PlayerB")
+  matchesAsA      Match[]          @relation("MatchPlayerA")
+  matchesAsB      Match[]          @relation("MatchPlayerB")
+  matchesWon      Match[]          @relation("MatchWinner")
+  legsStarted     Leg[]
+  visits          Visit[]
+  bracketSeedsA       BracketNode[]    @relation("SeedA")
+  bracketSeedsB       BracketNode[]    @relation("SeedB")
+  bracketWinners      BracketNode[]    @relation("BracketWinner")
+  competitionsWon     Competition[]    @relation("CompetitionWinner")
+}
+
+model Competition {
+  id            String   @id @default(cuid())
+  name          String
+  type          String   @default("SINGLE_LEAGUE")
+  season        String
+  status        String   @default("DRAFT")
+  startingScore Int      @default(501)
+  bestOf        Int      @default(7)
+  finishType    String   @default("DOUBLE_OUT")
+  isSets        Boolean  @default(false)
+  legSize       Int?
+  winnerId      String?
+  winner        Player?  @relation("CompetitionWinner", fields: [winnerId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  divisions    Division[]
+  fixtures     Fixture[]
+  bracketNodes BracketNode[]
+}
+
+model Division {
+  id            String      @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  name          String
+  tier          Int
+  createdAt     DateTime    @default(now())
+
+  players  DivisionPlayer[]
+  fixtures Fixture[]
+}
+
+model DivisionPlayer {
+  divisionId String
+  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  playerId   String
+  player     Player   @relation(fields: [playerId], references: [id])
+  joinedAt   DateTime @default(now())
+
+  @@id([divisionId, playerId])
+}
+
+model Fixture {
+  id            String      @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id])
+  divisionId    String?
+  division      Division?   @relation(fields: [divisionId], references: [id])
+  matchday      Int
+  playerAId     String
+  playerA       Player      @relation("PlayerA", fields: [playerAId], references: [id])
+  playerBId     String
+  playerB       Player      @relation("PlayerB", fields: [playerBId], references: [id])
+  scheduledAt   DateTime?
+  status        String      @default("SCHEDULED")
+  matchId       String?     @unique
+  match         Match?      @relation(fields: [matchId], references: [id])
+  createdAt     DateTime    @default(now())
+}
+
+model Match {
+  id            String    @id @default(cuid())
+  bracketNodeId String?
+  startingScore Int       @default(501)
+  bestOf        Int       @default(7)
+  finishType    String    @default("DOUBLE_OUT")
+  isSets        Boolean   @default(false)
+  legSize       Int?
+  playerAId     String
+  playerA       Player    @relation("MatchPlayerA", fields: [playerAId], references: [id])
+  playerBId     String
+  playerB       Player    @relation("MatchPlayerB", fields: [playerBId], references: [id])
+  playerAScore  Int       @default(0)
+  playerBScore  Int       @default(0)
+  winnerId      String?
+  winner        Player?   @relation("MatchWinner", fields: [winnerId], references: [id])
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  fixture Fixture?
+  legs    Leg[]
+}
+
+model Leg {
+  id          String    @id @default(cuid())
+  matchId     String
+  match       Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  legNumber   Int
+  starterId   String
+  starter     Player    @relation(fields: [starterId], references: [id])
+  winnerId    String?
+  dartsThrown Int       @default(0)
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  visits Visit[]
+}
+
+model Visit {
+  id               String   @id @default(cuid())
+  legId            String
+  leg              Leg      @relation(fields: [legId], references: [id], onDelete: Cascade)
+  playerId         String
+  player           Player   @relation(fields: [playerId], references: [id])
+  visitNumber      Int
+  scoreThrown      Int
+  dartsUsed        Int
+  runningRemainder Int
+  isBust           Boolean  @default(false)
+  isCheckout       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+}
+
+model BracketNode {
+  id               String      @id @default(cuid())
+  competitionId    String
+  competition      Competition @relation(fields: [competitionId], references: [id])
+  round            Int
+  position         Int
+  seedAId          String?
+  seedA            Player?     @relation("SeedA", fields: [seedAId], references: [id])
+  seedBId          String?
+  seedB            Player?     @relation("SeedB", fields: [seedBId], references: [id])
+  matchId          String?     @unique
+  winnerId         String?
+  winner           Player?     @relation("BracketWinner", fields: [winnerId], references: [id])
+  winnerNextNodeId String?
+}
