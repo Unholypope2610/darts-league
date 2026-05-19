@@ -1,20 +1,15 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabase } from "@/lib/supabase"
 import { createPeerConnection } from "@/lib/webrtc"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
 
 export function useBoardCamBroadcast(matchId: string) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const pcRef = useRef<RTCPeerConnection | null>(null)
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const channelRef = useRef<ReturnType<ReturnType<typeof getSupabase>["channel"]> | null>(null)
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -32,6 +27,7 @@ export function useBoardCamBroadcast(matchId: string) {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       streamRef.current = stream
 
+      const supabase = getSupabase()
       const channel = supabase.channel(`boardcam:${matchId}`)
       channelRef.current = channel
 
@@ -61,7 +57,7 @@ export function useBoardCamBroadcast(matchId: string) {
 
       setIsStreaming(true)
       setError(null)
-    } catch (e) {
+    } catch {
       setError("Camera access denied or unavailable")
       stop()
     }
