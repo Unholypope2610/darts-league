@@ -6,9 +6,11 @@ import { NumericKeypad } from "./NumericKeypad"
 import { LegHistory } from "./LegHistory"
 import { LegWinAnimation } from "./LegWinAnimation"
 import { MatchWinReveal } from "./MatchWinReveal"
+import { BoardCamBroadcaster } from "@/components/match/BoardCam/BoardCamBroadcaster"
 
 export function LiveScoringLayout() {
   const {
+    matchId,
     playerA,
     playerB,
     playerARemainder,
@@ -85,6 +87,9 @@ export function LiveScoringLayout() {
           playerAName={playerA.name}
           playerBName={playerB.name}
         />
+
+        {/* Board cam */}
+        {matchId && <BoardCamBroadcaster matchId={matchId} />}
       </div>
 
       <LegWinAnimation />
