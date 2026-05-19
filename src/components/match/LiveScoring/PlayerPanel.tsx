@@ -102,17 +102,17 @@ export function PlayerPanel({
           <button
             onClick={isStreaming ? stop : start}
             className={cn(
-              "text-[10px] px-2 py-0.5 rounded-md font-medium transition-all flex items-center gap-1",
+              "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
               isStreaming
-                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                : "bg-muted text-muted-foreground hover:bg-muted/80",
+                ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
+                : "bg-muted text-foreground border-border hover:bg-muted/60",
             )}
           >
-            <span className={cn("w-1.5 h-1.5 rounded-full", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
-            {isStreaming ? "Cam On" : "Cam"}
+            <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
+            {isStreaming ? "Stop Cam" : "Start Cam"}
           </button>
         )}
-        {camError && <p className="text-[10px] text-red-400">{camError}</p>}
+        {camError && <p className="text-[10px] text-red-400 text-center">{camError}</p>}
       </div>
 
       {/* Legs won pips */}
