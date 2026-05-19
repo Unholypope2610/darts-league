@@ -11,7 +11,11 @@ export function useLiveMatch(matchId: string) {
 
   const { data, isLoading, error } = useQuery<MatchWithLegs>({
     queryKey: ["match", matchId],
-    queryFn: () => fetch(`/api/matches/${matchId}`).then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`/api/matches/${matchId}`)
+      if (!res.ok) throw new Error(`Failed to fetch match (${res.status})`)
+      return res.json()
+    },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   })

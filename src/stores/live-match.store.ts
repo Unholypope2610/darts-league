@@ -90,6 +90,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
     ...initialState,
 
     hydrate: (match: MatchWithLegs) => {
+      if (!match?.id || !match?.legs) return
       set((state) => {
         state.matchId = match.id
         state.playerA = match.playerA
