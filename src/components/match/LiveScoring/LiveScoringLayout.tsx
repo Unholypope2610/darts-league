@@ -25,18 +25,19 @@ export function LiveScoringLayout() {
     confirmBust,
   } = useLiveMatchStore()
 
-  // Spectate whichever player is currently throwing so we can show their cam
-  // in the OPPONENT'S (inactive) panel
-  const activePlayerId = currentTurnPlayerId ?? ""
-  const { remoteStream: activeCamStream } = useBoardCamSpectate(matchId ?? "", activePlayerId)
+  // Spectate both players' cams permanently — cams stay on the whole match.
+  // Hooks must be called unconditionally before any early return.
+  const { remoteStream: playerACamStream } = useBoardCamSpectate(matchId ?? "", playerA?.id ?? "")
+  const { remoteStream: playerBCamStream } = useBoardCamSpectate(matchId ?? "", playerB?.id ?? "")
 
   if (!playerA || !playerB) return null
 
   const isAActive = currentTurnPlayerId === playerA.id
 
-  // Pass the active player's cam to the INACTIVE panel (the watcher's panel)
-  const panelACamStream = isAActive ? null : activeCamStream   // A is inactive → show throwing player's (B's) cam
-  const panelBCamStream = isAActive ? activeCamStream : null   // B is inactive → show throwing player's (A's) cam
+  // The throwing player's cam shows in the WATCHING (inactive) player's panel.
+  // When A throws → B's panel shows A's cam. When B throws → A's panel shows B's cam.
+  const panelACamStream = isAActive ? null : playerBCamStream
+  const panelBCamStream = isAActive ? playerACamStream : null
 
   const isBustA = isBustDialogOpen && isAActive
   const isBustB = isBustDialogOpen && !isAActive

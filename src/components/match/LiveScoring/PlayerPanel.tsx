@@ -97,21 +97,19 @@ export function PlayerPanel({
         <PlayerAvatar name={name} avatarUrl={avatarUrl} size="lg" />
         <span className="font-bold text-base truncate max-w-[120px] text-center">{name}</span>
 
-        {/* Cam toggle — only shown on the active (throwing) player's panel */}
-        {isActive && (
-          <button
-            onClick={isStreaming ? stop : start}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
-              isStreaming
-                ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
-                : "bg-muted text-foreground border-border hover:bg-muted/60",
-            )}
-          >
-            <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
-            {isStreaming ? "Stop Cam" : "Start Cam"}
-          </button>
-        )}
+        {/* Cam toggle — always visible so either player can start before/during match */}
+        <button
+          onClick={isStreaming ? stop : start}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
+            isStreaming
+              ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
+              : "bg-muted text-foreground border-border hover:bg-muted/60",
+          )}
+        >
+          <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
+          {isStreaming ? "Stop Cam" : "Start Cam"}
+        </button>
         {camError && <p className="text-[10px] text-red-400 text-center">{camError}</p>}
       </div>
 
