@@ -64,11 +64,17 @@ export function PlayerPanel({
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    if (localVideoRef.current) localVideoRef.current.srcObject = localStream
+    const el = localVideoRef.current
+    if (!el) return
+    el.srcObject = localStream
+    if (localStream) el.play().catch(() => {})
   }, [localStream])
 
   useEffect(() => {
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = opponentCamStream
+    const el = remoteVideoRef.current
+    if (!el) return
+    el.srcObject = opponentCamStream
+    if (opponentCamStream) el.play().catch(() => {})
   }, [opponentCamStream])
 
   // The inactive panel (this player is watching) shows the opponent's cam
@@ -127,35 +133,34 @@ export function PlayerPanel({
       </div>
 
       {/* Score area OR opponent's cam feed */}
-      {showOpponentCam ? (
-        <div className="relative w-full rounded-xl overflow-hidden bg-black">
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full aspect-square object-cover"
-          />
-          {/* Score overlaid */}
-          <div className="absolute inset-x-0 bottom-2 flex flex-col items-center pointer-events-none">
-            <span className="font-score text-4xl font-black text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)]">
-              {remainder}
-            </span>
-          </div>
+      {/* Remote cam — always mounted so srcObject is set before display */}
+      <div className={cn("relative w-full rounded-xl overflow-hidden bg-black", !showOpponentCam && "hidden")}>
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className="w-full aspect-square object-cover"
+        />
+        <div className="absolute inset-x-0 bottom-2 flex flex-col items-center pointer-events-none">
+          <span className="font-score text-4xl font-black text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)]">
+            {remainder}
+          </span>
         </div>
-      ) : (
+      </div>
+
+      {!showOpponentCam && (
         <>
           {/* Active player's own cam preview (small, so they can aim) */}
-          {isActive && isStreaming && (
-            <div className="w-full rounded-xl overflow-hidden bg-black">
               <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full aspect-square object-cover"
-              />
-            </div>
-          )}
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={cn(
+                "w-full aspect-square object-cover rounded-xl bg-black",
+                !(isActive && isStreaming) && "hidden",
+              )}
+            />
           <ScoreDisplay remainder={remainder} isActive={isActive} isBust={isBust} />
           <CheckoutSuggestion remainder={remainder} className="w-full" />
         </>
