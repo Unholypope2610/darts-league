@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { getSupabase } from "@/lib/supabase"
 import { createPeerConnection } from "@/lib/webrtc"
 
-export function useBoardCamBroadcast(matchId: string) {
+export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const [isStreaming, setIsStreaming] = useState(false)
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const pcRef = useRef<RTCPeerConnection | null>(null)
@@ -14,6 +15,7 @@ export function useBoardCamBroadcast(matchId: string) {
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
+    setLocalStream(null)
     pcRef.current?.close()
     pcRef.current = null
     channelRef.current?.send({ type: "broadcast", event: "HANGUP", payload: {} })
@@ -26,9 +28,10 @@ export function useBoardCamBroadcast(matchId: string) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       streamRef.current = stream
+      setLocalStream(stream)
 
       const supabase = getSupabase()
-      const channel = supabase.channel(`boardcam:${matchId}`)
+      const channel = supabase.channel(`boardcam:${matchId}:${playerId}`)
       channelRef.current = channel
 
       channel.on("broadcast", { event: "ANSWER" }, async ({ payload }) => {
@@ -41,7 +44,7 @@ export function useBoardCamBroadcast(matchId: string) {
         try { await pcRef.current.addIceCandidate(new RTCIceCandidate(payload)) } catch {}
       })
 
-      await channel.subscribe()
+      channel.subscribe()
 
       const pc = createPeerConnection()
       pcRef.current = pc
@@ -61,11 +64,11 @@ export function useBoardCamBroadcast(matchId: string) {
       setError("Camera access denied or unavailable")
       stop()
     }
-  }, [matchId, stop])
+  }, [matchId, playerId, stop])
 
   useEffect(() => {
     return () => stop()
   }, [stop])
 
-  return { isStreaming, error, stream: streamRef.current, start, stop }
+  return { isStreaming, error, localStream, start, stop }
 }

@@ -1,12 +1,12 @@
 "use client"
 
 import { useLiveMatchStore } from "@/stores/live-match.store"
+import { useBoardCamSpectate } from "@/hooks/useBoardCamSpectate"
 import { PlayerPanel } from "./PlayerPanel"
 import { NumericKeypad } from "./NumericKeypad"
 import { LegHistory } from "./LegHistory"
 import { LegWinAnimation } from "./LegWinAnimation"
 import { MatchWinReveal } from "./MatchWinReveal"
-import { BoardCamBroadcaster } from "@/components/match/BoardCam/BoardCamBroadcaster"
 
 export function LiveScoringLayout() {
   const {
@@ -25,9 +25,19 @@ export function LiveScoringLayout() {
     confirmBust,
   } = useLiveMatchStore()
 
+  // Spectate whichever player is currently throwing so we can show their cam
+  // in the OPPONENT'S (inactive) panel
+  const activePlayerId = currentTurnPlayerId ?? ""
+  const { remoteStream: activeCamStream } = useBoardCamSpectate(matchId ?? "", activePlayerId)
+
   if (!playerA || !playerB) return null
 
   const isAActive = currentTurnPlayerId === playerA.id
+
+  // Pass the active player's cam to the INACTIVE panel (the watcher's panel)
+  const panelACamStream = isAActive ? null : activeCamStream   // A is inactive → show throwing player's (B's) cam
+  const panelBCamStream = isAActive ? activeCamStream : null   // B is inactive → show throwing player's (A's) cam
+
   const isBustA = isBustDialogOpen && isAActive
   const isBustB = isBustDialogOpen && !isAActive
 
@@ -37,6 +47,7 @@ export function LiveScoringLayout() {
         {/* Player panels side by side */}
         <div className="grid grid-cols-2 gap-3">
           <PlayerPanel
+            matchId={matchId ?? ""}
             playerId={playerA.id}
             name={playerA.name}
             avatarUrl={playerA.avatarUrl}
@@ -47,8 +58,10 @@ export function LiveScoringLayout() {
             isBust={isBustA}
             visits={visits}
             allVisits={allVisits}
+            opponentCamStream={panelACamStream}
           />
           <PlayerPanel
+            matchId={matchId ?? ""}
             playerId={playerB.id}
             name={playerB.name}
             avatarUrl={playerB.avatarUrl}
@@ -59,6 +72,7 @@ export function LiveScoringLayout() {
             isBust={isBustB}
             visits={visits}
             allVisits={allVisits}
+            opponentCamStream={panelBCamStream}
           />
         </div>
 
@@ -87,9 +101,6 @@ export function LiveScoringLayout() {
           playerAName={playerA.name}
           playerBName={playerB.name}
         />
-
-        {/* Board cam */}
-        {matchId && <BoardCamBroadcaster matchId={matchId} />}
       </div>
 
       <LegWinAnimation />

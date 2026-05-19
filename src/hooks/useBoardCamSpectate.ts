@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from "react"
 import { getSupabase } from "@/lib/supabase"
 import { createPeerConnection } from "@/lib/webrtc"
 
-export function useBoardCamSpectate(matchId: string) {
+export function useBoardCamSpectate(matchId: string, playerId: string) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const pcRef = useRef<RTCPeerConnection | null>(null)
 
   useEffect(() => {
+    if (!matchId || !playerId) return
+
     const supabase = getSupabase()
-    const channel = supabase.channel(`boardcam:${matchId}`)
+    const channel = supabase.channel(`boardcam:${matchId}:${playerId}`)
 
     channel.on("broadcast", { event: "OFFER" }, async ({ payload }) => {
       const pc = createPeerConnection()
@@ -57,7 +59,7 @@ export function useBoardCamSpectate(matchId: string) {
       pcRef.current?.close()
       channel.unsubscribe()
     }
-  }, [matchId])
+  }, [matchId, playerId])
 
   return { remoteStream, isConnected }
 }
