@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils/cn"
 
 interface BoardCamBroadcasterProps {
   matchId: string
+  playerId: string
 }
 
-export function BoardCamBroadcaster({ matchId }: BoardCamBroadcasterProps) {
-  const { isStreaming, error, start, stop } = useBoardCamBroadcast(matchId)
+export function BoardCamBroadcaster({ matchId, playerId }: BoardCamBroadcasterProps) {
+  const { isStreaming, error, start, stop } = useBoardCamBroadcast(matchId, playerId)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
