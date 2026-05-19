@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils/cn"
 
 interface BoardCamSpectatorProps {
   matchId: string
+  playerId: string
 }
 
-export function BoardCamSpectator({ matchId }: BoardCamSpectatorProps) {
-  const { remoteStream, isConnected } = useBoardCamSpectate(matchId)
+export function BoardCamSpectator({ matchId, playerId }: BoardCamSpectatorProps) {
+  const { remoteStream, isConnected } = useBoardCamSpectate(matchId, playerId)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
