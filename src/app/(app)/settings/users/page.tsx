@@ -88,7 +88,7 @@ export default function UsersSettingsPage() {
     onError: () => toast.error("Failed to send invitation"),
   })
 
-  const isAdmin = users.length > 0
+  const isAdmin = Array.isArray(usersRaw)
 
   return (
     <div className="flex flex-col gap-6">
