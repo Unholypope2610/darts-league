@@ -15,9 +15,9 @@ export function CheckoutSuggestion({ remainder, className }: CheckoutSuggestionP
   if (!suggestion) return null
 
   return (
-    <div className={cn("flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30", className)}>
-      <span className="text-xs font-medium text-emerald-400 uppercase tracking-wide">Checkout</span>
-      <span className="text-sm font-bold text-emerald-300 font-score">{suggestion}</span>
+    <div className={cn("flex items-center justify-center gap-2 px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30", className)}>
+      <span className="text-[10px] font-medium text-emerald-400 uppercase tracking-wide">Checkout</span>
+      <span className="text-xs font-bold text-emerald-300 font-score">{suggestion}</span>
     </div>
   )
 }

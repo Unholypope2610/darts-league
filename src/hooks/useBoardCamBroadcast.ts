@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { getSupabase } from "@/lib/supabase"
-import { createPeerConnection } from "@/lib/webrtc"
+import { createPeerConnection, waitForIceGathering } from "@/lib/webrtc"
 
 type FacingMode = "environment" | "user"
 
@@ -22,6 +22,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const streamRef = useRef<MediaStream | null>(null)
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const channelRef = useRef<ReturnType<ReturnType<typeof getSupabase>["channel"]> | null>(null)
+  const isCreatingOfferRef = useRef(false)
 
   const detectZoom = useCallback((stream: MediaStream) => {
     const track = stream.getVideoTracks()[0]
@@ -40,22 +41,27 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
 
   const createOffer = useCallback(async () => {
     if (!streamRef.current || !channelRef.current) return
-    // Close any existing PC before creating a fresh one
-    pcRef.current?.close()
-    const pc = createPeerConnection()
-    pcRef.current = pc
+    // Prevent concurrent offer creation (e.g. multiple READY events arriving quickly)
+    if (isCreatingOfferRef.current) return
+    isCreatingOfferRef.current = true
+    try {
+      pcRef.current?.close()
+      const pc = createPeerConnection()
+      pcRef.current = pc
 
-    streamRef.current.getTracks().forEach((t) => pc.addTrack(t, streamRef.current!))
+      streamRef.current.getTracks().forEach((t) => pc.addTrack(t, streamRef.current!))
 
-    pc.onicecandidate = ({ candidate }) => {
-      if (candidate) {
-        channelRef.current?.send({ type: "broadcast", event: "ICE_BROADCASTER", payload: candidate.toJSON() })
-      }
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+
+      // Non-trickle ICE: wait for all candidates to be gathered before sending.
+      // This eliminates race conditions where candidates arrive before setRemoteDescription.
+      await waitForIceGathering(pc)
+
+      channelRef.current?.send({ type: "broadcast", event: "OFFER", payload: pc.localDescription })
+    } finally {
+      isCreatingOfferRef.current = false
     }
-
-    const offer = await pc.createOffer()
-    await pc.setLocalDescription(offer)
-    channelRef.current?.send({ type: "broadcast", event: "OFFER", payload: offer })
   }, [])
 
   const stop = useCallback(() => {
@@ -78,7 +84,6 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
       } catch {
-        // Fall back to any available camera if the requested facing mode isn't available
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       }
       streamRef.current = stream
@@ -98,18 +103,12 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload))
       })
 
-      channel.on("broadcast", { event: "ICE_SPECTATOR" }, async ({ payload }) => {
-        if (!pcRef.current) return
-        try { await pcRef.current.addIceCandidate(new RTCIceCandidate(payload)) } catch {}
-      })
-
-      // When a spectator joins after we started streaming, re-offer so they get the feed
+      // Re-offer when a spectator joins after streaming started
       channel.on("broadcast", { event: "READY" }, async () => {
         if (!streamRef.current) return
         await createOffer()
       })
 
-      // Wait until actually subscribed before sending the offer
       channel.subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           await createOffer()
@@ -126,19 +125,17 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     const newFacing: FacingMode = facingMode === "environment" ? "user" : "environment"
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacing }, audio: false })
-      // Replace the video track on the existing peer connection without renegotiation
       if (pcRef.current) {
         const sender = pcRef.current.getSenders().find((s) => s.track?.kind === "video")
         if (sender) await sender.replaceTrack(newStream.getVideoTracks()[0])
       }
-      // Stop old tracks and swap stream
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = newStream
       setLocalStream(newStream)
       setFacingMode(newFacing)
       detectZoom(newStream)
     } catch {
-      // Camera flip not supported on this device; silently ignore
+      // Camera flip not supported on this device
     }
   }, [facingMode, detectZoom])
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { getSupabase } from "@/lib/supabase"
-import { createPeerConnection } from "@/lib/webrtc"
+import { createPeerConnection, waitForIceGathering } from "@/lib/webrtc"
 
 export function useBoardCamSpectate(matchId: string, playerId: string) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
@@ -24,15 +24,10 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
 
       const stream = new MediaStream()
       pc.ontrack = ({ track }) => {
-        // Use e.track directly — e.streams[0].getTracks() can be empty on iOS/Safari
+        // Use track directly — e.streams[0] can be empty on iOS/Safari
         stream.addTrack(track)
-        // Spread into a new MediaStream so React always detects the state change
         setRemoteStream(new MediaStream(stream.getTracks()))
         setIsConnected(true)
-      }
-
-      pc.onicecandidate = ({ candidate }) => {
-        if (candidate) channel.send({ type: "broadcast", event: "ICE_SPECTATOR", payload: candidate.toJSON() })
       }
 
       pc.onconnectionstatechange = () => {
@@ -45,15 +40,17 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       await pc.setRemoteDescription(new RTCSessionDescription(payload))
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
-      channel.send({ type: "broadcast", event: "ANSWER", payload: answer })
-    })
 
-    channel.on("broadcast", { event: "ICE_BROADCASTER" }, async ({ payload }) => {
-      if (!pcRef.current) return
-      try { await pcRef.current.addIceCandidate(new RTCIceCandidate(payload)) } catch {}
+      // Non-trickle ICE: wait for all candidates to be embedded in the SDP
+      // before sending the answer. Eliminates ICE timing race conditions entirely.
+      await waitForIceGathering(pc)
+
+      channel.send({ type: "broadcast", event: "ANSWER", payload: pc.localDescription })
     })
 
     channel.on("broadcast", { event: "HANGUP" }, () => {
+      pcRef.current?.close()
+      pcRef.current = null
       setIsConnected(false)
       setRemoteStream(null)
     })

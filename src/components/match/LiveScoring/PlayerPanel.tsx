@@ -136,27 +136,23 @@ export function PlayerPanel({
         ))}
       </div>
 
-      {/* Local cam preview — only when this player is actively streaming on this device */}
-      {isActive && isStreaming && (
-        <div className="w-full">
-          <button
-            onClick={() => setCamMinimized((v) => !v)}
-            className="w-full flex items-center justify-center gap-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {camMinimized ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
-            {camMinimized ? "Show preview" : "Hide preview"}
-          </button>
-          {!camMinimized && (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full aspect-square object-cover rounded-xl bg-black"
-            />
-          )}
-        </div>
-      )}
+      {/* Local cam preview — always in DOM so srcObject is never lost on toggle */}
+      <div className={cn("w-full", !(isActive && isStreaming) && "hidden")}>
+        <button
+          onClick={() => setCamMinimized((v) => !v)}
+          className="w-full flex items-center justify-center gap-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {camMinimized ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+          {camMinimized ? "Show preview" : "Hide preview"}
+        </button>
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className={cn("w-full aspect-square object-cover rounded-xl bg-black", camMinimized && "hidden")}
+        />
+      </div>
 
       {/* Score always visible */}
       <ScoreDisplay remainder={remainder} isActive={isActive} isBust={isBust} />
