@@ -14,38 +14,69 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
 
     const supabase = getSupabase()
     const channel = supabase.channel(`boardcam:${matchId}:${playerId}`)
+    let connected = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+    const clearRetry = () => {
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+    }
+
+    const sendReady = () => {
+      channel.send({ type: "broadcast", event: "READY", payload: {} })
+    }
+
+    // Retry READY with backoff until a stream arrives.
+    // Handles all timing scenarios: broadcaster not yet subscribed, OFFER lost,
+    // silent answer failures, ICE failures, etc.
+    const scheduleRetry = (delayMs: number) => {
+      clearRetry()
+      retryTimer = setTimeout(() => {
+        if (!connected) {
+          sendReady()
+          scheduleRetry(Math.min(delayMs * 1.5, 8000))
+        }
+      }, delayMs)
+    }
 
     channel.on("broadcast", { event: "OFFER" }, async ({ payload }) => {
-      // Close any existing connection before handling a re-offer
       pcRef.current?.close()
 
       const pc = createPeerConnection()
       pcRef.current = pc
 
       const stream = new MediaStream()
+
       pc.ontrack = ({ track }) => {
-        // Use track directly — e.streams[0] can be empty on iOS/Safari
         stream.addTrack(track)
         setRemoteStream(new MediaStream(stream.getTracks()))
         setIsConnected(true)
+        connected = true
+        clearRetry()
       }
 
       pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+          connected = true
+          clearRetry()
+        }
         if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
           setIsConnected(false)
           setRemoteStream(null)
+          connected = false
+          scheduleRetry(2000)
         }
       }
 
-      await pc.setRemoteDescription(new RTCSessionDescription(payload))
-      const answer = await pc.createAnswer()
-      await pc.setLocalDescription(answer)
-
-      // Non-trickle ICE: wait for all candidates to be embedded in the SDP
-      // before sending the answer. Eliminates ICE timing race conditions entirely.
-      await waitForIceGathering(pc)
-
-      channel.send({ type: "broadcast", event: "ANSWER", payload: pc.localDescription })
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(payload))
+        const answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        await waitForIceGathering(pc)
+        channel.send({ type: "broadcast", event: "ANSWER", payload: pc.localDescription })
+      } catch {
+        // If answer creation fails, trigger a fresh offer via READY retry
+        scheduleRetry(2000)
+      }
     })
 
     channel.on("broadcast", { event: "HANGUP" }, () => {
@@ -53,16 +84,20 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       pcRef.current = null
       setIsConnected(false)
       setRemoteStream(null)
+      connected = false
+      clearRetry()
     })
 
-    // Announce readiness once subscribed — triggers broadcaster to re-offer if already streaming
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
-        channel.send({ type: "broadcast", event: "READY", payload: {} })
+        sendReady()
+        scheduleRetry(3000)
       }
     })
 
     return () => {
+      connected = true  // stops any pending retry from firing after unmount
+      clearRetry()
       pcRef.current?.close()
       channel.unsubscribe()
     }
