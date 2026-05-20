@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { updatePlayerSchema } from "@/lib/validations/player.schema"
-import { calculateAverage, count180s, highestCheckout, checkoutPercentage, top3Checkouts } from "@/lib/utils/stats"
+import { calculateAverage, count180s, highestCheckout, doublesPercentage, top3Checkouts } from "@/lib/utils/stats"
 
 export async function GET(
   _req: Request,
@@ -40,9 +40,6 @@ export async function GET(
     m.legs.flatMap((l) => l.visits.filter((v) => v.playerId === playerId)),
   )
 
-  // Use most common startingScore for checkout% calculation
-  const startingScore = allMatches[0]?.startingScore ?? 501
-
   const careerStats = {
     played: allMatches.length,
     won: allMatches.filter((m) => m.winnerId === playerId).length,
@@ -50,7 +47,7 @@ export async function GET(
     average: calculateAverage(allVisits),
     highest180s: count180s(allVisits),
     highestCheckout: highestCheckout(allVisits),
-    checkoutPercentage: checkoutPercentage(allVisits, startingScore),
+    doublesPercentage: doublesPercentage(allVisits),
     top3Checkouts: top3Checkouts(allVisits),
     recentForm: allMatches.slice(0, 5).map((m) =>
       m.winnerId === playerId ? "W" : "L",

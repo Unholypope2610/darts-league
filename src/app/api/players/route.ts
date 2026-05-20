@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { createPlayerSchema } from "@/lib/validations/player.schema"
-import { calculateAverage, count180s, checkoutPercentage, top3Checkouts } from "@/lib/utils/stats"
+import { calculateAverage, count180s, doublesPercentage, top3Checkouts } from "@/lib/utils/stats"
 
 export async function GET() {
   const { userId } = await auth()
@@ -13,7 +13,7 @@ export async function GET() {
     include: {
       matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true } },
       matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true } },
-      visits: { select: { scoreThrown: true, dartsUsed: true, isBust: true, isCheckout: true, visitNumber: true, playerId: true, runningRemainder: true } },
+      visits: { select: { scoreThrown: true, dartsUsed: true, doublesAttempted: true, isBust: true, isCheckout: true, visitNumber: true, playerId: true, runningRemainder: true } },
     },
   })
 
@@ -26,17 +26,15 @@ export async function GET() {
     const lost = allMatchData.filter((m) => m.winnerId !== null && m.winnerId !== p.id).length
     const drawn = allMatchData.filter((m) => m.winnerId === null).length
 
-    // Use the most common startingScore (or 501 as fallback)
-    const startingScore = allMatchData[0]?.startingScore ?? 501
     const visits = p.visits.map((v) => ({ ...v, playerId: p.id }))
 
     const average = parseFloat(calculateAverage(visits).toFixed(2))
-    const coPercent = checkoutPercentage(visits, startingScore)
+    const dblPercent = doublesPercentage(visits)
     const c180s = count180s(visits)
     const topCO = top3Checkouts(visits)
 
     const { matchesAsA: _a, matchesAsB: _b, visits: _v, ...rest } = p
-    return { ...rest, won, lost, drawn, average, checkoutPercentage: coPercent, count180s: c180s, topCheckouts: topCO }
+    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO }
   })
 
   return NextResponse.json(withStats)

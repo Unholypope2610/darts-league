@@ -12,7 +12,7 @@ export interface LeagueTableRow {
   legsAgainst: number
   legDifference: number
   average: number
-  checkoutPercentage: number
+  doublesPercentage: number
   points: number
   form: FormResult[]
 }
