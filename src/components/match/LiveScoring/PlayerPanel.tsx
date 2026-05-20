@@ -7,6 +7,7 @@ import { CheckoutSuggestion } from "./CheckoutSuggestion"
 import { useBoardCamBroadcast } from "@/hooks/useBoardCamBroadcast"
 import { cn } from "@/lib/utils/cn"
 import { formatAverage } from "@/lib/utils/format"
+import { RefreshCw } from "lucide-react"
 import type { VisitRecord } from "@/types/api"
 
 interface PlayerPanelProps {
@@ -59,7 +60,7 @@ export function PlayerPanel({
   const recent = lastThreeVisits(visits, playerId)
 
   // Each panel broadcasts its own player's cam (used when this player is throwing)
-  const { isStreaming, error: camError, localStream, start, stop } = useBoardCamBroadcast(matchId, playerId)
+  const { isStreaming, error: camError, localStream, start, stop, flipCamera } = useBoardCamBroadcast(matchId, playerId)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
 
@@ -104,18 +105,29 @@ export function PlayerPanel({
         <span className="font-bold text-base truncate max-w-[120px] text-center">{name}</span>
 
         {/* Cam toggle — always visible so either player can start before/during match */}
-        <button
-          onClick={isStreaming ? stop : start}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
-            isStreaming
-              ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
-              : "bg-muted text-foreground border-border hover:bg-muted/60",
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={isStreaming ? stop : () => start()}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
+              isStreaming
+                ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
+                : "bg-muted text-foreground border-border hover:bg-muted/60",
+            )}
+          >
+            <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
+            {isStreaming ? "Stop Cam" : "Start Cam"}
+          </button>
+          {isStreaming && (
+            <button
+              onClick={flipCamera}
+              title="Flip camera"
+              className="p-1.5 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
+            >
+              <RefreshCw className="w-3 h-3 text-muted-foreground" />
+            </button>
           )}
-        >
-          <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
-          {isStreaming ? "Stop Cam" : "Start Cam"}
-        </button>
+        </div>
         {camError && <p className="text-[10px] text-red-400 text-center">{camError}</p>}
       </div>
 

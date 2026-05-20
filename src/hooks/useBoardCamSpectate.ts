@@ -16,6 +16,9 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
     const channel = supabase.channel(`boardcam:${matchId}:${playerId}`)
 
     channel.on("broadcast", { event: "OFFER" }, async ({ payload }) => {
+      // Close any existing connection before handling a re-offer
+      pcRef.current?.close()
+
       const pc = createPeerConnection()
       pcRef.current = pc
 
@@ -53,7 +56,12 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       setRemoteStream(null)
     })
 
-    channel.subscribe()
+    // Announce readiness once subscribed — triggers broadcaster to re-offer if already streaming
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") {
+        channel.send({ type: "broadcast", event: "READY", payload: {} })
+      }
+    })
 
     return () => {
       pcRef.current?.close()
