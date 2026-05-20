@@ -87,6 +87,7 @@ export default function UsersSettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [isDuplicate, setIsDuplicate] = useState(false)
 
   function handleInviteClose(open: boolean) {
     if (!open) {
@@ -94,6 +95,7 @@ export default function UsersSettingsPage() {
       setInviteEmail("")
       setInviteUrl(null)
       setCopied(false)
+      setIsDuplicate(false)
     }
   }
 
@@ -106,17 +108,24 @@ export default function UsersSettingsPage() {
   }
 
   const { mutate: sendInvite, isPending: isSending } = useMutation({
-    mutationFn: async (email: string) => {
-      const r = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) })
+    mutationFn: async ({ email, force }: { email: string; force?: boolean }) => {
+      const r = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, force }) })
       const data = await r.json()
       if (!r.ok) throw new Error(data?.error ?? "Failed to create invitation")
       return data
     },
     onSuccess: (data) => {
+      setIsDuplicate(false)
       if (data?.inviteUrl) setInviteUrl(data.inviteUrl)
       toast.success(`Invitation created for ${inviteEmail}`)
     },
-    onError: (err: Error) => toast.error(err.message || "Failed to send invitation"),
+    onError: (err: Error) => {
+      if (err.message.toLowerCase().includes("duplicate")) {
+        setIsDuplicate(true)
+      } else {
+        toast.error(err.message || "Failed to send invitation")
+      }
+    },
   })
 
   return (
@@ -235,16 +244,32 @@ export default function UsersSettingsPage() {
                 type="email"
                 placeholder="player@example.com"
                 value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && inviteEmail) sendInvite(inviteEmail) }}
+                onChange={(e) => { setInviteEmail(e.target.value); setIsDuplicate(false) }}
+                onKeyDown={(e) => { if (e.key === "Enter" && inviteEmail) sendInvite({ email: inviteEmail }) }}
               />
-              <Button
-                onClick={() => sendInvite(inviteEmail)}
-                disabled={isSending || !inviteEmail}
-                className="w-full"
-              >
-                {isSending ? "Creating…" : "Create Invitation"}
-              </Button>
+              {isDuplicate && (
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2.5 flex flex-col gap-2">
+                  <p className="text-xs text-amber-400">A pending invitation already exists for this email.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => sendInvite({ email: inviteEmail, force: true })}
+                    disabled={isSending}
+                    className="w-full border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                  >
+                    {isSending ? "Revoking & re-inviting…" : "Revoke & Re-invite"}
+                  </Button>
+                </div>
+              )}
+              {!isDuplicate && (
+                <Button
+                  onClick={() => sendInvite({ email: inviteEmail })}
+                  disabled={isSending || !inviteEmail}
+                  className="w-full"
+                >
+                  {isSending ? "Creating…" : "Create Invitation"}
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>

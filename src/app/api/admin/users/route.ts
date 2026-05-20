@@ -46,11 +46,18 @@ export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
-  const { email } = body as { email: string }
+  const { email, force } = body as { email: string; force?: boolean }
   if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
 
   const clerk = await clerkClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
+
+  if (force) {
+    // Revoke any existing pending invitation for this email before re-creating
+    const existing = await clerk.invitations.getInvitationList({ status: "pending" })
+    const match = existing.data.find((inv) => inv.emailAddress === email)
+    if (match) await clerk.invitations.revokeInvitation(match.id)
+  }
 
   try {
     const invitation = await clerk.invitations.createInvitation({
