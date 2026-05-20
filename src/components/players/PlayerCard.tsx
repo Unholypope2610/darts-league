@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { PlayerAvatar } from "./PlayerAvatar"
+import { cn } from "@/lib/utils/cn"
 import type { Player } from "@/types/api"
 
 interface PlayerCardProps {
@@ -66,6 +67,26 @@ export function PlayerCard({ player }: PlayerCardProps) {
               {player.doublesPercentage.toFixed(1)}% D
             </span>
           )}
+        </div>
+      )}
+
+      {/* Form dots — last 5 matches */}
+      {player.recentForm.length > 0 && (
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-muted-foreground mr-0.5">Form</span>
+          {player.recentForm.map((r, i) => (
+            <span
+              key={i}
+              className={cn(
+                "w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center",
+                r === "W" ? "bg-emerald-500/20 text-emerald-400" :
+                r === "D" ? "bg-muted text-muted-foreground" :
+                "bg-red-500/20 text-red-400",
+              )}
+            >
+              {r}
+            </span>
+          ))}
         </div>
       )}
     </Link>

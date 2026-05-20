@@ -93,7 +93,7 @@ function VisitCell({ visit, onEdit }: { visit: VisitRecord | null; onEdit?: (id:
       {canEdit && (
         <button
           onClick={() => { setVal(String(visit.scoreThrown)); setEditing(true) }}
-          className="opacity-0 group-hover:opacity-60 active:opacity-100 text-muted-foreground text-[10px] touch-manipulation ml-0.5"
+          className="opacity-30 active:opacity-100 text-muted-foreground text-[10px] touch-manipulation ml-0.5"
           style={{ touchAction: "manipulation" }}
           aria-label="Edit score"
         >

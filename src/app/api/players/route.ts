@@ -11,20 +11,24 @@ export async function GET() {
   const players = await prisma.player.findMany({
     orderBy: { name: "asc" },
     include: {
-      matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true } },
-      matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true } },
+      matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true } },
+      matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true } },
       visits: { select: { scoreThrown: true, dartsUsed: true, doublesAttempted: true, isBust: true, isCheckout: true, visitNumber: true, playerId: true, runningRemainder: true } },
     },
   })
 
   const withStats = players.map((p) => {
-    const allMatchData = [
-      ...p.matchesAsA.map((m) => ({ winnerId: m.winnerId, startingScore: m.startingScore })),
-      ...p.matchesAsB.map((m) => ({ winnerId: m.winnerId, startingScore: m.startingScore })),
-    ]
-    const won = allMatchData.filter((m) => m.winnerId === p.id).length
-    const lost = allMatchData.filter((m) => m.winnerId !== null && m.winnerId !== p.id).length
-    const drawn = allMatchData.filter((m) => m.winnerId === null).length
+    const allMatchesSorted = [
+      ...p.matchesAsA.map((m) => ({ winnerId: m.winnerId, completedAt: m.completedAt! })),
+      ...p.matchesAsB.map((m) => ({ winnerId: m.winnerId, completedAt: m.completedAt! })),
+    ].sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+
+    const won = allMatchesSorted.filter((m) => m.winnerId === p.id).length
+    const lost = allMatchesSorted.filter((m) => m.winnerId !== null && m.winnerId !== p.id).length
+    const drawn = allMatchesSorted.filter((m) => m.winnerId === null).length
+    const recentForm = allMatchesSorted.slice(0, 5).map((m) =>
+      m.winnerId === p.id ? "W" : m.winnerId === null ? "D" : "L"
+    ) as ("W" | "D" | "L")[]
 
     const visits = p.visits.map((v) => ({ ...v, playerId: p.id }))
 
@@ -34,7 +38,7 @@ export async function GET() {
     const topCO = top3Checkouts(visits)
 
     const { matchesAsA: _a, matchesAsB: _b, visits: _v, ...rest } = p
-    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO }
+    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO, recentForm }
   })
 
   return NextResponse.json(withStats)

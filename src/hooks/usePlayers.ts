@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { Player } from "@/types/api"
+import type { Player, PlayerDetail } from "@/types/api"
 
 export function usePlayers() {
   return useQuery<Player[]>({
@@ -11,7 +11,7 @@ export function usePlayers() {
 }
 
 export function usePlayer(playerId: string) {
-  return useQuery<Player>({
+  return useQuery<PlayerDetail>({
     queryKey: ["players", playerId],
     queryFn: () => fetch(`/api/players/${playerId}`).then((r) => r.json()),
     enabled: !!playerId,

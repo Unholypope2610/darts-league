@@ -124,13 +124,15 @@ export function PlayerPanel({
       </div>
 
       {/* Legs won pips */}
-      <div className="flex gap-1">
+      <div className="flex gap-1.5">
         {Array.from({ length: legsNeeded }).map((_, i) => (
           <span
             key={i}
             className={cn(
-              "w-4 h-4 rounded-full border-2",
-              i < legsWon ? "bg-emerald-500 border-emerald-500" : "border-border",
+              "w-5 h-5 rounded-full border-2",
+              i < legsWon
+                ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-500/50"
+                : "bg-muted border-muted-foreground/50",
             )}
           />
         ))}

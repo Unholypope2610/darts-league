@@ -17,12 +17,18 @@ export async function GET(
     where: { id: playerId },
     include: {
       matchesAsA: {
-        include: { legs: { include: { visits: true } } },
+        include: {
+          legs: { include: { visits: true } },
+          playerB: { select: { id: true, name: true, nickname: true, avatarUrl: true, hand: true } },
+        },
         where: { completedAt: { not: null } },
         orderBy: { completedAt: "desc" },
       },
       matchesAsB: {
-        include: { legs: { include: { visits: true } } },
+        include: {
+          legs: { include: { visits: true } },
+          playerA: { select: { id: true, name: true, nickname: true, avatarUrl: true, hand: true } },
+        },
         where: { completedAt: { not: null } },
         orderBy: { completedAt: "desc" },
       },
@@ -43,18 +49,34 @@ export async function GET(
   const careerStats = {
     played: allMatches.length,
     won: allMatches.filter((m) => m.winnerId === playerId).length,
-    lost: allMatches.filter((m) => m.completedAt && m.winnerId !== playerId).length,
+    lost: allMatches.filter((m) => m.completedAt && m.winnerId !== null && m.winnerId !== playerId).length,
+    drawn: allMatches.filter((m) => m.completedAt && m.winnerId === null).length,
     average: calculateAverage(allVisits),
     highest180s: count180s(allVisits),
     highestCheckout: highestCheckout(allVisits),
     doublesPercentage: doublesPercentage(allVisits),
     top3Checkouts: top3Checkouts(allVisits),
     recentForm: allMatches.slice(0, 5).map((m) =>
-      m.winnerId === playerId ? "W" : "L",
-    ),
+      m.winnerId === playerId ? "W" : m.winnerId === null ? "D" : "L"
+    ) as ("W" | "D" | "L")[],
   }
 
-  return NextResponse.json({ ...player, careerStats })
+  // Compute H2H records grouped by opponent
+  const opponentMap = new Map<string, { opponent: { id: string; name: string; nickname: string | null; avatarUrl: string | null; hand: string }; won: number; drawn: number; lost: number }>()
+  for (const m of allMatches) {
+    const opponent = m.side === "A" ? m.playerB : m.playerA
+    const entry = opponentMap.get(opponent.id) ?? { opponent, won: 0, drawn: 0, lost: 0 }
+    if (m.winnerId === playerId) entry.won++
+    else if (m.winnerId === null) entry.drawn++
+    else entry.lost++
+    opponentMap.set(opponent.id, entry)
+  }
+  const h2h = [...opponentMap.values()]
+    .map((e) => ({ ...e, played: e.won + e.drawn + e.lost }))
+    .sort((a, b) => b.played - a.played)
+
+  const { matchesAsA: _a, matchesAsB: _b, ...playerBase } = player
+  return NextResponse.json({ ...playerBase, careerStats, h2h })
 }
 
 export async function PATCH(

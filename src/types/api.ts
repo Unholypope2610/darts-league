@@ -33,6 +33,33 @@ export interface Player {
   doublesPercentage: number
   count180s: number
   topCheckouts: number[]
+  recentForm: ("W" | "D" | "L")[]
+}
+
+export interface CareerStats {
+  played: number
+  won: number
+  lost: number
+  drawn: number
+  average: number
+  highest180s: number
+  highestCheckout: number
+  doublesPercentage: number
+  top3Checkouts: number[]
+  recentForm: ("W" | "D" | "L")[]
+}
+
+export interface H2HRecord {
+  opponent: PlayerMeta
+  played: number
+  won: number
+  drawn: number
+  lost: number
+}
+
+export interface PlayerDetail extends Player {
+  careerStats: CareerStats
+  h2h: H2HRecord[]
 }
 
 export interface LeagueTableRow {
