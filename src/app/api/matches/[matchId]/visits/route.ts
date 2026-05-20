@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { recordVisitSchema } from "@/lib/validations/visit.schema"
 import { getNewRemainder, isMatchOver, isMatchDraw, matchWinner } from "@/lib/utils/darts"
 import type { RecordVisitResponse } from "@/types/api"
@@ -143,6 +144,13 @@ export async function POST(
     isMatchDraw: matchDraw,
     newRemainder: runningRemainder,
   }
+
+  const supabase = createServerSupabaseClient()
+  await supabase.channel(`match:${matchId}`).send({
+    type: "broadcast",
+    event: "VISIT_RECORDED",
+    payload: response,
+  })
 
   return NextResponse.json(response)
 }

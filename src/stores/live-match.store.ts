@@ -54,6 +54,8 @@ interface LiveMatchStore {
   confirmBust: () => void
   dismissLegWin: () => void
   startNewLeg: (starterId: string) => Promise<void>
+  applyRemoteVisit: (data: RecordVisitResponse) => void
+  applyRemoteLeg: (legId: string, starterId: string) => void
   reset: () => void
 }
 
@@ -366,6 +368,62 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       } catch {
         set((s) => { s.isSubmitting = false })
       }
+    },
+
+    applyRemoteVisit: (data: RecordVisitResponse) => {
+      set((state) => {
+        if (state.visits.some((v) => v.id === data.visit.id)) return
+
+        state.visits.push(data.visit)
+        state.allVisits.push(data.visit)
+
+        if (data.isBust) {
+          state.isBustDialogOpen = true
+          return
+        }
+
+        const isPlayerA = data.visit.playerId === state.playerA?.id
+        if (isPlayerA) state.playerARemainder = data.newRemainder
+        else state.playerBRemainder = data.newRemainder
+
+        state.currentTurnPlayerId =
+          data.visit.playerId === state.playerA?.id
+            ? state.playerB?.id ?? null
+            : state.playerA?.id ?? null
+
+        if (data.legWinnerId) {
+          state.legWinnerId = data.legWinnerId
+          state.isLegWinAnimating = true
+          if (data.legWinnerId === state.playerA?.id) {
+            state.playerALegsWon += 1
+            state.pendingNextStarter = state.playerB?.id ?? null
+          } else {
+            state.playerBLegsWon += 1
+            state.pendingNextStarter = state.playerA?.id ?? null
+          }
+        }
+
+        if (data.matchWinnerId || data.isMatchDraw) {
+          state.winnerId = data.matchWinnerId
+          state.isMatchWon = true
+          state.isMatchDraw = data.isMatchDraw
+        }
+      })
+    },
+
+    applyRemoteLeg: (legId: string, starterId: string) => {
+      set((state) => {
+        if (state.currentLegId === legId) return
+        state.currentLegId = legId
+        state.currentTurnPlayerId = starterId
+        state.playerARemainder = state.startingScore
+        state.playerBRemainder = state.startingScore
+        state.visits = []
+        state.undoStack = []
+        state.isBustDialogOpen = false
+        state.isLegWinAnimating = false
+        state.legWinnerId = null
+      })
     },
 
     reset: () => set(() => ({ ...initialState })),
