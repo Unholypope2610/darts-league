@@ -8,12 +8,15 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const pcRef = useRef<RTCPeerConnection | null>(null)
+  // Stable per-session ID so the broadcaster keeps a separate PC for each viewer
+  const spectatorId = useRef(crypto.randomUUID())
 
   useEffect(() => {
     if (!matchId || !playerId) return
 
     const supabase = getSupabase()
     const channel = supabase.channel(`boardcam:${matchId}:${playerId}`)
+    const myId = spectatorId.current
     let connected = false
     let retryTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -26,7 +29,7 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
     }
 
     const sendReady = () => {
-      channel.send({ type: "broadcast", event: "READY", payload: {} })
+      channel.send({ type: "broadcast", event: "READY", payload: { spectatorId: myId } })
     }
 
     const scheduleRetry = (delayMs: number) => {
@@ -39,32 +42,37 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       }, delayMs)
     }
 
-    // Register ICE_CANDIDATE_B before subscribing so no candidates are missed
+    // Register before subscribing so no candidates from our offer are missed
     channel.on("broadcast", { event: "ICE_CANDIDATE_B" }, async ({ payload }) => {
-      if (!payload) return
+      const { spectatorId: sid, candidate } = payload as { spectatorId: string; candidate: RTCIceCandidateInit }
+      if (sid !== myId || !candidate) return
       if (remoteDescSet && pcRef.current) {
         try {
-          await pcRef.current.addIceCandidate(new RTCIceCandidate(payload))
-        } catch { /* ignore stale candidates */ }
+          await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch { /* stale */ }
       } else {
-        pendingCandidates.push(payload)
+        pendingCandidates.push(candidate)
       }
     })
 
     channel.on("broadcast", { event: "OFFER" }, async ({ payload }) => {
-      pcRef.current?.close()
+      const { spectatorId: sid, type, sdp } = payload as { spectatorId: string; type: RTCSdpType; sdp: string }
+      if (sid !== myId) return
 
-      // Reset trickle ICE state for this new offer
+      pcRef.current?.close()
       remoteDescSet = false
       pendingCandidates.length = 0
 
       const pc = createPeerConnection()
       pcRef.current = pc
 
-      // Trickle ICE: send our candidates as they arrive
       pc.onicecandidate = ({ candidate }) => {
         if (candidate) {
-          channel.send({ type: "broadcast", event: "ICE_CANDIDATE_S", payload: candidate.toJSON() })
+          channel.send({
+            type: "broadcast",
+            event: "ICE_CANDIDATE_S",
+            payload: { spectatorId: myId, candidate: candidate.toJSON() },
+          })
         }
       }
 
@@ -92,20 +100,22 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       }
 
       try {
-        await pc.setRemoteDescription(new RTCSessionDescription(payload))
+        await pc.setRemoteDescription(new RTCSessionDescription({ type, sdp }))
         remoteDescSet = true
 
-        // Drain any candidates that arrived before remote desc was set
         for (const c of pendingCandidates) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(c)) } catch { /* ignore */ }
+          try { await pc.addIceCandidate(new RTCIceCandidate(c)) } catch { /* stale */ }
         }
         pendingCandidates.length = 0
 
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
 
-        // Send answer immediately — don't wait for ICE gathering to complete
-        channel.send({ type: "broadcast", event: "ANSWER", payload: pc.localDescription })
+        channel.send({
+          type: "broadcast",
+          event: "ANSWER",
+          payload: { spectatorId: myId, type: answer.type, sdp: answer.sdp },
+        })
       } catch {
         scheduleRetry(2000)
       }
@@ -128,7 +138,7 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
     })
 
     return () => {
-      connected = true  // stops any pending retry from firing after unmount
+      connected = true
       clearRetry()
       pcRef.current?.close()
       channel.unsubscribe()

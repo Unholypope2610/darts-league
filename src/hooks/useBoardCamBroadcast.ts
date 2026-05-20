@@ -20,10 +20,10 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const [zoomCapabilities, setZoomCapabilities] = useState<ZoomCapabilities | null>(null)
   const [zoomLevel, setZoomLevel] = useState(1)
   const streamRef = useRef<MediaStream | null>(null)
-  const pcRef = useRef<RTCPeerConnection | null>(null)
+  // One peer connection per spectator so viewers don't kill each other's feeds
+  const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
+  const creatingOfferRef = useRef<Set<string>>(new Set())
   const channelRef = useRef<ReturnType<ReturnType<typeof getSupabase>["channel"]> | null>(null)
-  const isCreatingOfferRef = useRef(false)
-  const pendingReadyRef = useRef(false)
 
   const detectZoom = useCallback((stream: MediaStream) => {
     const track = stream.getVideoTracks()[0]
@@ -40,25 +40,22 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     }
   }, [])
 
-  const createOffer = useCallback(async () => {
+  const createOffer = useCallback(async (spectatorId: string) => {
     if (!streamRef.current || !channelRef.current) return
-    if (isCreatingOfferRef.current) {
-      pendingReadyRef.current = true
-      return
-    }
-    isCreatingOfferRef.current = true
+    // Prevent concurrent offers for the same spectator
+    if (creatingOfferRef.current.has(spectatorId)) return
+    creatingOfferRef.current.add(spectatorId)
     try {
-      pcRef.current?.close()
+      pcsRef.current.get(spectatorId)?.close()
       const pc = createPeerConnection()
-      pcRef.current = pc
+      pcsRef.current.set(spectatorId, pc)
 
-      // Trickle ICE: send candidates as they arrive instead of waiting for all
       pc.onicecandidate = ({ candidate }) => {
         if (candidate) {
           channelRef.current?.send({
             type: "broadcast",
             event: "ICE_CANDIDATE_B",
-            payload: candidate.toJSON(),
+            payload: { spectatorId, candidate: candidate.toJSON() },
           })
         }
       }
@@ -68,14 +65,13 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
 
-      // Send offer immediately — don't wait for ICE gathering to complete
-      channelRef.current?.send({ type: "broadcast", event: "OFFER", payload: pc.localDescription })
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "OFFER",
+        payload: { spectatorId, type: offer.type, sdp: offer.sdp },
+      })
     } finally {
-      isCreatingOfferRef.current = false
-      if (pendingReadyRef.current) {
-        pendingReadyRef.current = false
-        createOffer()
-      }
+      creatingOfferRef.current.delete(spectatorId)
     }
   }, [])
 
@@ -83,8 +79,8 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     setLocalStream(null)
-    pcRef.current?.close()
-    pcRef.current = null
+    pcsRef.current.forEach((pc) => pc.close())
+    pcsRef.current.clear()
     channelRef.current?.send({ type: "broadcast", event: "HANGUP", payload: {} })
     channelRef.current?.unsubscribe()
     channelRef.current = null
@@ -114,28 +110,31 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       channelRef.current = channel
 
       channel.on("broadcast", { event: "ANSWER" }, async ({ payload }) => {
-        if (!pcRef.current) return
-        await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload))
+        const { spectatorId, type, sdp } = payload as { spectatorId: string; type: RTCSdpType; sdp: string }
+        const pc = pcsRef.current.get(spectatorId)
+        if (!pc) return
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription({ type, sdp }))
+        } catch { /* stale answer */ }
       })
 
-      // Trickle ICE: add spectator's candidates as they arrive
       channel.on("broadcast", { event: "ICE_CANDIDATE_S" }, async ({ payload }) => {
-        if (pcRef.current && payload) {
-          try {
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(payload))
-          } catch { /* ignore stale candidates */ }
-        }
+        const { spectatorId, candidate } = payload as { spectatorId: string; candidate: RTCIceCandidateInit }
+        const pc = pcsRef.current.get(spectatorId)
+        if (!pc || !candidate) return
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate))
+        } catch { /* stale candidate */ }
       })
 
-      channel.on("broadcast", { event: "READY" }, async () => {
-        if (!streamRef.current) return
-        await createOffer()
+      channel.on("broadcast", { event: "READY" }, async ({ payload }) => {
+        const { spectatorId } = payload as { spectatorId: string }
+        if (!streamRef.current || !spectatorId) return
+        await createOffer(spectatorId)
       })
 
-      channel.subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await createOffer()
-        }
+      channel.subscribe(() => {
+        // Spectators' READY signals drive offer creation — nothing to do on subscribe
       })
     } catch {
       setError("Camera access denied or unavailable")
@@ -148,10 +147,10 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     const newFacing: FacingMode = facingMode === "environment" ? "user" : "environment"
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacing }, audio: false })
-      if (pcRef.current) {
-        const sender = pcRef.current.getSenders().find((s) => s.track?.kind === "video")
+      pcsRef.current.forEach(async (pc) => {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video")
         if (sender) await sender.replaceTrack(newStream.getVideoTracks()[0])
-      }
+      })
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = newStream
       setLocalStream(newStream)

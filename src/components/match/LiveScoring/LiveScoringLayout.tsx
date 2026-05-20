@@ -17,42 +17,34 @@ interface LiveScoringLayoutProps {
 
 function CamFeedPanel({ stream, label }: { stream: MediaStream | null; label: string }) {
   const ref = useRef<HTMLVideoElement>(null)
-  const [needsTap, setNeedsTap] = useState(false)
+  const [wasConnected, setWasConnected] = useState(false)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.srcObject = stream
     if (stream) {
-      el.play().catch(() => setNeedsTap(true))
-    } else {
-      setNeedsTap(false)
+      setWasConnected(true)
+      el.play().catch(() => {})
     }
   }, [stream])
 
-  const handleTap = () => {
-    ref.current?.play().catch(() => {})
-    setNeedsTap(false)
-  }
+  const isReconnecting = wasConnected && !stream
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden bg-black aspect-square">
-      {/* muted allows autoplay on iOS even without user gesture */}
       <video ref={ref} autoPlay playsInline muted className="w-full h-full object-cover" />
-      {!stream && (
+      {!stream && !isReconnecting && (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="text-xs text-muted-foreground text-center px-4">
             No cam signal — start cam on {label}&apos;s device
           </p>
         </div>
       )}
-      {needsTap && (
-        <button
-          onClick={handleTap}
-          className="absolute inset-0 flex items-center justify-center bg-black/60"
-        >
-          <span className="text-white text-sm font-semibold">Tap to play</span>
-        </button>
+      {isReconnecting && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+          <p className="text-xs text-white/60">Reconnecting…</p>
+        </div>
       )}
       {stream && (
         <span className="absolute bottom-2 left-3 text-xs font-semibold text-white/70 drop-shadow">
