@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useUser } from "@clerk/nextjs"
 import { useCompetitions } from "@/hooks/useCompetitions"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -62,6 +63,8 @@ function CompetitionCard({ comp }: { comp: Competition }) {
 }
 
 export default function DashboardPage() {
+  const { user } = useUser()
+  const firstName = user?.firstName ?? user?.emailAddresses[0]?.emailAddress.split("@")[0] ?? "back"
   const { data: competitions, isLoading } = useCompetitions()
 
   const active = competitions?.filter((c) => c.status === "ACTIVE") ?? []
@@ -85,7 +88,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between pt-2">
         <div>
           <h1 className="text-3xl font-black text-white tracking-tight">
-            Welcome back <span className="text-emerald-400">Callum</span>
+            Welcome back <span className="text-emerald-400">{firstName}</span>
           </h1>
           <p className="text-zinc-500 mt-1">Here's what's happening in your league</p>
         </div>
