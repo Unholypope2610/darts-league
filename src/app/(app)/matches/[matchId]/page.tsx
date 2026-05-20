@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatAverage } from "@/lib/utils/format"
+import { calculateAverage, calculateFirst9Average, doublesPercentage, count180s, highestCheckout } from "@/lib/utils/stats"
 import type { MatchWithLegs } from "@/types/api"
 
 interface PageProps {
@@ -27,23 +28,53 @@ export default function MatchSummaryPage({ params }: PageProps) {
   const allVisits = m.legs.flatMap((l) => l.visits)
 
   function calcStats(playerId: string) {
-    const pVisits = allVisits.filter((v) => v.playerId === playerId && !v.isBust)
-    const totalDarts = pVisits.reduce((a, v) => a + v.dartsUsed, 0)
-    const totalScore = pVisits.reduce((a, v) => a + v.scoreThrown, 0)
-    const s180s = pVisits.filter((v) => v.scoreThrown === 180).length
-    const checkouts = pVisits.filter((v) => v.isCheckout)
-    const highestCheckout = checkouts.length > 0 ? Math.max(...checkouts.map((v) => v.scoreThrown)) : null
+    const pVisits = allVisits.filter((v) => v.playerId === playerId)
+    const pLegs = m.legs.filter((l) => l.winnerId === playerId)
+
+    const avg = formatAverage(calculateAverage(pVisits))
+    const first9 = formatAverage(calculateFirst9Average(pVisits))
+    const dblPct = doublesPercentage(pVisits)
+    const checkoutVisits = pVisits.filter((v) => v.isCheckout)
+    const totalDartsAtDouble = checkoutVisits.reduce((sum, v) => sum + v.doublesAttempted, 0)
+    const checkoutsStr =
+      totalDartsAtDouble > 0 ? `${checkoutVisits.length}/${totalDartsAtDouble}` : "—"
+    const hiCO = highestCheckout(pVisits)
+    const hiScore = pVisits.filter((v) => !v.isBust).reduce((max, v) => Math.max(max, v.scoreThrown), 0)
+    const c180s = count180s(pVisits)
+    const legsWon = m.playerAId === playerId ? m.playerAScore : m.playerBScore
+    const bestLeg = pLegs.length > 0 ? Math.min(...pLegs.map((l) => l.dartsThrown)) : null
+    const worstLeg = pLegs.length > 0 ? Math.max(...pLegs.map((l) => l.dartsThrown)) : null
+
     return {
-      avg: totalDarts > 0 ? formatAverage((totalScore / totalDarts) * 3) : "0.00",
-      s180s,
-      highestCheckout,
-      legsWon: m.playerAId === playerId ? m.playerAScore : m.playerBScore,
+      legsWon,
+      avg,
+      first9,
+      dblPct: dblPct > 0 ? `${dblPct.toFixed(1)}%` : "—",
+      checkoutsStr,
+      hiCO: hiCO > 0 ? String(hiCO) : "—",
+      hiScore: hiScore > 0 ? String(hiScore) : "—",
+      c180s,
+      bestLeg: bestLeg !== null ? `${bestLeg} darts` : "—",
+      worstLeg: worstLeg !== null ? `${worstLeg} darts` : "—",
     }
   }
 
   const aStats = calcStats(match.playerAId)
   const bStats = calcStats(match.playerBId)
   const isLive = !match.completedAt
+
+  const statRows = [
+    { label: "Legs Won",       a: aStats.legsWon,     b: bStats.legsWon },
+    { label: "3-dart Average", a: aStats.avg,          b: bStats.avg },
+    { label: "First 9 Avg",   a: aStats.first9,       b: bStats.first9 },
+    { label: "Doubles %",     a: aStats.dblPct,       b: bStats.dblPct },
+    { label: "Checkouts",     a: aStats.checkoutsStr, b: bStats.checkoutsStr },
+    { label: "180s",          a: aStats.c180s,        b: bStats.c180s },
+    { label: "Highest Finish",a: aStats.hiCO,         b: bStats.hiCO },
+    { label: "Highest Score", a: aStats.hiScore,      b: bStats.hiScore },
+    { label: "Best Leg",      a: aStats.bestLeg,      b: bStats.bestLeg },
+    { label: "Worst Leg",     a: aStats.worstLeg,     b: bStats.worstLeg },
+  ]
 
   return (
     <div className="flex flex-col gap-6 max-w-xl">
@@ -83,18 +114,13 @@ export default function MatchSummaryPage({ params }: PageProps) {
           <thead>
             <tr className="border-b border-border bg-muted/50">
               <th className="px-4 py-2 text-right font-medium text-muted-foreground">{match.playerA.name}</th>
-              <th className="px-4 py-2 text-center font-medium text-muted-foreground w-24">Stat</th>
+              <th className="px-4 py-2 text-center font-medium text-muted-foreground w-32">Stat</th>
               <th className="px-4 py-2 text-left font-medium text-muted-foreground">{match.playerB.name}</th>
             </tr>
           </thead>
           <tbody>
-            {[
-              { label: "Legs Won", a: aStats.legsWon, b: bStats.legsWon },
-              { label: "Average", a: aStats.avg, b: bStats.avg },
-              { label: "180s", a: aStats.s180s, b: bStats.s180s },
-              { label: "Highest Checkout", a: aStats.highestCheckout ?? "—", b: bStats.highestCheckout ?? "—" },
-            ].map((row) => (
-              <tr key={row.label} className="border-b border-border/50">
+            {statRows.map((row) => (
+              <tr key={row.label} className="border-b border-border/50 last:border-0">
                 <td className="px-4 py-2.5 text-right font-score font-bold">{row.a}</td>
                 <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">{row.label}</td>
                 <td className="px-4 py-2.5 text-left font-score font-bold">{row.b}</td>
