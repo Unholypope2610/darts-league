@@ -34,7 +34,7 @@ export function BoardCamBroadcaster({ matchId, playerId }: BoardCamBroadcasterPr
           <span className="text-xs font-medium">Board Cam</span>
         </div>
         <button
-          onClick={isStreaming ? stop : start}
+          onClick={isStreaming ? stop : () => start()}
           className={cn(
             "text-xs px-3 py-1 rounded-lg font-medium transition-all",
             isStreaming
