@@ -11,6 +11,7 @@ export interface ChatMessage {
   senderName: string
   text: string
   timestamp: number
+  isSystem?: boolean
 }
 
 export interface PresenceUser {
@@ -66,6 +67,22 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
       const state = channel.presenceState<PresenceUser>()
       const users = Object.values(state).flat()
       setPresenceUsers(users)
+    })
+
+    channel.on("presence", { event: "join" }, ({ newPresences }) => {
+      for (const presence of newPresences as PresenceUser[]) {
+        if (presence.userId === userId) continue
+        const msg: ChatMessage = {
+          id: crypto.randomUUID(),
+          senderId: "system",
+          senderName: "system",
+          text: `${presence.name} joined the lobby`,
+          timestamp: Date.now(),
+          isSystem: true,
+        }
+        setMessages((prev) => [...prev, msg])
+        if (!isOpenRef.current) setUnreadCount((c) => c + 1)
+      }
     })
 
     channel.subscribe(async (status) => {

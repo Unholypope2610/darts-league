@@ -127,17 +127,23 @@ export function MatchChatPanel({ chat, playerAName, playerBName, isOpen, onClose
             No messages yet. Say something!
           </p>
         )}
-        {messages.map((msg) => (
-          <div key={msg.id} className="flex flex-col gap-0.5">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[11px] font-semibold text-primary">{msg.senderName}</span>
-              <span className="text-[10px] text-muted-foreground">
-                {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
+        {messages.map((msg) =>
+          msg.isSystem ? (
+            <div key={msg.id} className="flex justify-center py-0.5">
+              <span className="text-[11px] text-muted-foreground italic">· {msg.text} ·</span>
             </div>
-            <p className="text-sm text-foreground leading-snug">{msg.text}</p>
-          </div>
-        ))}
+          ) : (
+            <div key={msg.id} className="flex flex-col gap-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[11px] font-semibold text-primary">{msg.senderName}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+              <p className="text-sm text-foreground leading-snug">{msg.text}</p>
+            </div>
+          )
+        )}
         <div ref={bottomRef} />
       </div>
 
