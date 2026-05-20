@@ -52,7 +52,6 @@ export async function POST(req: Request) {
   const clerk = await clerkClient()
   const invitation = await clerk.invitations.createInvitation({
     emailAddress: email,
-    redirectUrl: `${process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL ?? "/dashboard"}`,
   })
 
   return NextResponse.json({ invitationId: invitation.id }, { status: 201 })
