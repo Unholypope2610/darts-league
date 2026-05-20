@@ -24,7 +24,7 @@ const navItems = [
   { href: "/tables", label: "Tables", icon: BarChart2 },
   { href: "/brackets", label: "Brackets", icon: Target },
   { href: "/history", label: "History", icon: History },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/settings/users", label: "Settings", icon: Settings },
 ]
 
 export function Sidebar() {
