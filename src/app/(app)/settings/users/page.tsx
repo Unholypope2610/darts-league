@@ -26,18 +26,26 @@ interface PlayerOption {
 
 export default function UsersSettingsPage() {
   const qc = useQueryClient()
-  const { data: users, isLoading } = useQuery<DbUser[]>({
+
+  const { data: usersRaw, isLoading } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: () => fetch("/api/admin/users").then((r) => r.json()),
   })
-  const { data: players } = useQuery<PlayerOption[]>({
+  const users: DbUser[] = Array.isArray(usersRaw) ? usersRaw : []
+
+  const { data: playersRaw } = useQuery({
     queryKey: ["players"],
     queryFn: () => fetch("/api/players").then((r) => r.json()),
   })
+  const players: PlayerOption[] = Array.isArray(playersRaw) ? playersRaw : []
 
   const { mutate: updateUser } = useMutation({
-    mutationFn: ({ id, ...data }: { id: string; role?: string; playerId?: string | null | undefined }) =>
-      fetch("/api/admin/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...data }) }).then((r) => r.json()),
+    mutationFn: ({ id, ...data }: { id: string; role?: string; playerId?: string | null }) =>
+      fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId: id, ...data }),
+      }).then((r) => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "users"] })
       toast.success("User updated!")
@@ -80,23 +88,28 @@ export default function UsersSettingsPage() {
     onError: () => toast.error("Failed to send invitation"),
   })
 
+  const isAdmin = users.length > 0
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Users"
-        description="Manage who has access and their roles"
+        title="Settings"
+        description="Manage users and app preferences"
         actions={
-          <Button onClick={() => setInviteOpen(true)} size="sm">
-            Invite Player
-          </Button>
+          isAdmin ? (
+            <Button onClick={() => setInviteOpen(true)} size="sm">
+              Invite Player
+            </Button>
+          ) : undefined
         }
       />
 
+      {/* Users table — only shown if admin */}
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
         </div>
-      ) : (
+      ) : isAdmin ? (
         <div className="rounded-xl border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -107,7 +120,7 @@ export default function UsersSettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {users?.map((user) => (
+              {users.map((user) => (
                 <tr key={user.id} className="border-b border-border/50">
                   <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
                   <td className="px-4 py-3">
@@ -134,7 +147,7 @@ export default function UsersSettingsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Unlinked</SelectItem>
-                        {players?.map((p) => (
+                        {players.map((p) => (
                           <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -145,13 +158,13 @@ export default function UsersSettingsPage() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
       {/* Install App */}
       <div className="rounded-xl border border-border p-5 flex flex-col gap-3">
         <div>
           <p className="font-semibold">Install App</p>
-          <p className="text-sm text-muted-foreground mt-0.5">Add Darts League to your home screen for a full-screen experience with no browser chrome.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Add Darts League to your home screen for a full-screen experience.</p>
         </div>
         {installed ? (
           <p className="text-sm text-emerald-400">Already installed</p>
