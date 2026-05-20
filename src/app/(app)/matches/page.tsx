@@ -73,45 +73,47 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
         <div className="flex flex-col gap-4 mt-2">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Player 1</label>
-            <Select value={playerAId} onValueChange={(v) => { if (v) setPlayerAId(v) }}>
-              <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <SelectValue placeholder="Select player..." />
-              </SelectTrigger>
-              <SelectContent>
-                {players?.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              value={playerAId}
+              onChange={(e) => { if (e.target.value) setPlayerAId(e.target.value) }}
+              className="w-full h-8 rounded-lg text-sm px-2.5 outline-none cursor-pointer appearance-none"
+              style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", color: playerAId ? "#fff" : "#71717a" }}
+            >
+              <option value="" disabled>Select player...</option>
+              {players?.map((p) => (
+                <option key={p.id} value={p.id} style={{ background: "#1a1a1a", color: "#fff" }}>{p.name}</option>
+              ))}
+            </select>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Player 2</label>
-            <Select value={playerBId} onValueChange={(v) => { if (v) setPlayerBId(v) }}>
-              <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <SelectValue placeholder="Select player..." />
-              </SelectTrigger>
-              <SelectContent>
-                {players?.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              value={playerBId}
+              onChange={(e) => { if (e.target.value) setPlayerBId(e.target.value) }}
+              className="w-full h-8 rounded-lg text-sm px-2.5 outline-none cursor-pointer appearance-none"
+              style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", color: playerBId ? "#fff" : "#71717a" }}
+            >
+              <option value="" disabled>Select player...</option>
+              {players?.map((p) => (
+                <option key={p.id} value={p.id} style={{ background: "#1a1a1a", color: "#fff" }}>{p.name}</option>
+              ))}
+            </select>
           </div>
 
           {canStart && (
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Who Starts?</label>
-              <Select value={startingPlayerId || playerAId} onValueChange={(v) => { if (v) setStartingPlayerId(v) }}>
-                <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {starterOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={startingPlayerId || playerAId}
+                onChange={(e) => { if (e.target.value) setStartingPlayerId(e.target.value) }}
+                className="w-full h-8 rounded-lg text-sm px-2.5 outline-none cursor-pointer appearance-none"
+                style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", color: "#fff" }}
+              >
+                {starterOptions.map((p) => (
+                  <option key={p.id} value={p.id} style={{ background: "#1a1a1a" }}>{p.name}</option>
+                ))}
+              </select>
             </div>
           )}
 
