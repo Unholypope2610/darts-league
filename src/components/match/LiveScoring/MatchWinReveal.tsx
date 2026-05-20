@@ -8,7 +8,7 @@ import { formatAverage } from "@/lib/utils/format"
 
 export function MatchWinReveal() {
   const router = useRouter()
-  const { isMatchWon, winnerId, playerA, playerB, playerALegsWon, playerBLegsWon, allVisits, matchId } =
+  const { isMatchWon, isMatchDraw, winnerId, playerA, playerB, playerALegsWon, playerBLegsWon, allVisits, matchId } =
     useLiveMatchStore()
 
   const winner = winnerId === playerA?.id ? playerA : playerB
@@ -30,26 +30,32 @@ export function MatchWinReveal() {
           animate={{ opacity: 1 }}
           className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md flex flex-col items-center justify-center gap-8 p-6"
         >
-          {/* Trophy */}
+          {/* Trophy / Handshake */}
           <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.1 }}
             className="text-7xl"
           >
-            🏆
+            {isMatchDraw ? "🤝" : "🏆"}
           </motion.div>
 
-          {/* Winner name */}
+          {/* Winner name or Draw */}
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
             className="flex flex-col items-center gap-3"
           >
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Winner</span>
-            <PlayerAvatar name={winner?.name ?? ""} avatarUrl={winner?.avatarUrl} size="xl" />
-            <h1 className="text-4xl font-black tracking-tight text-emerald-400">{winner?.name}</h1>
+            {isMatchDraw ? (
+              <h1 className="text-4xl font-black tracking-tight text-yellow-400">It's a Draw!</h1>
+            ) : (
+              <>
+                <span className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Winner</span>
+                <PlayerAvatar name={winner?.name ?? ""} avatarUrl={winner?.avatarUrl} size="xl" />
+                <h1 className="text-4xl font-black tracking-tight text-emerald-400">{winner?.name}</h1>
+              </>
+            )}
           </motion.div>
 
           {/* Score */}

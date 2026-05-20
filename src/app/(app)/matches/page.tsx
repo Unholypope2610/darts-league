@@ -123,6 +123,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="1">First to 1</SelectItem>
                   {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
                     <SelectItem key={n} value={String(n)}>Best of {n}</SelectItem>
                   ))}

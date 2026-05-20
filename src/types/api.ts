@@ -101,5 +101,6 @@ export interface RecordVisitResponse {
   isCheckout: boolean
   legWinnerId: string | null
   matchWinnerId: string | null
+  isMatchDraw: boolean
   newRemainder: number
 }

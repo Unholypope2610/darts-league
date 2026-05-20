@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { recordVisitSchema } from "@/lib/validations/visit.schema"
-import { getNewRemainder, isMatchOver, matchWinner } from "@/lib/utils/darts"
+import { getNewRemainder, isMatchOver, isMatchDraw, matchWinner } from "@/lib/utils/darts"
 import type { RecordVisitResponse } from "@/types/api"
 
 export async function POST(
@@ -60,6 +60,7 @@ export async function POST(
 
   let legWinnerId: string | null = null
   let matchWinnerId: string | null = null
+  let matchDraw = false
 
   if (isCheckout) {
     const totalDartsThrown = leg.visits.reduce((sum, v) => sum + v.dartsUsed, 0) + dartsUsed
@@ -88,6 +89,7 @@ export async function POST(
     if (isMatchOver(newAScore, newBScore, match.bestOf)) {
       const winner = matchWinner(newAScore, newBScore, match.bestOf, match.playerAId, match.playerBId)
       matchWinnerId = winner
+      matchDraw = isMatchDraw(newAScore, newBScore, match.bestOf)
 
       await prisma.match.update({
         where: { id: matchId },
@@ -138,6 +140,7 @@ export async function POST(
     isCheckout,
     legWinnerId,
     matchWinnerId,
+    isMatchDraw: matchDraw,
     newRemainder: runningRemainder,
   }
 

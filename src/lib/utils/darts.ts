@@ -40,7 +40,17 @@ export function getNewRemainder(
 }
 
 export function legsToWin(bestOf: number): number {
-  return Math.ceil(bestOf / 2)
+  // Math.floor(n/2)+1 equals Math.ceil(n/2) for odd n, but for even n
+  // it requires one more leg to win — enabling a draw at n/2 each.
+  return Math.floor(bestOf / 2) + 1
+}
+
+export function isMatchDraw(
+  playerALegs: number,
+  playerBLegs: number,
+  bestOf: number,
+): boolean {
+  return bestOf % 2 === 0 && playerALegs + playerBLegs === bestOf && playerALegs === playerBLegs
 }
 
 export function isMatchOver(
@@ -49,7 +59,7 @@ export function isMatchOver(
   bestOf: number,
 ): boolean {
   const needed = legsToWin(bestOf)
-  return playerALegs >= needed || playerBLegs >= needed
+  return playerALegs >= needed || playerBLegs >= needed || isMatchDraw(playerALegs, playerBLegs, bestOf)
 }
 
 export function matchWinner(
@@ -62,7 +72,7 @@ export function matchWinner(
   const needed = legsToWin(bestOf)
   if (playerALegs >= needed) return playerAId
   if (playerBLegs >= needed) return playerBId
-  return null
+  return null  // draw — null winner
 }
 
 // Highest score achievable in one visit

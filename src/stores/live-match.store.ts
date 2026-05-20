@@ -36,6 +36,7 @@ interface LiveMatchStore {
   legWinnerId: string | null
   pendingNextStarter: string | null   // loser ID queued to throw first next leg
   isMatchWon: boolean
+  isMatchDraw: boolean
   winnerId: string | null
   isSubmitting: boolean
   error: string | null
@@ -79,6 +80,7 @@ const initialState = {
   legWinnerId: null,
   pendingNextStarter: null,
   isMatchWon: false,
+  isMatchDraw: false,
   winnerId: null,
   isSubmitting: false,
   error: null,
@@ -102,7 +104,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.playerALegsWon = match.playerAScore
         state.playerBLegsWon = match.playerBScore
         state.winnerId = match.winnerId
-        state.isMatchWon = match.winnerId !== null
+        state.isMatchWon = match.completedAt !== null
+        state.isMatchDraw = match.completedAt !== null && match.winnerId === null
 
         // All visits across every leg for match average
         state.allVisits = match.legs.flatMap((l) => l.visits)
@@ -255,9 +258,10 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             }
           }
 
-          if (data.matchWinnerId) {
+          if (data.matchWinnerId || data.isMatchDraw) {
             s.winnerId = data.matchWinnerId
             s.isMatchWon = true
+            s.isMatchDraw = data.isMatchDraw
           }
         })
 
