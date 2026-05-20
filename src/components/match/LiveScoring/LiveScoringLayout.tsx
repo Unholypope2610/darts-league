@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { useBoardCamSpectate } from "@/hooks/useBoardCamSpectate"
 import { PlayerPanel } from "./PlayerPanel"
@@ -17,22 +17,42 @@ interface LiveScoringLayoutProps {
 
 function CamFeedPanel({ stream, label }: { stream: MediaStream | null; label: string }) {
   const ref = useRef<HTMLVideoElement>(null)
+  const [needsTap, setNeedsTap] = useState(false)
 
   useEffect(() => {
-    if (!ref.current) return
-    ref.current.srcObject = stream
-    if (stream) ref.current.play().catch(() => {})
+    const el = ref.current
+    if (!el) return
+    el.srcObject = stream
+    if (stream) {
+      el.play().catch(() => setNeedsTap(true))
+    } else {
+      setNeedsTap(false)
+    }
   }, [stream])
+
+  const handleTap = () => {
+    ref.current?.play().catch(() => {})
+    setNeedsTap(false)
+  }
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden bg-black aspect-video">
-      <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" />
+      {/* muted allows autoplay on iOS even without user gesture */}
+      <video ref={ref} autoPlay playsInline muted className="w-full h-full object-cover" />
       {!stream && (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="text-xs text-muted-foreground text-center px-4">
             No cam signal — start cam on {label}&apos;s device
           </p>
         </div>
+      )}
+      {needsTap && (
+        <button
+          onClick={handleTap}
+          className="absolute inset-0 flex items-center justify-center bg-black/60"
+        >
+          <span className="text-white text-sm font-semibold">Tap to play</span>
+        </button>
       )}
       {stream && (
         <span className="absolute bottom-2 left-3 text-xs font-semibold text-white/70 drop-shadow">

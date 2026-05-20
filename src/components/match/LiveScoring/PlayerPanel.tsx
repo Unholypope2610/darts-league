@@ -1,13 +1,13 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { ScoreDisplay } from "./ScoreDisplay"
 import { CheckoutSuggestion } from "./CheckoutSuggestion"
 import { useBoardCamBroadcast } from "@/hooks/useBoardCamBroadcast"
 import { cn } from "@/lib/utils/cn"
 import { formatAverage } from "@/lib/utils/format"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react"
 import type { VisitRecord } from "@/types/api"
 
 interface PlayerPanelProps {
@@ -62,6 +62,7 @@ export function PlayerPanel({
   const { isStreaming, error: camError, localStream, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera } =
     useBoardCamBroadcast(matchId, playerId)
   const localVideoRef = useRef<HTMLVideoElement>(null)
+  const [camMinimized, setCamMinimized] = useState(false)
 
   useEffect(() => {
     const el = localVideoRef.current
@@ -136,16 +137,26 @@ export function PlayerPanel({
       </div>
 
       {/* Local cam preview — only when this player is actively streaming on this device */}
-      <video
-        ref={localVideoRef}
-        autoPlay
-        playsInline
-        muted
-        className={cn(
-          "w-full aspect-square object-cover rounded-xl bg-black",
-          !(isActive && isStreaming) && "hidden",
-        )}
-      />
+      {isActive && isStreaming && (
+        <div className="w-full">
+          <button
+            onClick={() => setCamMinimized((v) => !v)}
+            className="w-full flex items-center justify-center gap-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {camMinimized ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+            {camMinimized ? "Show preview" : "Hide preview"}
+          </button>
+          {!camMinimized && (
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full aspect-square object-cover rounded-xl bg-black"
+            />
+          )}
+        </div>
+      )}
 
       {/* Score always visible */}
       <ScoreDisplay remainder={remainder} isActive={isActive} isBust={isBust} />

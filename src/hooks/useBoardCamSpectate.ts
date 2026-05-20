@@ -23,9 +23,11 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       pcRef.current = pc
 
       const stream = new MediaStream()
-      pc.ontrack = (e) => {
-        e.streams[0].getTracks().forEach((t) => stream.addTrack(t))
-        setRemoteStream(stream)
+      pc.ontrack = ({ track }) => {
+        // Use e.track directly — e.streams[0].getTracks() can be empty on iOS/Safari
+        stream.addTrack(track)
+        // Spread into a new MediaStream so React always detects the state change
+        setRemoteStream(new MediaStream(stream.getTracks()))
         setIsConnected(true)
       }
 
