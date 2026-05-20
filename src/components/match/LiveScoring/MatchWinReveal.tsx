@@ -8,14 +8,14 @@ import { formatAverage } from "@/lib/utils/format"
 
 export function MatchWinReveal() {
   const router = useRouter()
-  const { isMatchWon, winnerId, playerA, playerB, playerALegsWon, playerBLegsWon, visits, matchId } =
+  const { isMatchWon, winnerId, playerA, playerB, playerALegsWon, playerBLegsWon, allVisits, matchId } =
     useLiveMatchStore()
 
   const winner = winnerId === playerA?.id ? playerA : playerB
   const loser = winnerId === playerA?.id ? playerB : playerA
 
   function calcAvg(playerId: string) {
-    const pv = visits.filter((v) => v.playerId === playerId && !v.isBust)
+    const pv = allVisits.filter((v) => v.playerId === playerId && !v.isBust)
     if (!pv.length) return "0.00"
     const totalScore = pv.reduce((a, v) => a + v.scoreThrown, 0)
     const totalDarts = pv.reduce((a, v) => a + v.dartsUsed, 0)

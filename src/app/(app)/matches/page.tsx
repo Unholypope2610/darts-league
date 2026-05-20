@@ -35,6 +35,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   const [playerAId, setPlayerAId] = useState("")
   const [playerBId, setPlayerBId] = useState("")
+  const [startingPlayerId, setStartingPlayerId] = useState("")
   const [bestOf, setBestOf] = useState(7)
   const [startingScore, setStartingScore] = useState(501)
   const [finishType, setFinishType] = useState("DOUBLE_OUT")
@@ -44,7 +45,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
       fetch("/api/matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerAId, playerBId, bestOf, startingScore, finishType }),
+        body: JSON.stringify({ playerAId, playerBId, bestOf, startingScore, finishType, startingPlayerId: startingPlayerId || playerAId }),
       }).then((r) => r.json()),
     onSuccess: (match) => {
       qc.invalidateQueries({ queryKey: ["casual-matches"] })
@@ -56,6 +57,11 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
   })
 
   const canStart = playerAId && playerBId && playerAId !== playerBId
+
+  const starterOptions = [
+    ...(playerAId ? [{ id: playerAId, name: players?.find((p) => p.id === playerAId)?.name ?? "Player 1" }] : []),
+    ...(playerBId && playerBId !== playerAId ? [{ id: playerBId, name: players?.find((p) => p.id === playerBId)?.name ?? "Player 2" }] : []),
+  ]
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -92,6 +98,22 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
               </SelectContent>
             </Select>
           </div>
+
+          {canStart && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Who Starts?</label>
+              <Select value={startingPlayerId || playerAId} onValueChange={(v) => { if (v) setStartingPlayerId(v) }}>
+                <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {starterOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">

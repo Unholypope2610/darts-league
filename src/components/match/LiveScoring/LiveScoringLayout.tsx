@@ -19,10 +19,12 @@ export function LiveScoringLayout() {
     playerBLegsWon,
     bestOf,
     currentTurnPlayerId,
+    currentLegId,
     visits,
     allVisits,
     isBustDialogOpen,
     confirmBust,
+    startNewLeg,
   } = useLiveMatchStore()
 
   // Spectate both players' cams permanently — cams stay on the whole match.
@@ -31,6 +33,25 @@ export function LiveScoringLayout() {
   const { remoteStream: playerBCamStream } = useBoardCamSpectate(matchId ?? "", playerB?.id ?? "")
 
   if (!playerA || !playerB) return null
+
+  if (!currentLegId) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24">
+        <p className="text-muted-foreground text-sm">Who throws first?</p>
+        <div className="flex gap-3">
+          {[playerA, playerB].map((p) => (
+            <button
+              key={p.id}
+              onClick={() => startNewLeg(p.id)}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   const isAActive = currentTurnPlayerId === playerA.id
 
