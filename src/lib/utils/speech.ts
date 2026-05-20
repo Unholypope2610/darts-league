@@ -38,7 +38,7 @@ function scoreToCall(score: number): string {
   if (score === 170) return "One hundred and seventy"
   if (score === 167) return "One hundred and sixty seven"
   if (score === 160) return "One hundred and sixty"
-  if (score === 100) return "Ton!"
+  if (score === 100) return "One hundred!"
   return String(score)
 }
 
