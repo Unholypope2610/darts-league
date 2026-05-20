@@ -1,8 +1,14 @@
 "use client"
 
+import { useEffect } from "react"
 import { NavBar } from "./NavBar"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  // Ensure every authenticated user has a DB record on first load
+  useEffect(() => {
+    fetch("/api/auth/sync", { method: "POST" }).catch(() => {})
+  }, [])
+
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "#080808" }}>
       <NavBar />
