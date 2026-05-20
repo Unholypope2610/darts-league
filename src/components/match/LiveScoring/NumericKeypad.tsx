@@ -8,8 +8,17 @@ const SHORTCUTS = [26, 41, 45, 60, 85, 100, 140, 180]
 const DIGITS = ["7", "8", "9", "4", "5", "6", "1", "2", "3"]
 
 export function NumericKeypad() {
-  const { dartInput, inputDigit, inputShortcut, clearInput, backspace, submitVisit, undoLastVisit, isSubmitting } =
-    useLiveMatchStore()
+  const {
+    dartInput, inputDigit, inputShortcut, clearInput, backspace,
+    submitVisit, undoLastVisit, isSubmitting,
+    dartsUsedThisVisit, setDartsUsed,
+    playerARemainder, playerBRemainder, currentTurnPlayerId, playerA,
+    undoStack,
+  } = useLiveMatchStore()
+
+  const currentRemainder = currentTurnPlayerId === playerA?.id ? playerARemainder : playerBRemainder
+  const enteredScore = dartInput === "" ? null : parseInt(dartInput, 10)
+  const isCheckoutAttempt = enteredScore !== null && enteredScore === currentRemainder && currentRemainder <= 170
 
   const score = dartInput === "" ? null : parseInt(dartInput, 10)
 
@@ -106,11 +115,35 @@ export function NumericKeypad() {
         </button>
       </div>
 
+      {/* Darts used selector — only shown when entering a checkout */}
+      {isCheckoutAttempt && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground shrink-0">Darts used:</span>
+          <div className="flex gap-1 flex-1">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                onClick={() => setDartsUsed(n)}
+                className={cn(
+                  "flex-1 py-1.5 rounded-lg text-sm font-bold transition-all touch-manipulation",
+                  dartsUsedThisVisit === n
+                    ? "bg-emerald-500 text-black"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80",
+                )}
+                style={{ touchAction: "manipulation" }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Undo button */}
       <button
         onClick={() => undoLastVisit()}
-        disabled={isSubmitting}
-        className="py-2.5 rounded-xl text-sm font-medium bg-muted hover:bg-muted/80 active:scale-95 text-muted-foreground hover:text-foreground transition-all touch-manipulation"
+        disabled={isSubmitting || undoStack.length === 0}
+        className="py-2.5 rounded-xl text-sm font-medium bg-muted hover:bg-muted/80 active:scale-95 text-muted-foreground hover:text-foreground transition-all touch-manipulation disabled:opacity-30 disabled:cursor-not-allowed"
         style={{ touchAction: "manipulation" }}
         aria-label="Undo last visit (U)"
       >

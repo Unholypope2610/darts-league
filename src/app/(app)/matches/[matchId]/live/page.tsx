@@ -1,7 +1,9 @@
 "use client"
 
-import { use } from "react"
+import { use, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { useLiveMatch } from "@/hooks/useLiveMatch"
+import { useLiveMatchStore } from "@/stores/live-match.store"
 import { LiveScoringLayout } from "@/components/match/LiveScoring/LiveScoringLayout"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -11,7 +13,19 @@ interface PageProps {
 
 export default function LiveMatchPage({ params }: PageProps) {
   const { matchId } = use(params)
+  const router = useRouter()
   const { isLoading, error } = useLiveMatch(matchId)
+  const isMatchWon = useLiveMatchStore((s) => s.isMatchWon)
+
+  // Redirect to summary only if the match was ALREADY complete when the page loaded.
+  // Do not redirect when the win happens live — MatchWinReveal needs to play.
+  const wasAlreadyCompleteRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    if (!isLoading && wasAlreadyCompleteRef.current === null) {
+      wasAlreadyCompleteRef.current = isMatchWon
+      if (isMatchWon) router.replace(`/matches/${matchId}`)
+    }
+  }, [isLoading, isMatchWon, matchId, router])
 
   if (isLoading) {
     return (
