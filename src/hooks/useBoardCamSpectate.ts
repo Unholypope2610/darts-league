@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { getSupabase } from "@/lib/supabase"
-import { createPeerConnection, waitForIceGathering } from "@/lib/webrtc"
+import { createPeerConnection } from "@/lib/webrtc"
 
 export function useBoardCamSpectate(matchId: string, playerId: string) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
@@ -17,6 +17,10 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
     let connected = false
     let retryTimer: ReturnType<typeof setTimeout> | null = null
 
+    // Trickle ICE: queue broadcaster candidates that arrive before remote desc is set
+    const pendingCandidates: RTCIceCandidateInit[] = []
+    let remoteDescSet = false
+
     const clearRetry = () => {
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
     }
@@ -25,9 +29,6 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       channel.send({ type: "broadcast", event: "READY", payload: {} })
     }
 
-    // Retry READY with backoff until a stream arrives.
-    // Handles all timing scenarios: broadcaster not yet subscribed, OFFER lost,
-    // silent answer failures, ICE failures, etc.
     const scheduleRetry = (delayMs: number) => {
       clearRetry()
       retryTimer = setTimeout(() => {
@@ -38,11 +39,34 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       }, delayMs)
     }
 
+    // Register ICE_CANDIDATE_B before subscribing so no candidates are missed
+    channel.on("broadcast", { event: "ICE_CANDIDATE_B" }, async ({ payload }) => {
+      if (!payload) return
+      if (remoteDescSet && pcRef.current) {
+        try {
+          await pcRef.current.addIceCandidate(new RTCIceCandidate(payload))
+        } catch { /* ignore stale candidates */ }
+      } else {
+        pendingCandidates.push(payload)
+      }
+    })
+
     channel.on("broadcast", { event: "OFFER" }, async ({ payload }) => {
       pcRef.current?.close()
 
+      // Reset trickle ICE state for this new offer
+      remoteDescSet = false
+      pendingCandidates.length = 0
+
       const pc = createPeerConnection()
       pcRef.current = pc
+
+      // Trickle ICE: send our candidates as they arrive
+      pc.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          channel.send({ type: "broadcast", event: "ICE_CANDIDATE_S", payload: candidate.toJSON() })
+        }
+      }
 
       const stream = new MediaStream()
 
@@ -69,12 +93,20 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
 
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(payload))
+        remoteDescSet = true
+
+        // Drain any candidates that arrived before remote desc was set
+        for (const c of pendingCandidates) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(c)) } catch { /* ignore */ }
+        }
+        pendingCandidates.length = 0
+
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
-        await waitForIceGathering(pc)
+
+        // Send answer immediately — don't wait for ICE gathering to complete
         channel.send({ type: "broadcast", event: "ANSWER", payload: pc.localDescription })
       } catch {
-        // If answer creation fails, trigger a fresh offer via READY retry
         scheduleRetry(2000)
       }
     })

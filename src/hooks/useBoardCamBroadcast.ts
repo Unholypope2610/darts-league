@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { getSupabase } from "@/lib/supabase"
-import { createPeerConnection, waitForIceGathering } from "@/lib/webrtc"
+import { createPeerConnection } from "@/lib/webrtc"
 
 type FacingMode = "environment" | "user"
 
@@ -42,8 +42,6 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
 
   const createOffer = useCallback(async () => {
     if (!streamRef.current || !channelRef.current) return
-    // If already building an offer, queue a re-offer for after it completes.
-    // This handles the race where a spectator sends READY during ICE gathering.
     if (isCreatingOfferRef.current) {
       pendingReadyRef.current = true
       return
@@ -54,19 +52,26 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       const pc = createPeerConnection()
       pcRef.current = pc
 
+      // Trickle ICE: send candidates as they arrive instead of waiting for all
+      pc.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          channelRef.current?.send({
+            type: "broadcast",
+            event: "ICE_CANDIDATE_B",
+            payload: candidate.toJSON(),
+          })
+        }
+      }
+
       streamRef.current.getTracks().forEach((t) => pc.addTrack(t, streamRef.current!))
 
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
 
-      // Non-trickle ICE: wait for all candidates to be gathered before sending.
-      // This eliminates race conditions where candidates arrive before setRemoteDescription.
-      await waitForIceGathering(pc)
-
+      // Send offer immediately — don't wait for ICE gathering to complete
       channelRef.current?.send({ type: "broadcast", event: "OFFER", payload: pc.localDescription })
     } finally {
       isCreatingOfferRef.current = false
-      // Run the queued re-offer if a READY arrived while we were gathering
       if (pendingReadyRef.current) {
         pendingReadyRef.current = false
         createOffer()
@@ -113,7 +118,15 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload))
       })
 
-      // Re-offer when a spectator joins after streaming started
+      // Trickle ICE: add spectator's candidates as they arrive
+      channel.on("broadcast", { event: "ICE_CANDIDATE_S" }, async ({ payload }) => {
+        if (pcRef.current && payload) {
+          try {
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(payload))
+          } catch { /* ignore stale candidates */ }
+        }
+      })
+
       channel.on("broadcast", { event: "READY" }, async () => {
         if (!streamRef.current) return
         await createOffer()
