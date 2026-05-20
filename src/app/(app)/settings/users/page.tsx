@@ -166,9 +166,6 @@ export default function UsersSettingsPage() {
         </div>
       ) : null}
 
-      {/* Temp debug — remove once working */}
-      <p className="text-xs text-muted-foreground font-mono">sync: {JSON.stringify(meData)}</p>
-
       {/* Install App */}
       <div className="rounded-xl border border-border p-5 flex flex-col gap-3">
         <div>
