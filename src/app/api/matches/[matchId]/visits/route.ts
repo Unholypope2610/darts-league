@@ -64,7 +64,10 @@ export async function POST(
   let matchDraw = false
 
   if (isCheckout) {
-    const totalDartsThrown = leg.visits.reduce((sum, v) => sum + v.dartsUsed, 0) + dartsUsed
+    // Only count the winning player's darts (not the opponent's)
+    const totalDartsThrown = leg.visits
+      .filter((v) => v.playerId === playerId)
+      .reduce((sum, v) => sum + v.dartsUsed, 0) + dartsUsed
 
     // Mark leg complete
     await prisma.leg.update({

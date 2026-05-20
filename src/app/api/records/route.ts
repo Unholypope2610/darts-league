@@ -26,9 +26,10 @@ export async function GET() {
     prisma.leg.findMany({
       where: { winnerId: { not: null } },
       include: {
-        starter: { select: { id: true, name: true, avatarUrl: true } },
         match: {
           include: {
+            playerA: { select: { id: true, name: true, avatarUrl: true } },
+            playerB: { select: { id: true, name: true, avatarUrl: true } },
             fixture: { include: { competition: { select: { id: true, name: true, season: true } } } },
           },
         },
@@ -58,15 +59,20 @@ export async function GET() {
       }
     : null
 
-  // Best leg (fewest darts to finish)
-  const completedLegs = allLegs.filter((l) => l.winnerId && l.dartsThrown > 0)
+  // Best leg (fewest darts to finish) — 501 legs only
+  const completedLegs = allLegs.filter(
+    (l) => l.winnerId && l.dartsThrown > 0 && l.match.startingScore === 501
+  )
   completedLegs.sort((a, b) => a.dartsThrown - b.dartsThrown)
-  const bestLeg = completedLegs[0]
+  const bestLegEntry = completedLegs[0]
+  const bestLeg = bestLegEntry
     ? {
-        player: completedLegs[0].starter,
-        darts: completedLegs[0].dartsThrown,
-        date: completedLegs[0].createdAt,
-        competition: completedLegs[0].match.fixture?.competition ?? null,
+        player: bestLegEntry.winnerId === bestLegEntry.match.playerAId
+          ? bestLegEntry.match.playerA
+          : bestLegEntry.match.playerB,
+        darts: bestLegEntry.dartsThrown,
+        date: bestLegEntry.createdAt,
+        competition: bestLegEntry.match.fixture?.competition ?? null,
       }
     : null
 
