@@ -63,6 +63,7 @@ interface LiveMatchStore {
   startNewLeg: (starterId: string) => Promise<void>
   applyRemoteVisit: (data: RecordVisitResponse) => void
   applyRemoteLeg: (legId: string, starterId: string) => void
+  editVisit: (visitId: string, newScore: number) => Promise<void>
   reset: () => void
 }
 
@@ -440,6 +441,27 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
       // Announce after state update so speech fires on both devices
       announceVisit(data.visit.scoreThrown, otherRemainder, otherPlayerName, data.isCheckout, data.isBust)
+    },
+
+    editVisit: async (visitId: string, newScore: number) => {
+      const { matchId } = get()
+      if (!matchId) return
+      const res = await fetch(`/api/matches/${matchId}/visits/${visitId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scoreThrown: newScore }),
+      })
+      if (!res.ok) return
+      const { updatedVisits }: { updatedVisits: VisitRecord[] } = await res.json()
+      const updatedMap = new Map(updatedVisits.map((v) => [v.id, v]))
+      set((s) => {
+        s.visits = s.visits.map((v) => updatedMap.get(v.id) ?? v)
+        s.allVisits = s.allVisits.map((v) => updatedMap.get(v.id) ?? v)
+        const aLast = [...s.visits].reverse().find((v) => v.playerId === s.playerA?.id && !v.isBust)
+        const bLast = [...s.visits].reverse().find((v) => v.playerId === s.playerB?.id && !v.isBust)
+        if (aLast) s.playerARemainder = aLast.runningRemainder
+        if (bLast) s.playerBRemainder = bLast.runningRemainder
+      })
     },
 
     applyRemoteLeg: (legId: string, starterId: string) => {

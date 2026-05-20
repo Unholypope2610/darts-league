@@ -78,8 +78,10 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
     visits,
     allVisits,
     isBustDialogOpen,
+    isMatchWon,
     confirmBust,
     startNewLeg,
+    editVisit,
   } = useLiveMatchStore()
 
   // Spectate both players' cams permanently — hooks must be called unconditionally.
@@ -209,6 +211,7 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
           playerBId={playerB.id}
           playerAName={playerA.name}
           playerBName={playerB.name}
+          onEdit={!isMatchWon && !isSpectator ? editVisit : undefined}
         />
       </div>
 

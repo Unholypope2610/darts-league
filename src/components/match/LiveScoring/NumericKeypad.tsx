@@ -50,8 +50,8 @@ export function NumericKeypad() {
 
   return (
     <div className="flex flex-col gap-2 w-full max-w-xs mx-auto select-none">
-      {/* Shortcut buttons */}
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* Shortcut buttons — hidden when in checkout range to enforce dart selection */}
+      {currentRemainder > 170 && <div className="grid grid-cols-4 gap-1.5">
         {SHORTCUTS.map((s) => (
           <button
             key={s}
@@ -66,7 +66,7 @@ export function NumericKeypad() {
             {s}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* Score display */}
       <div className="flex items-center justify-center h-14 rounded-xl bg-muted border border-border">
