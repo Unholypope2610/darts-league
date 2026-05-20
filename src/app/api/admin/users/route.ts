@@ -51,10 +51,16 @@ export async function POST(req: Request) {
 
   const clerk = await clerkClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
-  const invitation = await clerk.invitations.createInvitation({
-    emailAddress: email,
-    ...(appUrl && { redirectUrl: `${appUrl}/dashboard` }),
-  })
 
-  return NextResponse.json({ invitationId: invitation.id, inviteUrl: invitation.url }, { status: 201 })
+  try {
+    const invitation = await clerk.invitations.createInvitation({
+      emailAddress: email,
+      ...(appUrl && { redirectUrl: `${appUrl}/dashboard` }),
+    })
+    return NextResponse.json({ invitationId: invitation.id, inviteUrl: invitation.url }, { status: 201 })
+  } catch (err: unknown) {
+    const clerkErr = err as { errors?: { message: string }[]; message?: string }
+    const message = clerkErr?.errors?.[0]?.message ?? clerkErr?.message ?? "Failed to create invitation"
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
 }

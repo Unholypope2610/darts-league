@@ -106,13 +106,17 @@ export default function UsersSettingsPage() {
   }
 
   const { mutate: sendInvite, isPending: isSending } = useMutation({
-    mutationFn: (email: string) =>
-      fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }).then((r) => r.json()),
+    mutationFn: async (email: string) => {
+      const r = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data?.error ?? "Failed to create invitation")
+      return data
+    },
     onSuccess: (data) => {
       if (data?.inviteUrl) setInviteUrl(data.inviteUrl)
       toast.success(`Invitation created for ${inviteEmail}`)
     },
-    onError: () => toast.error("Failed to send invitation"),
+    onError: (err: Error) => toast.error(err.message || "Failed to send invitation"),
   })
 
   return (
