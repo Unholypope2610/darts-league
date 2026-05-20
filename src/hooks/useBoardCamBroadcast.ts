@@ -23,6 +23,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const pcRef = useRef<RTCPeerConnection | null>(null)
   const channelRef = useRef<ReturnType<ReturnType<typeof getSupabase>["channel"]> | null>(null)
   const isCreatingOfferRef = useRef(false)
+  const pendingReadyRef = useRef(false)
 
   const detectZoom = useCallback((stream: MediaStream) => {
     const track = stream.getVideoTracks()[0]
@@ -41,8 +42,12 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
 
   const createOffer = useCallback(async () => {
     if (!streamRef.current || !channelRef.current) return
-    // Prevent concurrent offer creation (e.g. multiple READY events arriving quickly)
-    if (isCreatingOfferRef.current) return
+    // If already building an offer, queue a re-offer for after it completes.
+    // This handles the race where a spectator sends READY during ICE gathering.
+    if (isCreatingOfferRef.current) {
+      pendingReadyRef.current = true
+      return
+    }
     isCreatingOfferRef.current = true
     try {
       pcRef.current?.close()
@@ -61,6 +66,11 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       channelRef.current?.send({ type: "broadcast", event: "OFFER", payload: pc.localDescription })
     } finally {
       isCreatingOfferRef.current = false
+      // Run the queued re-offer if a READY arrived while we were gathering
+      if (pendingReadyRef.current) {
+        pendingReadyRef.current = false
+        createOffer()
+      }
     }
   }, [])
 
