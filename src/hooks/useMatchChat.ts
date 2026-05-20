@@ -70,7 +70,7 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
     })
 
     channel.on("presence", { event: "join" }, ({ newPresences }) => {
-      for (const presence of newPresences as PresenceUser[]) {
+      for (const presence of newPresences as unknown as PresenceUser[]) {
         if (presence.userId === userId) continue
         const msg: ChatMessage = {
           id: crypto.randomUUID(),
