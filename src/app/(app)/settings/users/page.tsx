@@ -85,13 +85,32 @@ export default function UsersSettingsPage() {
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  function handleInviteClose(open: boolean) {
+    if (!open) {
+      setInviteOpen(false)
+      setInviteEmail("")
+      setInviteUrl(null)
+      setCopied(false)
+    }
+  }
+
+  function copyInviteUrl() {
+    if (!inviteUrl) return
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   const { mutate: sendInvite, isPending: isSending } = useMutation({
     mutationFn: (email: string) =>
       fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) }).then((r) => r.json()),
-    onSuccess: () => {
-      toast.success(`Invitation sent to ${inviteEmail}!`)
-      setInviteEmail("")
-      setInviteOpen(false)
+    onSuccess: (data) => {
+      if (data?.inviteUrl) setInviteUrl(data.inviteUrl)
+      toast.success(`Invitation created for ${inviteEmail}`)
     },
     onError: () => toast.error("Failed to send invitation"),
   })
@@ -189,26 +208,41 @@ export default function UsersSettingsPage() {
       </div>
 
       {/* Invite dialog */}
-      <Dialog open={inviteOpen} onOpenChange={(o) => !o && setInviteOpen(false)}>
+      <Dialog open={inviteOpen} onOpenChange={handleInviteClose}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Invite a Player</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <Input
-              type="email"
-              placeholder="player@example.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-            />
-            <Button
-              onClick={() => sendInvite(inviteEmail)}
-              disabled={isSending || !inviteEmail}
-              className="w-full"
-            >
-              {isSending ? "Sending…" : "Send Invitation"}
-            </Button>
-          </div>
+          {inviteUrl ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                Invitation created. Copy the link below and send it via WhatsApp or iMessage — the email may not always arrive.
+              </p>
+              <div className="rounded-lg bg-muted px-3 py-2 text-xs break-all text-muted-foreground font-mono select-all">
+                {inviteUrl}
+              </div>
+              <Button onClick={copyInviteUrl} className="w-full">
+                {copied ? "Copied!" : "Copy Link"}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <Input
+                type="email"
+                placeholder="player@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && inviteEmail) sendInvite(inviteEmail) }}
+              />
+              <Button
+                onClick={() => sendInvite(inviteEmail)}
+                disabled={isSending || !inviteEmail}
+                className="w-full"
+              >
+                {isSending ? "Creating…" : "Create Invitation"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

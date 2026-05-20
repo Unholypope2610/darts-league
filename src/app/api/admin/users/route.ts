@@ -56,5 +56,5 @@ export async function POST(req: Request) {
     ...(appUrl && { redirectUrl: `${appUrl}/dashboard` }),
   })
 
-  return NextResponse.json({ invitationId: invitation.id }, { status: 201 })
+  return NextResponse.json({ invitationId: invitation.id, inviteUrl: invitation.url }, { status: 201 })
 }
