@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server"
-import { currentUser } from "@clerk/nextjs/server"
+import { auth, clerkClient } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 
-// Called on app load to ensure the current Clerk user has a DB record.
-// Creates the record if missing, using ADMIN_EMAIL to assign role.
 export async function POST() {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const clerk = await clerkClient()
+  const clerkUser = await clerk.users.getUser(userId)
   const email = clerkUser.emailAddresses[0]?.emailAddress ?? ""
-  const role = email === process.env.ADMIN_EMAIL ? "ADMIN" : "PLAYER"
+  const adminEmail = process.env.ADMIN_EMAIL ?? ""
+  const role = email.toLowerCase() === adminEmail.toLowerCase() ? "ADMIN" : "PLAYER"
 
   const user = await prisma.user.upsert({
-    where: { id: clerkUser.id },
+    where: { id: userId },
     update: { email },
-    create: { id: clerkUser.id, email, role },
+    create: { id: userId, email, role },
   })
 
-  return NextResponse.json({ id: user.id, email: user.email, role: user.role })
+  return NextResponse.json({ id: user.id, email: user.email, role: user.role, debug_email: email, debug_admin: adminEmail })
 }
