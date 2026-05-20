@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import { Download } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -43,6 +44,28 @@ export default function UsersSettingsPage() {
     },
     onError: () => toast.error("Failed to update user"),
   })
+
+  const [installEvent, setInstallEvent] = useState<null | { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }>(null)
+  const [isIOS, setIsIOS] = useState(false)
+  const [installed, setInstalled] = useState(false)
+
+  useEffect(() => {
+    if (window.matchMedia("(display-mode: standalone)").matches) { setInstalled(true); return }
+    setIsIOS(/iphone|ipad|ipod/i.test(navigator.userAgent))
+    const handler = (e: Event) => { e.preventDefault(); setInstallEvent(e as never) }
+    window.addEventListener("beforeinstallprompt", handler)
+    window.addEventListener("appinstalled", () => setInstalled(true))
+    return () => window.removeEventListener("beforeinstallprompt", handler)
+  }, [])
+
+  async function handleInstall() {
+    if (installEvent) {
+      await installEvent.prompt()
+      const { outcome } = await installEvent.userChoice
+      if (outcome === "accepted") setInstalled(true)
+      setInstallEvent(null)
+    }
+  }
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
@@ -123,6 +146,26 @@ export default function UsersSettingsPage() {
           </table>
         </div>
       )}
+
+      {/* Install App */}
+      <div className="rounded-xl border border-border p-5 flex flex-col gap-3">
+        <div>
+          <p className="font-semibold">Install App</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Add Darts League to your home screen for a full-screen experience with no browser chrome.</p>
+        </div>
+        {installed ? (
+          <p className="text-sm text-emerald-400">Already installed</p>
+        ) : installEvent ? (
+          <Button onClick={handleInstall} className="w-fit gap-2">
+            <Download className="w-4 h-4" />
+            Install App
+          </Button>
+        ) : isIOS ? (
+          <p className="text-sm text-muted-foreground">On iPhone: tap the <strong className="text-foreground">Share</strong> button in Safari → <strong className="text-foreground">"Add to Home Screen"</strong></p>
+        ) : (
+          <p className="text-sm text-muted-foreground">In Chrome: click the <strong className="text-foreground">install icon (⊕)</strong> in the address bar, or open the browser menu → <strong className="text-foreground">"Install Darts League"</strong></p>
+        )}
+      </div>
 
       {/* Invite dialog */}
       <Dialog open={inviteOpen} onOpenChange={(o) => !o && setInviteOpen(false)}>

@@ -5,7 +5,6 @@ import { Sun, Moon, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
-import { InstallPrompt } from "@/components/shared/InstallPrompt"
 
 function ActiveCompetitionsBadge() {
   const { data } = useQuery({
@@ -36,8 +35,7 @@ export function TopBar() {
   return (
     <header className="flex items-center justify-between px-4 md:px-6 h-14 border-b border-border shrink-0">
       <ActiveCompetitionsBadge />
-      <div className="ml-auto flex items-center gap-2 relative">
-        <InstallPrompt />
+      <div className="ml-auto flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
