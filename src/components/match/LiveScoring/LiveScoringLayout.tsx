@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef, useEffect } from "react"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { useBoardCamSpectate } from "@/hooks/useBoardCamSpectate"
 import { PlayerPanel } from "./PlayerPanel"
@@ -12,6 +13,34 @@ type Role = "playerA" | "playerB" | "spectator"
 
 interface LiveScoringLayoutProps {
   myRole: Role
+}
+
+function CamFeedPanel({ stream, label }: { stream: MediaStream | null; label: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    if (!ref.current) return
+    ref.current.srcObject = stream
+    if (stream) ref.current.play().catch(() => {})
+  }, [stream])
+
+  return (
+    <div className="relative w-full rounded-2xl overflow-hidden bg-black aspect-video">
+      <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" />
+      {!stream && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-xs text-muted-foreground text-center px-4">
+            No cam signal — start cam on {label}&apos;s device
+          </p>
+        </div>
+      )}
+      {stream && (
+        <span className="absolute bottom-2 left-3 text-xs font-semibold text-white/70 drop-shadow">
+          {label}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
@@ -33,8 +62,7 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
     startNewLeg,
   } = useLiveMatchStore()
 
-  // Spectate both players' cams permanently — cams stay on the whole match.
-  // Hooks must be called unconditionally before any early return.
+  // Spectate both players' cams permanently — hooks must be called unconditionally.
   const { remoteStream: playerACamStream } = useBoardCamSpectate(matchId ?? "", playerA?.id ?? "")
   const { remoteStream: playerBCamStream } = useBoardCamSpectate(matchId ?? "", playerB?.id ?? "")
 
@@ -74,14 +102,18 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
 
   const isAActive = currentTurnPlayerId === playerA.id
 
-  // The throwing player's cam shows in their OWN (active) panel.
-  const panelACamStream = isAActive ? playerACamStream : null
-  const panelBCamStream = !isAActive ? playerBCamStream : null
+  // Is the current viewer the one who is throwing right now?
+  const isMyTurn =
+    (myRole === "playerA" && isAActive) || (myRole === "playerB" && !isAActive)
+
+  // The throwing player's cam feed — shown in the keypad area when not your turn
+  const activeCamStream = isAActive ? playerACamStream : playerBCamStream
+  const throwingPlayerName = isAActive ? playerA.name : playerB.name
 
   const isBustA = isBustDialogOpen && isAActive
   const isBustB = isBustDialogOpen && !isAActive
 
-  // Players can control their own panel; spectators have no controls
+  // Each player can only control their own cam panel
   const canControlA = myRole === "playerA"
   const canControlB = myRole === "playerB"
 
@@ -110,7 +142,6 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
             isBust={isBustA}
             visits={visits}
             allVisits={allVisits}
-            camStream={panelACamStream}
             canControl={canControlA}
           />
           <PlayerPanel
@@ -125,7 +156,6 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
             isBust={isBustB}
             visits={visits}
             allVisits={allVisits}
-            camStream={panelBCamStream}
             canControl={canControlB}
           />
         </div>
@@ -144,8 +174,13 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
           </div>
         )}
 
-        {/* Keypad — hidden for spectators */}
-        {!isBustDialogOpen && !isSpectator && <NumericKeypad />}
+        {/* Keypad — only shown when it's this viewer's turn */}
+        {!isBustDialogOpen && isMyTurn && <NumericKeypad />}
+
+        {/* Cam feed — shown when watching opponent throw, or spectating */}
+        {!isBustDialogOpen && (!isMyTurn || isSpectator) && (
+          <CamFeedPanel stream={activeCamStream} label={throwingPlayerName} />
+        )}
 
         {/* Leg history */}
         <LegHistory

@@ -22,9 +22,7 @@ interface PlayerPanelProps {
   isBust: boolean
   visits: VisitRecord[]
   allVisits: VisitRecord[]
-  /** Remote cam stream for this player's panel (shown when active + not self-broadcasting) */
-  camStream: MediaStream | null
-  /** Whether this viewer can control cam / scoring for this panel */
+  /** Whether this viewer can control cam for this panel */
   canControl?: boolean
   className?: string
 }
@@ -54,7 +52,6 @@ export function PlayerPanel({
   isBust,
   visits,
   allVisits,
-  camStream,
   canControl = false,
   className,
 }: PlayerPanelProps) {
@@ -65,7 +62,6 @@ export function PlayerPanel({
   const { isStreaming, error: camError, localStream, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera } =
     useBoardCamBroadcast(matchId, playerId)
   const localVideoRef = useRef<HTMLVideoElement>(null)
-  const remoteVideoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     const el = localVideoRef.current
@@ -73,18 +69,6 @@ export function PlayerPanel({
     el.srcObject = localStream
     if (localStream) el.play().catch(() => {})
   }, [localStream])
-
-  useEffect(() => {
-    const el = remoteVideoRef.current
-    if (!el) return
-    el.srcObject = camStream
-    if (camStream) el.play().catch(() => {})
-  }, [camStream])
-
-  // Show remote cam in the active panel when nobody on this device is broadcasting
-  const showRemoteCam = isActive && !isStreaming && camStream !== null
-  // Show score/checkout when inactive OR when active but no cam to display
-  const showScore = !isActive || (!isStreaming && camStream === null)
 
   return (
     <div
@@ -109,7 +93,7 @@ export function PlayerPanel({
         <PlayerAvatar name={name} avatarUrl={avatarUrl} size="lg" />
         <span className="font-bold text-base truncate max-w-[120px] text-center">{name}</span>
 
-        {/* Cam controls — only shown when this viewer can control this panel */}
+        {/* Cam controls — only shown when this viewer owns this panel */}
         {canControl && (
           <div className="flex items-center gap-1.5">
             <button
@@ -151,39 +135,21 @@ export function PlayerPanel({
         ))}
       </div>
 
-      {/* Remote cam (spectator / watching player view) — always mounted so srcObject is set before display */}
-      <div className={cn("relative w-full rounded-xl overflow-hidden bg-black", !showRemoteCam && "hidden")}>
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="w-full aspect-square object-cover"
-        />
-        <div className="absolute inset-x-0 bottom-2 flex flex-col items-center pointer-events-none">
-          <span className="font-score text-4xl font-black text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)]">
-            {remainder}
-          </span>
-        </div>
-      </div>
+      {/* Local cam preview — only when this player is actively streaming on this device */}
+      <video
+        ref={localVideoRef}
+        autoPlay
+        playsInline
+        muted
+        className={cn(
+          "w-full aspect-square object-cover rounded-xl bg-black",
+          !(isActive && isStreaming) && "hidden",
+        )}
+      />
 
-      {/* Score area — shown when no cam to display */}
-      {showScore && (
-        <>
-          {/* Active player's own cam preview */}
-          <video
-            ref={localVideoRef}
-            autoPlay
-            playsInline
-            muted
-            className={cn(
-              "w-full aspect-square object-cover rounded-xl bg-black",
-              !(isActive && isStreaming) && "hidden",
-            )}
-          />
-          <ScoreDisplay remainder={remainder} isActive={isActive} isBust={isBust} />
-          <CheckoutSuggestion remainder={remainder} className="w-full" />
-        </>
-      )}
+      {/* Score always visible */}
+      <ScoreDisplay remainder={remainder} isActive={isActive} isBust={isBust} />
+      <CheckoutSuggestion remainder={remainder} className="w-full" />
 
       {/* Zoom slider — shown when broadcasting and device supports zoom */}
       {isStreaming && zoomCapabilities && (
