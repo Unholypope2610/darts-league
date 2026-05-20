@@ -59,6 +59,8 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       streamRef.current = stream
       setLocalStream(stream)
       setFacingMode(facing)
+      setIsStreaming(true)
+      setError(null)
 
       const supabase = getSupabase()
       const channel = supabase.channel(`boardcam:${matchId}:${playerId}`)
@@ -84,8 +86,6 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       channel.subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
           await createOffer()
-          setIsStreaming(true)
-          setError(null)
         }
       })
     } catch {
