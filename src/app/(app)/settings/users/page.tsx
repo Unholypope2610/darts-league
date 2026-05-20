@@ -153,6 +153,10 @@ export default function UsersSettingsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Unlinked</SelectItem>
+                        {/* Include current player even if players list hasn't loaded */}
+                        {user.player && !players.find((p) => p.id === user.player!.id) && (
+                          <SelectItem value={user.player.id}>{user.player.name}</SelectItem>
+                        )}
                         {players.map((p) => (
                           <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))}
