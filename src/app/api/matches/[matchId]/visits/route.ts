@@ -133,6 +133,7 @@ export async function POST(
       visitNumber: visit.visitNumber,
       scoreThrown: visit.scoreThrown,
       dartsUsed: visit.dartsUsed,
+      doublesAttempted: visit.doublesAttempted,
       runningRemainder: visit.runningRemainder,
       isBust: visit.isBust,
       isCheckout: visit.isCheckout,

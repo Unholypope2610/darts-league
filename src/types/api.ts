@@ -94,6 +94,7 @@ export interface VisitRecord {
   visitNumber: number
   scoreThrown: number
   dartsUsed: number
+  doublesAttempted: number
   runningRemainder: number
   isBust: boolean
   isCheckout: boolean
