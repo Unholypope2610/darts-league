@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 import { useLiveMatch } from "@/hooks/useLiveMatch"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { LiveScoringLayout } from "@/components/match/LiveScoring/LiveScoringLayout"
@@ -16,6 +17,14 @@ export default function LiveMatchPage({ params }: PageProps) {
   const router = useRouter()
   const { isLoading, error } = useLiveMatch(matchId)
   const isMatchWon = useLiveMatchStore((s) => s.isMatchWon)
+  const playerA = useLiveMatchStore((s) => s.playerA)
+  const playerB = useLiveMatchStore((s) => s.playerB)
+
+  const { data: me } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
+    staleTime: Infinity,
+  })
 
   // Redirect to summary only if the match was ALREADY complete when the page loaded.
   // Do not redirect when the win happens live — MatchWinReveal needs to play.
@@ -47,5 +56,11 @@ export default function LiveMatchPage({ params }: PageProps) {
     )
   }
 
-  return <LiveScoringLayout />
+  const myPlayerId = me?.playerId ?? null
+  const myRole =
+    myPlayerId && playerA?.id === myPlayerId ? "playerA"
+    : myPlayerId && playerB?.id === myPlayerId ? "playerB"
+    : "spectator"
+
+  return <LiveScoringLayout myRole={myRole} />
 }

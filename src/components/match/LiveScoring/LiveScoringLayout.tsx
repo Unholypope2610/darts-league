@@ -8,7 +8,13 @@ import { LegHistory } from "./LegHistory"
 import { LegWinAnimation } from "./LegWinAnimation"
 import { MatchWinReveal } from "./MatchWinReveal"
 
-export function LiveScoringLayout() {
+type Role = "playerA" | "playerB" | "spectator"
+
+interface LiveScoringLayoutProps {
+  myRole: Role
+}
+
+export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
   const {
     matchId,
     playerA,
@@ -34,37 +40,61 @@ export function LiveScoringLayout() {
 
   if (!playerA || !playerB) return null
 
+  const isSpectator = myRole === "spectator"
+
   if (!currentLegId) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24">
-        <p className="text-muted-foreground text-sm">Who throws first?</p>
-        <div className="flex gap-3">
-          {[playerA, playerB].map((p) => (
-            <button
-              key={p.id}
-              onClick={() => startNewLeg(p.id)}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
+        {isSpectator && (
+          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border uppercase tracking-wider">
+            Spectating
+          </span>
+        )}
+        {!isSpectator ? (
+          <>
+            <p className="text-muted-foreground text-sm">Who throws first?</p>
+            <div className="flex gap-3">
+              {[playerA, playerB].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => startNewLeg(p.id)}
+                  className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-muted-foreground text-sm">Waiting for match to start…</p>
+        )}
       </div>
     )
   }
 
   const isAActive = currentTurnPlayerId === playerA.id
 
-  // The throwing player's cam shows in the WATCHING (inactive) player's panel.
-  // When A throws → B's panel shows A's cam. When B throws → A's panel shows B's cam.
-  const panelACamStream = isAActive ? null : playerBCamStream
-  const panelBCamStream = isAActive ? playerACamStream : null
+  // The throwing player's cam shows in their OWN (active) panel.
+  const panelACamStream = isAActive ? playerACamStream : null
+  const panelBCamStream = !isAActive ? playerBCamStream : null
 
   const isBustA = isBustDialogOpen && isAActive
   const isBustB = isBustDialogOpen && !isAActive
 
+  // Players can control their own panel; spectators have no controls
+  const canControlA = myRole === "playerA"
+  const canControlB = myRole === "playerB"
+
   return (
     <>
+      {isSpectator && (
+        <div className="flex justify-center mb-2">
+          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-muted text-muted-foreground border border-border uppercase tracking-wider">
+            Spectating
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 w-full max-w-2xl mx-auto px-4 pb-8">
         {/* Player panels side by side */}
         <div className="grid grid-cols-2 gap-3">
@@ -80,7 +110,8 @@ export function LiveScoringLayout() {
             isBust={isBustA}
             visits={visits}
             allVisits={allVisits}
-            opponentCamStream={panelACamStream}
+            camStream={panelACamStream}
+            canControl={canControlA}
           />
           <PlayerPanel
             matchId={matchId ?? ""}
@@ -94,12 +125,13 @@ export function LiveScoringLayout() {
             isBust={isBustB}
             visits={visits}
             allVisits={allVisits}
-            opponentCamStream={panelBCamStream}
+            camStream={panelBCamStream}
+            canControl={canControlB}
           />
         </div>
 
-        {/* Bust confirmation */}
-        {isBustDialogOpen && (
+        {/* Bust confirmation — hidden for spectators */}
+        {isBustDialogOpen && !isSpectator && (
           <div className="rounded-xl bg-red-500/10 border border-red-500/40 p-4 flex flex-col items-center gap-3">
             <span className="text-red-400 font-bold text-lg">BUST!</span>
             <p className="text-sm text-muted-foreground text-center">Score exceeds remaining. Turn forfeited.</p>
@@ -112,8 +144,8 @@ export function LiveScoringLayout() {
           </div>
         )}
 
-        {/* Keypad */}
-        {!isBustDialogOpen && <NumericKeypad />}
+        {/* Keypad — hidden for spectators */}
+        {!isBustDialogOpen && !isSpectator && <NumericKeypad />}
 
         {/* Leg history */}
         <LegHistory

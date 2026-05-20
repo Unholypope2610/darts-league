@@ -18,5 +18,5 @@ export async function POST() {
     create: { id: userId, email, role },
   })
 
-  return NextResponse.json({ id: user.id, email: user.email, role: user.role, debug_email: email, debug_admin: adminEmail })
+  return NextResponse.json({ id: user.id, email: user.email, role: user.role, playerId: user.playerId ?? null })
 }

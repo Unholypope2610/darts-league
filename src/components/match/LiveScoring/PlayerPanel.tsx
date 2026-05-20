@@ -22,8 +22,10 @@ interface PlayerPanelProps {
   isBust: boolean
   visits: VisitRecord[]
   allVisits: VisitRecord[]
-  // When provided, replaces the score display with the opponent's cam feed
-  opponentCamStream: MediaStream | null
+  /** Remote cam stream for this player's panel (shown when active + not self-broadcasting) */
+  camStream: MediaStream | null
+  /** Whether this viewer can control cam / scoring for this panel */
+  canControl?: boolean
   className?: string
 }
 
@@ -52,15 +54,16 @@ export function PlayerPanel({
   isBust,
   visits,
   allVisits,
-  opponentCamStream,
+  camStream,
+  canControl = false,
   className,
 }: PlayerPanelProps) {
   const legsNeeded = Math.ceil(bestOf / 2)
   const avg = runningAverage(allVisits, playerId)
   const recent = lastThreeVisits(visits, playerId)
 
-  // Each panel broadcasts its own player's cam (used when this player is throwing)
-  const { isStreaming, error: camError, localStream, start, stop, flipCamera } = useBoardCamBroadcast(matchId, playerId)
+  const { isStreaming, error: camError, localStream, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera } =
+    useBoardCamBroadcast(matchId, playerId)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
 
@@ -74,12 +77,14 @@ export function PlayerPanel({
   useEffect(() => {
     const el = remoteVideoRef.current
     if (!el) return
-    el.srcObject = opponentCamStream
-    if (opponentCamStream) el.play().catch(() => {})
-  }, [opponentCamStream])
+    el.srcObject = camStream
+    if (camStream) el.play().catch(() => {})
+  }, [camStream])
 
-  // The inactive panel (this player is watching) shows the opponent's cam
-  const showOpponentCam = !isActive && opponentCamStream !== null
+  // Show remote cam in the active panel when nobody on this device is broadcasting
+  const showRemoteCam = isActive && !isStreaming && camStream !== null
+  // Show score/checkout when inactive OR when active but no cam to display
+  const showScore = !isActive || (!isStreaming && camStream === null)
 
   return (
     <div
@@ -104,30 +109,32 @@ export function PlayerPanel({
         <PlayerAvatar name={name} avatarUrl={avatarUrl} size="lg" />
         <span className="font-bold text-base truncate max-w-[120px] text-center">{name}</span>
 
-        {/* Cam toggle — always visible so either player can start before/during match */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={isStreaming ? stop : () => start()}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
-              isStreaming
-                ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
-                : "bg-muted text-foreground border-border hover:bg-muted/60",
-            )}
-          >
-            <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
-            {isStreaming ? "Stop Cam" : "Start Cam"}
-          </button>
-          {isStreaming && (
+        {/* Cam controls — only shown when this viewer can control this panel */}
+        {canControl && (
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={flipCamera}
-              title="Flip camera"
-              className="p-1.5 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
+              onClick={isStreaming ? stop : () => start()}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
+                isStreaming
+                  ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
+                  : "bg-muted text-foreground border-border hover:bg-muted/60",
+              )}
             >
-              <RefreshCw className="w-3 h-3 text-muted-foreground" />
+              <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
+              {isStreaming ? "Stop Cam" : "Start Cam"}
             </button>
-          )}
-        </div>
+            {isStreaming && (
+              <button
+                onClick={flipCamera}
+                title="Flip camera"
+                className="p-1.5 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
+              >
+                <RefreshCw className="w-3 h-3 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+        )}
         {camError && <p className="text-[10px] text-red-400 text-center">{camError}</p>}
       </div>
 
@@ -144,9 +151,8 @@ export function PlayerPanel({
         ))}
       </div>
 
-      {/* Score area OR opponent's cam feed */}
-      {/* Remote cam — always mounted so srcObject is set before display */}
-      <div className={cn("relative w-full rounded-xl overflow-hidden bg-black", !showOpponentCam && "hidden")}>
+      {/* Remote cam (spectator / watching player view) — always mounted so srcObject is set before display */}
+      <div className={cn("relative w-full rounded-xl overflow-hidden bg-black", !showRemoteCam && "hidden")}>
         <video
           ref={remoteVideoRef}
           autoPlay
@@ -160,22 +166,39 @@ export function PlayerPanel({
         </div>
       </div>
 
-      {!showOpponentCam && (
+      {/* Score area — shown when no cam to display */}
+      {showScore && (
         <>
-          {/* Active player's own cam preview (small, so they can aim) */}
-              <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className={cn(
-                "w-full aspect-square object-cover rounded-xl bg-black",
-                !(isActive && isStreaming) && "hidden",
-              )}
-            />
+          {/* Active player's own cam preview */}
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className={cn(
+              "w-full aspect-square object-cover rounded-xl bg-black",
+              !(isActive && isStreaming) && "hidden",
+            )}
+          />
           <ScoreDisplay remainder={remainder} isActive={isActive} isBust={isBust} />
           <CheckoutSuggestion remainder={remainder} className="w-full" />
         </>
+      )}
+
+      {/* Zoom slider — shown when broadcasting and device supports zoom */}
+      {isStreaming && zoomCapabilities && (
+        <div className="w-full flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={zoomCapabilities.min}
+            max={zoomCapabilities.max}
+            step={zoomCapabilities.step}
+            value={zoomLevel}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="w-full accent-emerald-500"
+          />
+        </div>
       )}
 
       {/* Last 3 visits */}
