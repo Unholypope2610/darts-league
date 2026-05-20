@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { createPlayerSchema } from "@/lib/validations/player.schema"
+import { calculateAverage, count180s, checkoutPercentage, top3Checkouts } from "@/lib/utils/stats"
 
 export async function GET() {
   const { userId } = await auth()
@@ -10,27 +11,32 @@ export async function GET() {
   const players = await prisma.player.findMany({
     orderBy: { name: "asc" },
     include: {
-      matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true } },
-      matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true } },
-      visits: { where: { isBust: false }, select: { scoreThrown: true, dartsUsed: true } },
+      matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true } },
+      matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true } },
+      visits: { select: { scoreThrown: true, dartsUsed: true, isBust: true, isCheckout: true, visitNumber: true, playerId: true, runningRemainder: true } },
     },
   })
 
   const withStats = players.map((p) => {
-    const allMatches = [
-      ...p.matchesAsA.map((m) => m.winnerId),
-      ...p.matchesAsB.map((m) => m.winnerId),
+    const allMatchData = [
+      ...p.matchesAsA.map((m) => ({ winnerId: m.winnerId, startingScore: m.startingScore })),
+      ...p.matchesAsB.map((m) => ({ winnerId: m.winnerId, startingScore: m.startingScore })),
     ]
-    const won = allMatches.filter((w) => w === p.id).length
-    const lost = allMatches.filter((w) => w !== null && w !== p.id).length
-    const drawn = allMatches.filter((w) => w === null).length
+    const won = allMatchData.filter((m) => m.winnerId === p.id).length
+    const lost = allMatchData.filter((m) => m.winnerId !== null && m.winnerId !== p.id).length
+    const drawn = allMatchData.filter((m) => m.winnerId === null).length
 
-    const totalScore = p.visits.reduce((s, v) => s + v.scoreThrown, 0)
-    const totalDarts = p.visits.reduce((s, v) => s + v.dartsUsed, 0)
-    const average = totalDarts > 0 ? (totalScore / totalDarts) * 3 : 0
+    // Use the most common startingScore (or 501 as fallback)
+    const startingScore = allMatchData[0]?.startingScore ?? 501
+    const visits = p.visits.map((v) => ({ ...v, playerId: p.id }))
+
+    const average = parseFloat(calculateAverage(visits).toFixed(2))
+    const coPercent = checkoutPercentage(visits, startingScore)
+    const c180s = count180s(visits)
+    const topCO = top3Checkouts(visits)
 
     const { matchesAsA: _a, matchesAsB: _b, visits: _v, ...rest } = p
-    return { ...rest, won, lost, drawn, average: Math.round(average * 100) / 100 }
+    return { ...rest, won, lost, drawn, average, checkoutPercentage: coPercent, count180s: c180s, topCheckouts: topCO }
   })
 
   return NextResponse.json(withStats)

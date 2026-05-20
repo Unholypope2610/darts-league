@@ -47,6 +47,27 @@ export function PlayerCard({ player }: PlayerCardProps) {
           <span className="font-score font-bold text-sm text-red-400">{player.lost}</span>
         </div>
       </div>
+
+      {/* Badges row */}
+      {(player.count180s > 0 || player.topCheckouts.length > 0 || player.checkoutPercentage > 0) && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {player.count180s > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              180 ×{player.count180s}
+            </span>
+          )}
+          {player.topCheckouts.map((c, i) => (
+            <span key={i} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              {c}
+            </span>
+          ))}
+          {player.checkoutPercentage > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {player.checkoutPercentage.toFixed(1)}% CO
+            </span>
+          )}
+        </div>
+      )}
     </Link>
   )
 }

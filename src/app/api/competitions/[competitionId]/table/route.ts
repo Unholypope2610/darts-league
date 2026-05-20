@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import type { LeagueTableRow } from "@/types/table"
-import { calculateAverage } from "@/lib/utils/stats"
+import { calculateAverage, checkoutPercentage } from "@/lib/utils/stats"
 
 export async function GET(
   req: Request,
@@ -64,6 +64,7 @@ export async function GET(
         legsAgainst: 0,
         legDifference: 0,
         average: 0,
+        checkoutPercentage: 0,
         points: 0,
         form: [],
       })
@@ -107,12 +108,13 @@ export async function GET(
       void aVisits; void bVisits
     }
 
-    // Recalculate averages from all visits across all matches
+    // Recalculate averages and checkout% from all visits across all matches
     for (const [pid, row] of rowMap) {
       const allVisitsForPlayer = fixtures.flatMap((f) =>
         f.match?.legs.flatMap((l) => l.visits.filter((v) => v.playerId === pid)) ?? [],
       )
       row.average = parseFloat(calculateAverage(allVisitsForPlayer).toFixed(2))
+      row.checkoutPercentage = checkoutPercentage(allVisitsForPlayer, competition.startingScore)
       row.legDifference = row.legsFor - row.legsAgainst
       // Keep only last 5 form entries
       row.form = row.form.slice(-5)

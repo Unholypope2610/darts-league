@@ -42,6 +42,12 @@ interface LiveMatchStore {
   error: string | null
   undoStack: string[]
 
+  // Realtime broadcast injected by useLiveMatch hook
+  _broadcast: ((event: string, payload: unknown) => void) | null
+
+  // Keypad — doubles attempted (separate from dartsUsedThisVisit)
+  doublesAttempted: number
+
   // Actions
   hydrate: (match: MatchWithLegs) => void
   inputDigit: (digit: string) => void
@@ -49,6 +55,7 @@ interface LiveMatchStore {
   clearInput: () => void
   backspace: () => void
   setDartsUsed: (n: number) => void
+  setDoublesAttempted: (n: number) => void
   submitVisit: () => Promise<void>
   undoLastVisit: () => Promise<void>
   confirmBust: () => void
@@ -77,6 +84,7 @@ const initialState = {
   allVisits: [],
   dartInput: "",
   dartsUsedThisVisit: 3,
+  doublesAttempted: 1,
   isBustDialogOpen: false,
   isLegWinAnimating: false,
   legWinnerId: null,
@@ -87,6 +95,7 @@ const initialState = {
   isSubmitting: false,
   error: null,
   undoStack: [],
+  _broadcast: null,
 }
 
 export const useLiveMatchStore = create<LiveMatchStore>()(
@@ -181,6 +190,12 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       })
     },
 
+    setDoublesAttempted: (n: number) => {
+      set((state) => {
+        state.doublesAttempted = n
+      })
+    },
+
     submitVisit: async () => {
       const state = get()
       if (!state.matchId || !state.currentLegId || !state.currentTurnPlayerId) return
@@ -203,6 +218,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             playerId: state.currentTurnPlayerId,
             scoreThrown: score,
             dartsUsed: state.dartsUsedThisVisit,
+            doublesAttempted: state.doublesAttempted,
           }),
         })
 
@@ -227,6 +243,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         set((s) => {
           s.dartInput = ""
           s.dartsUsedThisVisit = 3
+          s.doublesAttempted = 1
           s.isSubmitting = false
           s.visits.push(data.visit)
           s.allVisits.push(data.visit)
@@ -266,6 +283,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             s.isMatchDraw = data.isMatchDraw
           }
         })
+
+        // Broadcast to other devices AFTER local state is already updated
+        get()._broadcast?.("VISIT_RECORDED", data)
 
         // Announce match win after the leg animation plays out
         if (data.matchWinnerId) {
@@ -365,15 +385,24 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           s.isLegWinAnimating = false
           s.legWinnerId = null
         })
+
+        // Broadcast to other devices AFTER local state is already updated
+        get()._broadcast?.("LEG_STARTED", { legId: leg.id, starterId })
       } catch {
         set((s) => { s.isSubmitting = false })
       }
     },
 
     applyRemoteVisit: (data: RecordVisitResponse) => {
-      set((state) => {
-        if (state.visits.some((v) => v.id === data.visit.id)) return
+      const preState = get()
+      if (preState.visits.some((v) => v.id === data.visit.id)) return
 
+      // Capture speech data before state mutation
+      const isPlayerA = data.visit.playerId === preState.playerA?.id
+      const otherRemainder = isPlayerA ? preState.playerBRemainder : preState.playerARemainder
+      const otherPlayerName = isPlayerA ? (preState.playerB?.name ?? "") : (preState.playerA?.name ?? "")
+
+      set((state) => {
         state.visits.push(data.visit)
         state.allVisits.push(data.visit)
 
@@ -382,7 +411,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           return
         }
 
-        const isPlayerA = data.visit.playerId === state.playerA?.id
         if (isPlayerA) state.playerARemainder = data.newRemainder
         else state.playerBRemainder = data.newRemainder
 
@@ -409,6 +437,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           state.isMatchDraw = data.isMatchDraw
         }
       })
+
+      // Announce after state update so speech fires on both devices
+      announceVisit(data.visit.scoreThrown, otherRemainder, otherPlayerName, data.isCheckout, data.isBust)
     },
 
     applyRemoteLeg: (legId: string, starterId: string) => {

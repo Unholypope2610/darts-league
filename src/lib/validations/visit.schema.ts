@@ -5,6 +5,7 @@ export const recordVisitSchema = z.object({
   playerId: z.string(),
   scoreThrown: z.number().int().min(0).max(180),
   dartsUsed: z.number().int().min(1).max(3).default(3),
+  doublesAttempted: z.number().int().min(1).max(3).default(1),
 })
 
 export const startMatchSchema = z.object({

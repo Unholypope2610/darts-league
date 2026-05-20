@@ -147,6 +147,7 @@ model Visit {
   visitNumber      Int
   scoreThrown      Int
   dartsUsed        Int
+  doublesAttempted Int      @default(1)
   runningRemainder Int
   isBust           Boolean  @default(false)
   isCheckout       Boolean  @default(false)

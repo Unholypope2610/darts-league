@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 export async function POST(
   req: Request,
@@ -26,13 +25,6 @@ export async function POST(
       legNumber: legCount + 1,
       starterId,
     },
-  })
-
-  const supabase = createServerSupabaseClient()
-  await supabase.channel(`match:${matchId}`).send({
-    type: "broadcast",
-    event: "LEG_STARTED",
-    payload: { legId: leg.id, starterId },
   })
 
   return NextResponse.json(leg, { status: 201 })

@@ -7,6 +7,7 @@ import { useLiveMatch } from "@/hooks/useLiveMatch"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { LiveScoringLayout } from "@/components/match/LiveScoring/LiveScoringLayout"
 import { Skeleton } from "@/components/ui/skeleton"
+import { prewarmSpeech } from "@/lib/utils/speech"
 
 type Role = "playerA" | "playerB" | "spectator"
 
@@ -34,6 +35,7 @@ export default function LiveMatchPage({ params }: PageProps) {
   })
 
   function handleRoleSelect(role: Role) {
+    prewarmSpeech()
     sessionStorage.setItem(`match-role-${matchId}`, role)
     setSessionRole(role)
   }

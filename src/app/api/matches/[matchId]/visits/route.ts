@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
-import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { recordVisitSchema } from "@/lib/validations/visit.schema"
 import { getNewRemainder, isMatchOver, isMatchDraw, matchWinner } from "@/lib/utils/darts"
 import type { RecordVisitResponse } from "@/types/api"
@@ -20,7 +19,7 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { legId, playerId, scoreThrown, dartsUsed } = parsed.data
+  const { legId, playerId, scoreThrown, dartsUsed, doublesAttempted } = parsed.data
 
   const match = await prisma.match.findUnique({ where: { id: matchId } })
   if (!match) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -53,6 +52,7 @@ export async function POST(
       visitNumber,
       scoreThrown,
       dartsUsed,
+      doublesAttempted: isCheckout ? doublesAttempted : 1,
       runningRemainder,
       isBust,
       isCheckout,
@@ -144,13 +144,6 @@ export async function POST(
     isMatchDraw: matchDraw,
     newRemainder: runningRemainder,
   }
-
-  const supabase = createServerSupabaseClient()
-  await supabase.channel(`match:${matchId}`).send({
-    type: "broadcast",
-    event: "VISIT_RECORDED",
-    payload: response,
-  })
 
   return NextResponse.json(response)
 }

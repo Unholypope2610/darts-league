@@ -5,6 +5,7 @@ export interface VisitForStats {
   isCheckout: boolean
   visitNumber: number
   playerId: string
+  runningRemainder: number
 }
 
 export function calculateAverage(visits: VisitForStats[]): number {
@@ -58,8 +59,30 @@ export function bestLeg(legs: LegForStats[], playerId: string): number | null {
   return Math.min(...won.map((l) => l.dartsThrown))
 }
 
-export function checkoutPercentage(visits: VisitForStats[]): number {
-  const checkouts = visits.filter((v) => v.isCheckout)
-  if (visits.length === 0) return 0
-  return (checkouts.length / visits.length) * 100
+export function checkoutPercentage(visits: VisitForStats[], startingScore: number): number {
+  const byPlayer = new Map<string, VisitForStats[]>()
+  for (const v of visits) {
+    if (!byPlayer.has(v.playerId)) byPlayer.set(v.playerId, [])
+    byPlayer.get(v.playerId)!.push(v)
+  }
+  let attempts = 0
+  let checkouts = 0
+  for (const playerVisits of byPlayer.values()) {
+    const sorted = [...playerVisits].sort((a, b) => a.visitNumber - b.visitNumber)
+    let prevRemainder = startingScore
+    for (const v of sorted) {
+      if (prevRemainder <= 170) attempts++
+      if (v.isCheckout) checkouts++
+      if (!v.isBust) prevRemainder = v.runningRemainder
+    }
+  }
+  return attempts === 0 ? 0 : Math.round((checkouts / attempts) * 1000) / 10
+}
+
+export function top3Checkouts(visits: VisitForStats[]): number[] {
+  return visits
+    .filter((v) => v.isCheckout)
+    .map((v) => v.scoreThrown)
+    .sort((a, b) => b - a)
+    .slice(0, 3)
 }

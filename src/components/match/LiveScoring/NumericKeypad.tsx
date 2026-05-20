@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { cn } from "@/lib/utils/cn"
 import { useLiveMatchStore } from "@/stores/live-match.store"
+import { prewarmSpeech } from "@/lib/utils/speech"
 
 const SHORTCUTS = [26, 41, 45, 60, 85, 100, 140, 180]
 const DIGITS = ["7", "8", "9", "4", "5", "6", "1", "2", "3"]
@@ -12,9 +13,20 @@ export function NumericKeypad() {
     dartInput, inputDigit, inputShortcut, clearInput, backspace,
     submitVisit, undoLastVisit, isSubmitting,
     dartsUsedThisVisit, setDartsUsed,
+    doublesAttempted, setDoublesAttempted,
     playerARemainder, playerBRemainder, currentTurnPlayerId, playerA,
     undoStack,
   } = useLiveMatchStore()
+
+  const hasPrewarmedRef = useRef(false)
+
+  function handlePress(fn: () => void) {
+    if (!hasPrewarmedRef.current) {
+      prewarmSpeech()
+      hasPrewarmedRef.current = true
+    }
+    fn()
+  }
 
   const currentRemainder = currentTurnPlayerId === playerA?.id ? playerARemainder : playerBRemainder
   const enteredScore = dartInput === "" ? null : parseInt(dartInput, 10)
@@ -43,7 +55,7 @@ export function NumericKeypad() {
         {SHORTCUTS.map((s) => (
           <button
             key={s}
-            onClick={() => inputShortcut(s, s === 180 ? 3 : 3)}
+            onClick={() => handlePress(() => inputShortcut(s, 3))}
             className={cn(
               "py-2 rounded-lg text-sm font-bold transition-all",
               "bg-muted hover:bg-primary/20 hover:text-primary active:scale-95",
@@ -72,7 +84,7 @@ export function NumericKeypad() {
         {DIGITS.map((d) => (
           <button
             key={d}
-            onClick={() => inputDigit(d)}
+            onClick={() => handlePress(() => inputDigit(d))}
             className={cn(
               "h-14 rounded-xl text-xl font-bold transition-all",
               "bg-muted hover:bg-muted/80 active:scale-95 active:bg-primary/10",
@@ -115,26 +127,48 @@ export function NumericKeypad() {
         </button>
       </div>
 
-      {/* Darts used selector — only shown when entering a checkout */}
+      {/* Darts used + Darts at double selectors — only shown on checkout */}
       {isCheckoutAttempt && (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground shrink-0">Darts used:</span>
-          <div className="flex gap-1 flex-1">
-            {[1, 2, 3].map((n) => (
-              <button
-                key={n}
-                onClick={() => setDartsUsed(n)}
-                className={cn(
-                  "flex-1 py-1.5 rounded-lg text-sm font-bold transition-all touch-manipulation",
-                  dartsUsedThisVisit === n
-                    ? "bg-emerald-500 text-black"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80",
-                )}
-                style={{ touchAction: "manipulation" }}
-              >
-                {n}
-              </button>
-            ))}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground shrink-0 w-20">Darts used:</span>
+            <div className="flex gap-1 flex-1">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setDartsUsed(n)}
+                  className={cn(
+                    "flex-1 py-1.5 rounded-lg text-sm font-bold transition-all touch-manipulation",
+                    dartsUsedThisVisit === n
+                      ? "bg-emerald-500 text-black"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                  )}
+                  style={{ touchAction: "manipulation" }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground shrink-0 w-20">At double:</span>
+            <div className="flex gap-1 flex-1">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setDoublesAttempted(n)}
+                  className={cn(
+                    "flex-1 py-1.5 rounded-lg text-sm font-bold transition-all touch-manipulation",
+                    doublesAttempted === n
+                      ? "bg-emerald-500 text-black"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                  )}
+                  style={{ touchAction: "manipulation" }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

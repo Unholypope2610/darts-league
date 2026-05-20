@@ -30,6 +30,9 @@ export interface Player {
   lost: number
   drawn: number
   average: number
+  checkoutPercentage: number
+  count180s: number
+  topCheckouts: number[]
 }
 
 export interface LeagueTableRow {
@@ -44,6 +47,7 @@ export interface LeagueTableRow {
   legsAgainst: number
   legDifference: number
   average: number
+  checkoutPercentage: number
   points: number
   form: ("W" | "D" | "L")[]
 }

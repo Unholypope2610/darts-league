@@ -35,6 +35,7 @@ export function LeagueTable({
             <th className="text-center px-2 py-3 font-medium text-muted-foreground w-12">LA</th>
             <th className="text-center px-2 py-3 font-medium text-muted-foreground w-12">LD</th>
             <th className="text-center px-2 py-3 font-medium text-muted-foreground w-16 hidden sm:table-cell">Avg</th>
+            <th className="text-center px-2 py-3 font-medium text-muted-foreground w-14 hidden sm:table-cell">CO%</th>
             <th className="text-center px-2 py-3 font-medium text-muted-foreground w-10">Pts</th>
             <th className="text-left px-3 py-3 font-medium text-muted-foreground hidden md:table-cell">Form</th>
           </tr>
@@ -79,6 +80,9 @@ export function LeagueTable({
                 <td className="px-2 py-3 text-center font-mono hidden sm:table-cell">
                   {formatAverage(row.average)}
                 </td>
+                <td className="px-2 py-3 text-center font-mono hidden sm:table-cell">
+                  {row.checkoutPercentage > 0 ? `${row.checkoutPercentage.toFixed(1)}%` : "—"}
+                </td>
                 <td className="px-2 py-3 text-center font-bold font-mono">{row.points}</td>
                 <td className="px-3 py-3 hidden md:table-cell">
                   <FormDots form={row.form} />
@@ -89,7 +93,7 @@ export function LeagueTable({
 
           {rows.length === 0 && (
             <tr>
-              <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground text-sm">
+              <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground text-sm">
                 No fixtures played yet
               </td>
             </tr>

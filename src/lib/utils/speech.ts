@@ -11,6 +11,8 @@ function getVoice(): SpeechSynthesisVoice | null {
 }
 
 function speak(text: string, rate = 0.88, pitch = 1.0) {
+  // iOS pauses synthesis when app loses focus; resume before speaking
+  window.speechSynthesis.resume()
   const u = new SpeechSynthesisUtterance(text)
   u.rate = rate
   u.pitch = pitch
@@ -18,6 +20,16 @@ function speak(text: string, rate = 0.88, pitch = 1.0) {
   const v = getVoice()
   if (v) u.voice = v
   window.speechSynthesis.speak(u)
+}
+
+// Call this inside a synchronous user-gesture handler to unlock iOS speech synthesis
+export function prewarmSpeech() {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  const u = new SpeechSynthesisUtterance("")
+  u.volume = 0
+  window.speechSynthesis.speak(u)
+  // Trigger voice list load so getVoice() has voices ready
+  window.speechSynthesis.getVoices()
 }
 
 function scoreToCall(score: number): string {

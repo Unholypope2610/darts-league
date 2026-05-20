@@ -38,9 +38,19 @@ export function useLiveMatch(matchId: string) {
       .on("broadcast", { event: "LEG_STARTED" }, ({ payload }) => {
         applyRemoteLeg(payload.legId as string, payload.starterId as string)
       })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          useLiveMatchStore.setState({
+            _broadcast: (event, payload) =>
+              channel.send({ type: "broadcast", event, payload }),
+          })
+        }
+      })
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      useLiveMatchStore.setState({ _broadcast: null })
+      supabase.removeChannel(channel)
+    }
   }, [matchId, applyRemoteVisit, applyRemoteLeg])
 
   useEffect(() => {
