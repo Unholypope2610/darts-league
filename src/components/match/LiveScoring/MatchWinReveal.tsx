@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "framer-motion"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
@@ -9,8 +10,16 @@ import { calculateAverage, count180s, highestCheckout, doublesPercentage } from 
 
 export function MatchWinReveal() {
   const router = useRouter()
-  const { isMatchWon, isMatchDraw, winnerId, playerA, playerB, playerALegsWon, playerBLegsWon, allVisits } =
+  const qc = useQueryClient()
+  const { isMatchWon, isMatchDraw, winnerId, playerA, playerB, playerALegsWon, playerBLegsWon, allVisits, matchId } =
     useLiveMatchStore()
+
+  function handleBack() {
+    qc.invalidateQueries({ queryKey: ["casual-matches"] })
+    qc.invalidateQueries({ queryKey: ["fixtures"] })
+    if (matchId) qc.invalidateQueries({ queryKey: ["match", matchId] })
+    router.back()
+  }
 
   const winner = winnerId === playerA?.id ? playerA : playerB
   const loser = winnerId === playerA?.id ? playerB : playerA
@@ -134,7 +143,7 @@ export function MatchWinReveal() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.9 }}
-            onClick={() => router.back()}
+            onClick={handleBack}
             className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
           >
             Back to Fixtures
