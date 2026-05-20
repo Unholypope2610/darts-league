@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { formatDistanceToNow } from "date-fns"
-import { Swords, Trophy, Clock } from "lucide-react"
+import { Swords, Trophy, Clock, RotateCcw, XCircle } from "lucide-react"
 import type { Player } from "@/types/api"
 
 interface CasualMatch {
@@ -21,6 +21,7 @@ interface CasualMatch {
   playerBScore: number
   bestOf: number
   startingScore: number
+  finishType: string
   startedAt: string
   completedAt: string | null
 }
@@ -177,57 +178,150 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
 }
 
 function MatchCard({ match }: { match: CasualMatch }) {
+  const router = useRouter()
+  const qc = useQueryClient()
   const isLive = !match.completedAt
   const winnerIsA = match.winner?.id === match.playerA.id
+  const [confirm, setConfirm] = useState<"abandon" | "restart" | null>(null)
+
+  const { mutate: abandon, isPending: isAbandoning } = useMutation({
+    mutationFn: () =>
+      fetch(`/api/matches/${match.id}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["casual-matches"] })
+      toast.success("Match abandoned")
+      setConfirm(null)
+    },
+    onError: () => toast.error("Failed to abandon match"),
+  })
+
+  const { mutate: restart, isPending: isRestarting } = useMutation({
+    mutationFn: async () => {
+      await fetch(`/api/matches/${match.id}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
+      const res = await fetch("/api/matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerAId: match.playerA.id,
+          playerBId: match.playerB.id,
+          bestOf: match.bestOf,
+          startingScore: match.startingScore,
+          finishType: match.finishType,
+          startingPlayerId: match.playerA.id,
+        }),
+      })
+      return res.json()
+    },
+    onSuccess: (newMatch) => {
+      qc.invalidateQueries({ queryKey: ["casual-matches"] })
+      toast.success("Match restarted!")
+      setConfirm(null)
+      router.push(`/matches/${newMatch.id}/live`)
+    },
+    onError: () => toast.error("Failed to restart match"),
+  })
 
   return (
-    <a
-      href={isLive ? `/matches/${match.id}/live` : `/matches/${match.id}`}
-      className="block rounded-xl p-4 transition-all hover:-translate-y-0.5 group"
+    <div
+      className="rounded-xl overflow-hidden transition-all"
       style={{
         background: "rgba(255,255,255,0.03)",
         border: isLive ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.07)",
       }}
     >
-      {isLive && (
-        <div className="flex items-center gap-1.5 mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+      {/* Confirm overlay for abandon / restart */}
+      {confirm && (
+        <div className="p-4 flex flex-col gap-3">
+          <p className="text-sm font-semibold text-white text-center">
+            {confirm === "abandon" ? "Abandon this match?" : "Restart with the same settings?"}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirm(null)}
+              className="flex-1 py-2 rounded-lg text-xs font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => confirm === "abandon" ? abandon() : restart()}
+              disabled={isAbandoning || isRestarting}
+              className="flex-1 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+              style={{ background: confirm === "abandon" ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.2)", color: confirm === "abandon" ? "#f87171" : "#fbbf24" }}
+            >
+              {isAbandoning || isRestarting ? "…" : confirm === "abandon" ? "Yes, abandon" : "Yes, restart"}
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <div className="flex flex-col items-center gap-1 flex-1">
-          <PlayerAvatar name={match.playerA.name} avatarUrl={match.playerA.avatarUrl} size="sm" />
-          <span className={`text-sm font-bold ${winnerIsA && !isLive ? "text-emerald-400" : "text-white"}`}>
-            {match.playerA.name}
-          </span>
-          {!isLive && winnerIsA && <Trophy className="w-3 h-3 text-amber-400" />}
-        </div>
+      {/* Card content */}
+      {!confirm && (
+        <a
+          href={isLive ? `/matches/${match.id}/live` : `/matches/${match.id}`}
+          className="block p-4 hover:-translate-y-0.5 transition-all"
+        >
+          {isLive && (
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+            </div>
+          )}
 
-        <div className="flex flex-col items-center gap-0.5">
-          <div className="flex items-center gap-2">
-            <span className="font-black text-2xl text-white font-score">{match.playerAScore}</span>
-            <span className="text-zinc-600 font-bold">–</span>
-            <span className="font-black text-2xl text-white font-score">{match.playerBScore}</span>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-1 flex-1">
+              <PlayerAvatar name={match.playerA.name} avatarUrl={match.playerA.avatarUrl} size="sm" />
+              <span className={`text-sm font-bold ${winnerIsA && !isLive ? "text-emerald-400" : "text-white"}`}>
+                {match.playerA.name}
+              </span>
+              {!isLive && winnerIsA && <Trophy className="w-3 h-3 text-amber-400" />}
+            </div>
+
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-black text-2xl text-white font-score">{match.playerAScore}</span>
+                <span className="text-zinc-600 font-bold">–</span>
+                <span className="font-black text-2xl text-white font-score">{match.playerBScore}</span>
+              </div>
+              <span className="text-xs text-zinc-600">Bo{match.bestOf} · {match.startingScore}</span>
+            </div>
+
+            <div className="flex flex-col items-center gap-1 flex-1">
+              <PlayerAvatar name={match.playerB.name} avatarUrl={match.playerB.avatarUrl} size="sm" />
+              <span className={`text-sm font-bold ${!winnerIsA && match.winner && !isLive ? "text-emerald-400" : "text-white"}`}>
+                {match.playerB.name}
+              </span>
+              {!isLive && !winnerIsA && match.winner && <Trophy className="w-3 h-3 text-amber-400" />}
+            </div>
           </div>
-          <span className="text-xs text-zinc-600">Bo{match.bestOf} · {match.startingScore}</span>
-        </div>
 
-        <div className="flex flex-col items-center gap-1 flex-1">
-          <PlayerAvatar name={match.playerB.name} avatarUrl={match.playerB.avatarUrl} size="sm" />
-          <span className={`text-sm font-bold ${!winnerIsA && match.winner && !isLive ? "text-emerald-400" : "text-white"}`}>
-            {match.playerB.name}
-          </span>
-          {!isLive && !winnerIsA && match.winner && <Trophy className="w-3 h-3 text-amber-400" />}
-        </div>
-      </div>
+          <div className="flex items-center gap-1 mt-3 text-xs text-zinc-600">
+            <Clock className="w-3 h-3" />
+            {formatDistanceToNow(new Date(match.startedAt), { addSuffix: true })}
+          </div>
+        </a>
+      )}
 
-      <div className="flex items-center gap-1 mt-3 text-xs text-zinc-600">
-        <Clock className="w-3 h-3" />
-        {formatDistanceToNow(new Date(match.startedAt), { addSuffix: true })}
-      </div>
-    </a>
+      {/* Abandon / Restart actions — live matches only */}
+      {isLive && !confirm && (
+        <div className="flex border-t border-white/5">
+          <button
+            onClick={() => setConfirm("abandon")}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            Abandon
+          </button>
+          <div className="w-px bg-white/5" />
+          <button
+            onClick={() => setConfirm("restart")}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-amber-400 hover:bg-amber-500/10 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Restart
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
