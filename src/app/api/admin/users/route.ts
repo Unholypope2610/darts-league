@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   try {
     const invitation = await clerk.invitations.createInvitation({
       emailAddress: email,
-      ...(appUrl && { redirectUrl: `${appUrl}/dashboard` }),
+      ...(appUrl && { redirectUrl: `${appUrl}/sign-up` }),
     })
     return NextResponse.json({ invitationId: invitation.id, inviteUrl: invitation.url }, { status: 201 })
   } catch (err: unknown) {
