@@ -3,9 +3,12 @@
 import { use, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
+import { MessageCircle } from "lucide-react"
 import { useLiveMatch } from "@/hooks/useLiveMatch"
 import { useLiveMatchStore } from "@/stores/live-match.store"
+import { useMatchChat } from "@/hooks/useMatchChat"
 import { LiveScoringLayout } from "@/components/match/LiveScoring/LiveScoringLayout"
+import { MatchChatPanel } from "@/components/match/LiveChat/MatchChatPanel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { prewarmSpeech } from "@/lib/utils/speech"
 
@@ -41,7 +44,6 @@ export default function LiveMatchPage({ params }: PageProps) {
   }
 
   // Redirect to summary only if the match was ALREADY complete when the page loaded.
-  // Do not redirect when the win happens live — MatchWinReveal needs to play.
   const wasAlreadyCompleteRef = useRef<boolean | null>(null)
   useEffect(() => {
     if (!isLoading && wasAlreadyCompleteRef.current === null) {
@@ -49,6 +51,28 @@ export default function LiveMatchPage({ params }: PageProps) {
       if (isMatchWon) router.replace(`/matches/${matchId}`)
     }
   }, [isLoading, isMatchWon, matchId, router])
+
+  const [isChatOpen, setIsChatOpen] = useState(false)
+
+  const myPlayerId = me?.playerId ?? null
+  const derivedRole: Role =
+    myPlayerId && playerA?.id === myPlayerId ? "playerA"
+    : myPlayerId && playerB?.id === myPlayerId ? "playerB"
+    : "spectator"
+
+  const myRole: Role = sessionRole ?? derivedRole
+
+  const userName =
+    myRole === "playerA" ? (playerA?.name ?? "Player A")
+    : myRole === "playerB" ? (playerB?.name ?? "Player B")
+    : (me?.email?.split("@")[0] ?? "Spectator")
+
+  const chat = useMatchChat({
+    matchId,
+    userId: me?.id ?? "",
+    userName,
+    isOpen: isChatOpen,
+  })
 
   if (isLoading) {
     return (
@@ -69,14 +93,6 @@ export default function LiveMatchPage({ params }: PageProps) {
       </div>
     )
   }
-
-  const myPlayerId = me?.playerId ?? null
-  const derivedRole: Role =
-    myPlayerId && playerA?.id === myPlayerId ? "playerA"
-    : myPlayerId && playerB?.id === myPlayerId ? "playerB"
-    : "spectator"
-
-  const myRole: Role = sessionRole ?? derivedRole
 
   const showRolePrompt =
     !sessionRole && derivedRole === "spectator" && !!me && !!playerA && !!playerB
@@ -108,7 +124,32 @@ export default function LiveMatchPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
       <LiveScoringLayout myRole={myRole} />
+
+      {/* Floating chat button */}
+      <button
+        onClick={() => setIsChatOpen((o) => !o)}
+        className="fixed bottom-6 right-4 z-40 size-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-95 transition-all"
+        aria-label="Open chat"
+      >
+        <MessageCircle className="size-5" />
+        {chat.unreadCount > 0 && !isChatOpen && (
+          <span className="absolute -top-1 -right-1 size-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+            {chat.unreadCount > 9 ? "9+" : chat.unreadCount}
+          </span>
+        )}
+      </button>
+
+      {playerA && playerB && (
+        <MatchChatPanel
+          chat={chat}
+          playerAName={playerA.name}
+          playerBName={playerB.name}
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+        />
+      )}
     </>
   )
 }
