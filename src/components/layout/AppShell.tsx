@@ -32,13 +32,71 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         const channel = supabase.channel(`player:${playerId}`)
 
         channel.on("broadcast", { event: "MATCH_STARTED" }, ({ payload }) => {
-          toast("Match started!", {
-            description: `You vs ${payload.opponentName}`,
-            action: {
-              label: "Join",
-              onClick: () => router.push(`/matches/${payload.matchId}/live`),
-            },
-          })
+          toast.custom(
+            (id) => (
+              <div
+                style={{
+                  background: "linear-gradient(135deg, #064e3b, #065f46)",
+                  border: "1px solid #10b981",
+                  boxShadow: "0 0 32px rgba(16,185,129,0.5)",
+                  borderRadius: "16px",
+                  padding: "16px 20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  minWidth: "280px",
+                  maxWidth: "340px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", display: "inline-block", animation: "pulse 1.5s infinite" }} />
+                  <span style={{ color: "#6ee7b7", fontWeight: 800, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    Match Started
+                  </span>
+                </div>
+                <p style={{ color: "#ffffff", fontWeight: 700, fontSize: "17px", margin: 0 }}>
+                  You vs {payload.opponentName}
+                </p>
+                <p style={{ color: "#a7f3d0", fontSize: "12px", margin: 0 }}>
+                  You have 2 minutes to join before it times out
+                </p>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={() => { toast.dismiss(id); router.push(`/matches/${payload.matchId}/live`) }}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      borderRadius: "10px",
+                      background: "#10b981",
+                      color: "#000",
+                      fontWeight: 800,
+                      fontSize: "14px",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Join Now →
+                  </button>
+                  <button
+                    onClick={() => toast.dismiss(id)}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      background: "rgba(255,255,255,0.08)",
+                      color: "#a7f3d0",
+                      fontWeight: 600,
+                      fontSize: "13px",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ),
+            { duration: 120_000, id: `match-started-${payload.matchId}` },
+          )
         })
 
         channel.subscribe()
