@@ -228,14 +228,15 @@ export default function UsersSettingsPage() {
           </DialogHeader>
           {inviteUrl ? (
             <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">
-                Invitation created. Copy the link below and send it via WhatsApp or iMessage — the email may not always arrive.
-              </p>
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2.5">
+                <p className="text-xs text-amber-400 font-semibold">They must tap this link to create their account</p>
+                <p className="text-xs text-muted-foreground mt-1">Going to the app directly won't work — the link is the only way in.</p>
+              </div>
               <div className="rounded-lg bg-muted px-3 py-2 text-xs break-all text-muted-foreground font-mono select-all">
                 {inviteUrl}
               </div>
               <Button onClick={copyInviteUrl} className="w-full">
-                {copied ? "Copied!" : "Copy Link"}
+                {copied ? "Copied!" : "Copy Link to Send via WhatsApp"}
               </Button>
             </div>
           ) : (
