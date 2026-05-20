@@ -27,9 +27,17 @@ interface PlayerOption {
 export default function UsersSettingsPage() {
   const qc = useQueryClient()
 
+  const { data: meData } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
+    staleTime: Infinity,
+  })
+  const isAdmin = meData?.role === "ADMIN"
+
   const { data: usersRaw, isLoading } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: () => fetch("/api/admin/users").then((r) => r.json()),
+    enabled: isAdmin,
   })
   const users: DbUser[] = Array.isArray(usersRaw) ? usersRaw : []
 
@@ -87,8 +95,6 @@ export default function UsersSettingsPage() {
     },
     onError: () => toast.error("Failed to send invitation"),
   })
-
-  const isAdmin = Array.isArray(usersRaw)
 
   return (
     <div className="flex flex-col gap-6">
