@@ -36,7 +36,7 @@ function CamFeedPanel({ stream, label }: { stream: MediaStream | null; label: st
   }
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden bg-black aspect-video">
+    <div className="relative w-full rounded-2xl overflow-hidden bg-black aspect-square">
       {/* muted allows autoplay on iOS even without user gesture */}
       <video ref={ref} autoPlay playsInline muted className="w-full h-full object-cover" />
       {!stream && (
