@@ -50,8 +50,10 @@ export async function POST(req: Request) {
   if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
 
   const clerk = await clerkClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
   const invitation = await clerk.invitations.createInvitation({
     emailAddress: email,
+    ...(appUrl && { redirectUrl: `${appUrl}/dashboard` }),
   })
 
   return NextResponse.json({ invitationId: invitation.id }, { status: 201 })
