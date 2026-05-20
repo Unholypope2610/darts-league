@@ -131,6 +131,12 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
   const canControlA = myRole === "playerA"
   const canControlB = myRole === "playerB"
 
+  // Pencil only shows on a player's own visits
+  const viewerPlayerId =
+    myRole === "playerA" ? playerA.id
+    : myRole === "playerB" ? playerB.id
+    : null
+
   return (
     <>
       {isSpectator && (
@@ -203,6 +209,7 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
           playerBId={playerB.id}
           playerAName={playerA.name}
           playerBName={playerB.name}
+          viewerPlayerId={viewerPlayerId}
           onEdit={!isMatchWon && !isSpectator ? editVisit : undefined}
         />
       </div>

@@ -10,10 +10,11 @@ interface LegHistoryProps {
   playerBId: string
   playerAName: string
   playerBName: string
+  viewerPlayerId?: string | null
   onEdit?: (visitId: string, newScore: number) => void
 }
 
-export function LegHistory({ visits, playerAId, playerBId, playerAName, playerBName, onEdit }: LegHistoryProps) {
+export function LegHistory({ visits, playerAId, playerBId, playerAName, playerBName, viewerPlayerId, onEdit }: LegHistoryProps) {
   if (visits.length === 0) return null
 
   const grouped: { a: VisitRecord | null; b: VisitRecord | null }[] = []
@@ -33,9 +34,9 @@ export function LegHistory({ visits, playerAId, playerBId, playerAName, playerBN
       <div className="max-h-48 overflow-y-auto">
         {grouped.map((row, i) => (
           <div key={i} className="grid grid-cols-2 border-b border-border/50 last:border-0">
-            <VisitCell visit={row.a} onEdit={onEdit} />
+            <VisitCell visit={row.a} viewerPlayerId={viewerPlayerId} onEdit={onEdit} />
             <div className="border-l border-border/50">
-              <VisitCell visit={row.b} onEdit={onEdit} />
+              <VisitCell visit={row.b} viewerPlayerId={viewerPlayerId} onEdit={onEdit} />
             </div>
           </div>
         ))}
@@ -44,7 +45,7 @@ export function LegHistory({ visits, playerAId, playerBId, playerAName, playerBN
   )
 }
 
-function VisitCell({ visit, onEdit }: { visit: VisitRecord | null; onEdit?: (id: string, score: number) => void }) {
+function VisitCell({ visit, viewerPlayerId, onEdit }: { visit: VisitRecord | null; viewerPlayerId?: string | null; onEdit?: (id: string, score: number) => void }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState("")
 
@@ -57,6 +58,7 @@ function VisitCell({ visit, onEdit }: { visit: VisitRecord | null; onEdit?: (id:
   }
 
   const canEdit = onEdit && !visit.isBust && !visit.isCheckout
+    && (!viewerPlayerId || visit.playerId === viewerPlayerId)
 
   if (editing) {
     return (
@@ -93,7 +95,7 @@ function VisitCell({ visit, onEdit }: { visit: VisitRecord | null; onEdit?: (id:
       {canEdit && (
         <button
           onClick={() => { setVal(String(visit.scoreThrown)); setEditing(true) }}
-          className="opacity-30 active:opacity-100 text-muted-foreground text-[10px] touch-manipulation ml-0.5"
+          className="opacity-50 active:opacity-100 text-red-500 text-sm touch-manipulation ml-0.5"
           style={{ touchAction: "manipulation" }}
           aria-label="Edit score"
         >

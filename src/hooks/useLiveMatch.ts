@@ -4,13 +4,14 @@ import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { getSupabase } from "@/lib/supabase"
-import type { MatchWithLegs, RecordVisitResponse } from "@/types/api"
+import type { MatchWithLegs, RecordVisitResponse, VisitRecord } from "@/types/api"
 
 export function useLiveMatch(matchId: string) {
   const hydrate = useLiveMatchStore((s) => s.hydrate)
   const reset = useLiveMatchStore((s) => s.reset)
   const applyRemoteVisit = useLiveMatchStore((s) => s.applyRemoteVisit)
   const applyRemoteLeg = useLiveMatchStore((s) => s.applyRemoteLeg)
+  const applyRemoteEdit = useLiveMatchStore((s) => s.applyRemoteEdit)
 
   const { data, isLoading, error } = useQuery<MatchWithLegs>({
     queryKey: ["match", matchId],
@@ -38,6 +39,9 @@ export function useLiveMatch(matchId: string) {
       .on("broadcast", { event: "LEG_STARTED" }, ({ payload }) => {
         applyRemoteLeg(payload.legId as string, payload.starterId as string)
       })
+      .on("broadcast", { event: "SCORE_EDITED" }, ({ payload }) => {
+        applyRemoteEdit((payload as { updatedVisits: VisitRecord[] }).updatedVisits)
+      })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           useLiveMatchStore.setState({
@@ -51,7 +55,7 @@ export function useLiveMatch(matchId: string) {
       useLiveMatchStore.setState({ _broadcast: null })
       supabase.removeChannel(channel)
     }
-  }, [matchId, applyRemoteVisit, applyRemoteLeg])
+  }, [matchId, applyRemoteVisit, applyRemoteLeg, applyRemoteEdit])
 
   useEffect(() => {
     return () => reset()

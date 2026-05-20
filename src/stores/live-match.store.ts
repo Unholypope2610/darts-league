@@ -63,6 +63,7 @@ interface LiveMatchStore {
   startNewLeg: (starterId: string) => Promise<void>
   applyRemoteVisit: (data: RecordVisitResponse) => void
   applyRemoteLeg: (legId: string, starterId: string) => void
+  applyRemoteEdit: (updatedVisits: VisitRecord[]) => void
   editVisit: (visitId: string, newScore: number) => Promise<void>
   reset: () => void
 }
@@ -453,6 +454,11 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       })
       if (!res.ok) return
       const { updatedVisits }: { updatedVisits: VisitRecord[] } = await res.json()
+      get().applyRemoteEdit(updatedVisits)
+      get()._broadcast?.("SCORE_EDITED", { updatedVisits })
+    },
+
+    applyRemoteEdit: (updatedVisits: VisitRecord[]) => {
       const updatedMap = new Map(updatedVisits.map((v) => [v.id, v]))
       set((s) => {
         s.visits = s.visits.map((v) => updatedMap.get(v.id) ?? v)
