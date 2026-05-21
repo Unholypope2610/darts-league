@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AvatarUpload } from "./AvatarUpload"
 import type { Player } from "@/types/api"
 
 interface PlayerFormProps {
@@ -14,9 +15,10 @@ interface PlayerFormProps {
   onSubmit: (values: PlayerFormValues) => void
   isSubmitting?: boolean
   submitLabel?: string
+  playerId?: string
 }
 
-export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel = "Save" }: PlayerFormProps) {
+export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel = "Save", playerId }: PlayerFormProps) {
   const {
     register,
     handleSubmit,
@@ -60,10 +62,19 @@ export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel 
         </Select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="avatarUrl">Avatar URL</Label>
-        <Input id="avatarUrl" {...register("avatarUrl")} placeholder="https://..." />
-      </div>
+      {playerId ? (
+        <AvatarUpload
+          playerId={playerId}
+          name={watch("name") || defaultValues?.name || ""}
+          currentUrl={defaultValues?.avatarUrl}
+          onUploadComplete={(url) => setValue("avatarUrl", url)}
+        />
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="avatarUrl">Avatar URL</Label>
+          <Input id="avatarUrl" {...register("avatarUrl")} placeholder="https://..." />
+        </div>
+      )}
 
       <Button type="submit" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? "Saving…" : submitLabel}

@@ -34,4 +34,12 @@ export async function requireAdmin() {
   }
 }
 
+export async function canEditPlayer(playerId: string): Promise<boolean> {
+  const { userId } = await auth()
+  if (!userId) return false
+  if (await isAdmin()) return true
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { playerId: true } })
+  return user?.playerId === playerId
+}
+
 export { auth, currentUser }

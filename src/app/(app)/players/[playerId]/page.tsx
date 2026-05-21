@@ -2,6 +2,7 @@
 
 import { use } from "react"
 import Link from "next/link"
+import { useQuery } from "@tanstack/react-query"
 import { usePlayer } from "@/hooks/usePlayers"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
@@ -17,6 +18,12 @@ interface PageProps {
 export default function PlayerProfilePage({ params }: PageProps) {
   const { playerId } = use(params)
   const { data: player, isLoading } = usePlayer(playerId)
+  const { data: meData } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
+    staleTime: Infinity,
+  })
+  const canEdit = meData?.role === "ADMIN" || (meData?.playerId && meData.playerId === playerId)
 
   if (isLoading) {
     return (
@@ -50,12 +57,14 @@ export default function PlayerProfilePage({ params }: PageProps) {
       <PageHeader
         title={player.name}
         actions={
-          <Link
-            href={`/players/${player.id}/edit`}
-            className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
-          >
-            Edit
-          </Link>
+          canEdit ? (
+            <Link
+              href={`/players/${player.id}/edit`}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+            >
+              Edit
+            </Link>
+          ) : undefined
         }
       />
 
