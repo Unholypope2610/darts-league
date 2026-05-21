@@ -60,13 +60,13 @@ export function bestLeg(legs: LegForStats[], playerId: string): number | null {
   return Math.min(...won.map((l) => l.dartsThrown))
 }
 
-// Doubles % = successful checkouts / total darts thrown at finishing doubles
+// Doubles % = successful checkouts / total darts thrown at finishing doubles (all visits)
 export function doublesPercentage(visits: VisitForStats[]): number {
-  const checkoutVisits = visits.filter((v) => v.isCheckout)
-  if (checkoutVisits.length === 0) return 0
-  const totalDartsAtDouble = checkoutVisits.reduce((sum, v) => sum + v.doublesAttempted, 0)
+  const checkoutCount = visits.filter((v) => v.isCheckout).length
+  if (checkoutCount === 0) return 0
+  const totalDartsAtDouble = visits.reduce((sum, v) => sum + v.doublesAttempted, 0)
   if (totalDartsAtDouble === 0) return 0
-  return Math.round((checkoutVisits.length / totalDartsAtDouble) * 1000) / 10
+  return Math.round((checkoutCount / totalDartsAtDouble) * 1000) / 10
 }
 
 export function top3Checkouts(visits: VisitForStats[]): number[] {

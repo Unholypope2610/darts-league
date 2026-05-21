@@ -8,6 +8,7 @@ import { NumericKeypad } from "./NumericKeypad"
 import { LegHistory } from "./LegHistory"
 import { LegWinAnimation } from "./LegWinAnimation"
 import { MatchWinReveal } from "./MatchWinReveal"
+import { DoublesPrompt } from "./DoublesPrompt"
 
 type Role = "playerA" | "playerB" | "spectator"
 
@@ -69,9 +70,8 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
     currentLegId,
     visits,
     allVisits,
-    isBustDialogOpen,
+    pendingDoublesPrompt,
     isMatchWon,
-    confirmBust,
     startNewLeg,
     editVisit,
   } = useLiveMatchStore()
@@ -124,9 +124,6 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
   const activeCamStream = isAActive ? playerACamStream : playerBCamStream
   const throwingPlayerName = isAActive ? playerA.name : playerB.name
 
-  const isBustA = isBustDialogOpen && isAActive
-  const isBustB = isBustDialogOpen && !isAActive
-
   // Each player can only control their own cam panel
   const canControlA = myRole === "playerA"
   const canControlB = myRole === "playerB"
@@ -136,6 +133,8 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
     myRole === "playerA" ? playerA.id
     : myRole === "playerB" ? playerB.id
     : null
+
+  const blockInteraction = !!pendingDoublesPrompt
 
   return (
     <>
@@ -159,7 +158,7 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
             legsWon={playerALegsWon}
             bestOf={bestOf}
             isActive={isAActive}
-            isBust={isBustA}
+            isBust={false}
             visits={visits}
             allVisits={allVisits}
             canControl={canControlA}
@@ -173,32 +172,18 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
             legsWon={playerBLegsWon}
             bestOf={bestOf}
             isActive={!isAActive}
-            isBust={isBustB}
+            isBust={false}
             visits={visits}
             allVisits={allVisits}
             canControl={canControlB}
           />
         </div>
 
-        {/* Bust confirmation — hidden for spectators */}
-        {isBustDialogOpen && !isSpectator && (
-          <div className="rounded-xl bg-red-500/10 border border-red-500/40 p-4 flex flex-col items-center gap-3">
-            <span className="text-red-400 font-bold text-lg">BUST!</span>
-            <p className="text-sm text-muted-foreground text-center">Score exceeds remaining. Turn forfeited.</p>
-            <button
-              onClick={confirmBust}
-              className="px-6 py-2 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 active:scale-95 transition-all"
-            >
-              OK, next player
-            </button>
-          </div>
-        )}
-
-        {/* Keypad — only shown when it's this viewer's turn */}
-        {!isBustDialogOpen && isMyTurn && <NumericKeypad />}
+        {/* Keypad — only shown when it's this viewer's turn and no prompt blocking */}
+        {!blockInteraction && isMyTurn && <NumericKeypad />}
 
         {/* Cam feed — shown when watching opponent throw, or spectating */}
-        {!isBustDialogOpen && (!isMyTurn || isSpectator) && (
+        {!blockInteraction && (!isMyTurn || isSpectator) && (
           <CamFeedPanel stream={activeCamStream} label={throwingPlayerName} />
         )}
 
@@ -215,7 +200,8 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
       </div>
 
       <LegWinAnimation />
-      <MatchWinReveal />
+      {!pendingDoublesPrompt && <MatchWinReveal />}
+      <DoublesPrompt />
     </>
   )
 }

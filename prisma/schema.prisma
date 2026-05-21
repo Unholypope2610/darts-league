@@ -101,23 +101,24 @@ model Fixture {
 }
 
 model Match {
-  id            String    @id @default(cuid())
-  bracketNodeId String?
-  startingScore Int       @default(501)
-  bestOf        Int       @default(7)
-  finishType    String    @default("DOUBLE_OUT")
-  isSets        Boolean   @default(false)
-  legSize       Int?
-  playerAId     String
-  playerA       Player    @relation("MatchPlayerA", fields: [playerAId], references: [id])
-  playerBId     String
-  playerB       Player    @relation("MatchPlayerB", fields: [playerBId], references: [id])
-  playerAScore  Int       @default(0)
-  playerBScore  Int       @default(0)
-  winnerId      String?
-  winner        Player?   @relation("MatchWinner", fields: [winnerId], references: [id])
-  startedAt     DateTime  @default(now())
-  completedAt   DateTime?
+  id              String    @id @default(cuid())
+  bracketNodeId   String?
+  createdByUserId String?
+  startingScore   Int       @default(501)
+  bestOf          Int       @default(7)
+  finishType      String    @default("DOUBLE_OUT")
+  isSets          Boolean   @default(false)
+  legSize         Int?
+  playerAId       String
+  playerA         Player    @relation("MatchPlayerA", fields: [playerAId], references: [id])
+  playerBId       String
+  playerB         Player    @relation("MatchPlayerB", fields: [playerBId], references: [id])
+  playerAScore    Int       @default(0)
+  playerBScore    Int       @default(0)
+  winnerId        String?
+  winner          Player?   @relation("MatchWinner", fields: [winnerId], references: [id])
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
 
   fixture Fixture?
   legs    Leg[]
@@ -147,7 +148,7 @@ model Visit {
   visitNumber      Int
   scoreThrown      Int
   dartsUsed        Int
-  doublesAttempted Int      @default(1)
+  doublesAttempted Int      @default(0)
   runningRemainder Int
   isBust           Boolean  @default(false)
   isCheckout       Boolean  @default(false)

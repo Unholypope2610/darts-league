@@ -19,7 +19,7 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { legId, playerId, scoreThrown, dartsUsed, doublesAttempted } = parsed.data
+  const { legId, playerId, scoreThrown, dartsUsed, doublesAttempted, forceBust } = parsed.data
 
   const match = await prisma.match.findUnique({ where: { id: matchId } })
   if (!match) return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -38,7 +38,9 @@ export async function POST(
       ? playerVisits[playerVisits.length - 1].runningRemainder
       : match.startingScore
 
-  const newRemainder = getNewRemainder(scoreThrown, currentRemainder, match.finishType as "DOUBLE_OUT" | "MASTER_OUT" | "STRAIGHT_OUT")
+  const newRemainder = forceBust
+    ? null
+    : getNewRemainder(scoreThrown, currentRemainder, match.finishType as "DOUBLE_OUT" | "MASTER_OUT" | "STRAIGHT_OUT")
   const isBust = newRemainder === null
   const isCheckout = !isBust && newRemainder === 0
 
@@ -52,7 +54,7 @@ export async function POST(
       visitNumber,
       scoreThrown,
       dartsUsed,
-      doublesAttempted: isCheckout ? doublesAttempted : 1,
+      doublesAttempted,
       runningRemainder,
       isBust,
       isCheckout,

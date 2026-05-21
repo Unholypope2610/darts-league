@@ -40,6 +40,7 @@ export async function POST(req: Request) {
         bestOf: bestOf ?? 7,
         startingScore: startingScore ?? 501,
         finishType: finishType ?? "DOUBLE_OUT",
+        createdByUserId: userId,
       },
       include: {
         playerA: { select: { id: true, name: true, avatarUrl: true } },

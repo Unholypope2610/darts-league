@@ -13,6 +13,46 @@ export async function PATCH(
 
   const { matchId, visitId } = await params
   const body = await req.json()
+
+  // Branch: doubles/darts update (from doubles prompt, not a score edit)
+  if ("doublesAttempted" in body || "dartsUsed" in body) {
+    const doublesAttempted: number | undefined = body.doublesAttempted
+    const dartsUsed: number | undefined = body.dartsUsed
+
+    if (doublesAttempted !== undefined && (typeof doublesAttempted !== "number" || doublesAttempted < 0 || doublesAttempted > 3)) {
+      return NextResponse.json({ error: "Invalid doublesAttempted" }, { status: 400 })
+    }
+    if (dartsUsed !== undefined && (typeof dartsUsed !== "number" || dartsUsed < 1 || dartsUsed > 3)) {
+      return NextResponse.json({ error: "Invalid dartsUsed" }, { status: 400 })
+    }
+
+    const targetVisit = await prisma.visit.findUnique({
+      where: { id: visitId },
+      include: { leg: { include: { visits: { where: { isCheckout: true } } } } },
+    })
+    if (!targetVisit || targetVisit.leg.matchId !== matchId) {
+      return NextResponse.json({ error: "Visit not found" }, { status: 404 })
+    }
+
+    const updateData: { doublesAttempted?: number; dartsUsed?: number } = {}
+    if (doublesAttempted !== undefined) updateData.doublesAttempted = doublesAttempted
+    if (dartsUsed !== undefined) updateData.dartsUsed = dartsUsed
+
+    await prisma.visit.update({ where: { id: visitId }, data: updateData })
+
+    // Recalculate leg.dartsThrown if this visit is the checkout and dartsUsed changed
+    if (dartsUsed !== undefined && targetVisit.isCheckout) {
+      const allPlayerVisits = await prisma.visit.findMany({
+        where: { legId: targetVisit.legId, playerId: targetVisit.playerId },
+      })
+      const totalDarts = allPlayerVisits.reduce((sum, v) => sum + (v.id === visitId ? dartsUsed : v.dartsUsed), 0)
+      await prisma.leg.update({ where: { id: targetVisit.legId }, data: { dartsThrown: totalDarts } })
+    }
+
+    return NextResponse.json({ ok: true })
+  }
+
+  // Branch: score edit
   const newScore: number = body?.scoreThrown
 
   if (typeof newScore !== "number" || newScore < 0 || newScore > 180 || !Number.isInteger(newScore)) {

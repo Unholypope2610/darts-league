@@ -89,6 +89,7 @@ export interface PlayerMeta {
 
 export interface MatchWithLegs {
   id: string
+  createdByUserId?: string | null
   startingScore: number
   bestOf: number
   finishType: string

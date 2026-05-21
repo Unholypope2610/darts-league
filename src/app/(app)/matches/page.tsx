@@ -14,6 +14,7 @@ import type { Player } from "@/types/api"
 
 interface CasualMatch {
   id: string
+  createdByUserId: string | null
   playerA: { id: string; name: string; avatarUrl: string | null }
   playerB: { id: string; name: string; avatarUrl: string | null }
   winner: { id: string; name: string } | null
@@ -177,7 +178,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
   )
 }
 
-function MatchCard({ match }: { match: CasualMatch }) {
+function MatchCard({ match, myUserId, isAdmin }: { match: CasualMatch; myUserId?: string; isAdmin?: boolean }) {
   const router = useRouter()
   const qc = useQueryClient()
   const isLive = !match.completedAt
@@ -301,8 +302,8 @@ function MatchCard({ match }: { match: CasualMatch }) {
         </a>
       )}
 
-      {/* Abandon / Restart actions — live matches only */}
-      {isLive && !confirm && (
+      {/* Abandon / Restart actions — live matches, admin or creator only */}
+      {isLive && !confirm && (myUserId === match.createdByUserId || isAdmin) && (
         <div className="flex border-t border-white/5">
           <button
             onClick={() => setConfirm("abandon")}
@@ -331,6 +332,13 @@ export default function CasualMatchesPage() {
     queryKey: ["casual-matches"],
     queryFn: () => fetch("/api/matches").then((r) => r.json()),
   })
+  const { data: meData } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
+    staleTime: Infinity,
+  })
+  const myUserId: string | undefined = meData?.id
+  const isAdmin: boolean = meData?.role === "ADMIN"
 
   const live = matches?.filter((m) => !m.completedAt) ?? []
   const recent = matches?.filter((m) => m.completedAt) ?? []
@@ -367,7 +375,7 @@ export default function CasualMatchesPage() {
             <h2 className="font-black text-white uppercase tracking-wider text-sm">In Progress</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {live.map((m) => <MatchCard key={m.id} match={m} />)}
+            {live.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} isAdmin={isAdmin} />)}
           </div>
         </section>
       )}
@@ -377,7 +385,7 @@ export default function CasualMatchesPage() {
         <section>
           <h2 className="font-black text-white uppercase tracking-wider text-sm mb-4">Recent Results</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {recent.map((m) => <MatchCard key={m.id} match={m} />)}
+            {recent.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} isAdmin={isAdmin} />)}
           </div>
         </section>
       )}

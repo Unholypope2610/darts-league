@@ -83,6 +83,20 @@ export default function UsersSettingsPage() {
     }
   }
 
+  const [confirmTarget, setConfirmTarget] = useState<"casual-matches" | "competitions" | null>(null)
+  const { mutate: clearData, isPending: isClearing } = useMutation({
+    mutationFn: (target: string) =>
+      fetch(`/api/admin/data?target=${target}`, { method: "DELETE" }).then((r) => {
+        if (!r.ok) throw new Error("Failed")
+        return r.json()
+      }),
+    onSuccess: (_, target) => {
+      setConfirmTarget(null)
+      toast.success(target === "casual-matches" ? "Casual matches cleared" : "Competitions cleared")
+    },
+    onError: () => toast.error("Failed to clear data"),
+  })
+
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
@@ -199,6 +213,57 @@ export default function UsersSettingsPage() {
           </table>
         </div>
       ) : null}
+
+      {/* Data Management — admin only */}
+      {isAdmin && (
+        <div className="rounded-xl border border-destructive/40 p-5 flex flex-col gap-3">
+          <div>
+            <p className="font-semibold text-destructive">Data Management</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Permanently delete test data. These actions cannot be undone.</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setConfirmTarget("casual-matches")}
+              className="w-full py-2 rounded-lg border border-destructive/40 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors"
+            >
+              Clear all casual matches
+            </button>
+            <button
+              onClick={() => setConfirmTarget("competitions")}
+              className="w-full py-2 rounded-lg border border-destructive/40 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors"
+            >
+              Clear all competitions
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm dialog */}
+      <Dialog open={confirmTarget !== null} onOpenChange={(open) => { if (!open) setConfirmTarget(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {confirmTarget === "casual-matches"
+              ? "This will permanently delete all casual match history and stats."
+              : "This will permanently delete all competitions, fixtures, and match history."}
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setConfirmTarget(null)} disabled={isClearing}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => confirmTarget && clearData(confirmTarget)}
+              disabled={isClearing}
+            >
+              {isClearing ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Install App */}
       <div className="rounded-xl border border-border p-5 flex flex-col gap-3">

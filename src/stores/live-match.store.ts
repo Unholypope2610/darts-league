@@ -9,6 +9,7 @@ import { toast } from "sonner"
 interface LiveMatchStore {
   // Match metadata
   matchId: string | null
+  createdByUserId: string | null
   playerA: PlayerMeta | null
   playerB: PlayerMeta | null
   startingScore: number
@@ -28,10 +29,8 @@ interface LiveMatchStore {
 
   // Keypad
   dartInput: string
-  dartsUsedThisVisit: number
 
   // UI state
-  isBustDialogOpen: boolean
   isLegWinAnimating: boolean
   legWinnerId: string | null
   pendingNextStarter: string | null   // loser ID queued to throw first next leg
@@ -42,23 +41,23 @@ interface LiveMatchStore {
   error: string | null
   undoStack: string[]
 
+  // Doubles tracking prompt
+  pendingDoublesPrompt: { visitId: string; type: "checkout" | "doubles" } | null
+  pendingCheckoutVisitId: string | null
+
   // Realtime broadcast injected by useLiveMatch hook
   _broadcast: ((event: string, payload: unknown) => void) | null
-
-  // Keypad — doubles attempted (separate from dartsUsedThisVisit)
-  doublesAttempted: number
 
   // Actions
   hydrate: (match: MatchWithLegs) => void
   inputDigit: (digit: string) => void
-  inputShortcut: (score: number, dartsUsed?: number) => void
+  inputShortcut: (score: number) => void
   clearInput: () => void
   backspace: () => void
-  setDartsUsed: (n: number) => void
-  setDoublesAttempted: (n: number) => void
   submitVisit: () => Promise<void>
+  submitBust: () => Promise<void>
+  confirmDoublesPrompt: (dartsUsed: number | null, doublesAttempted: number) => Promise<void>
   undoLastVisit: () => Promise<void>
-  confirmBust: () => void
   dismissLegWin: () => void
   startNewLeg: (starterId: string) => Promise<void>
   applyRemoteVisit: (data: RecordVisitResponse) => void
@@ -70,6 +69,7 @@ interface LiveMatchStore {
 
 const initialState = {
   matchId: null,
+  createdByUserId: null,
   playerA: null,
   playerB: null,
   startingScore: 501,
@@ -85,9 +85,6 @@ const initialState = {
   visits: [],
   allVisits: [],
   dartInput: "",
-  dartsUsedThisVisit: 3,
-  doublesAttempted: 1,
-  isBustDialogOpen: false,
   isLegWinAnimating: false,
   legWinnerId: null,
   pendingNextStarter: null,
@@ -97,6 +94,8 @@ const initialState = {
   isSubmitting: false,
   error: null,
   undoStack: [],
+  pendingDoublesPrompt: null,
+  pendingCheckoutVisitId: null,
   _broadcast: null,
 }
 
@@ -108,6 +107,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       if (!match?.id || !match?.legs) return
       set((state) => {
         state.matchId = match.id
+        state.createdByUserId = match.createdByUserId ?? null
         state.playerA = match.playerA
         state.playerB = match.playerB
         state.startingScore = match.startingScore
@@ -166,35 +166,21 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       })
     },
 
-    inputShortcut: (score: number, dartsUsed = 3) => {
+    inputShortcut: (score: number) => {
       set((state) => {
         state.dartInput = score.toString()
-        state.dartsUsedThisVisit = dartsUsed
       })
     },
 
     clearInput: () => {
       set((state) => {
         state.dartInput = ""
-        state.dartsUsedThisVisit = 3
       })
     },
 
     backspace: () => {
       set((state) => {
         state.dartInput = state.dartInput.slice(0, -1)
-      })
-    },
-
-    setDartsUsed: (n: number) => {
-      set((state) => {
-        state.dartsUsedThisVisit = n
-      })
-    },
-
-    setDoublesAttempted: (n: number) => {
-      set((state) => {
-        state.doublesAttempted = n
       })
     },
 
@@ -205,6 +191,10 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
       const score = parseInt(state.dartInput, 10)
       if (isNaN(score)) return
+
+      // Capture previous remainder before any state changes
+      const isCurrentPlayerA = state.currentTurnPlayerId === state.playerA?.id
+      const previousRemainder = isCurrentPlayerA ? state.playerARemainder : state.playerBRemainder
 
       set((s) => {
         s.isSubmitting = true
@@ -219,8 +209,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             legId: state.currentLegId,
             playerId: state.currentTurnPlayerId,
             scoreThrown: score,
-            dartsUsed: state.dartsUsedThisVisit,
-            doublesAttempted: state.doublesAttempted,
+            dartsUsed: 3,
+            doublesAttempted: 0,
           }),
         })
 
@@ -234,8 +224,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
         const data: RecordVisitResponse = await res.json()
 
-        // Announce the visit — "requires X" is the OTHER player's remainder (they throw next)
-        const isCurrentPlayerA = state.currentTurnPlayerId === state.playerA?.id
+        // Announce the visit
         const otherRemainder = isCurrentPlayerA ? state.playerBRemainder : state.playerARemainder
         const otherPlayerName = isCurrentPlayerA
           ? (state.playerB?.name ?? "")
@@ -244,24 +233,17 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
         set((s) => {
           s.dartInput = ""
-          s.dartsUsedThisVisit = 3
-          s.doublesAttempted = 1
           s.isSubmitting = false
           s.visits.push(data.visit)
           s.allVisits.push(data.visit)
           s.undoStack.push(data.visit.id)
 
-          if (data.isBust) {
-            s.isBustDialogOpen = true
-            return
+          if (!data.isBust) {
+            if (isCurrentPlayerA) s.playerARemainder = data.newRemainder
+            else s.playerBRemainder = data.newRemainder
           }
 
-          // Update remainder
-          const isPlayerA = state.currentTurnPlayerId === state.playerA?.id
-          if (isPlayerA) s.playerARemainder = data.newRemainder
-          else s.playerBRemainder = data.newRemainder
-
-          // Swap turn
+          // Swap turn (on both bust and non-bust)
           s.currentTurnPlayerId =
             state.currentTurnPlayerId === state.playerA?.id
               ? state.playerB?.id ?? null
@@ -272,7 +254,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             s.isLegWinAnimating = true
             if (data.legWinnerId === state.playerA?.id) {
               s.playerALegsWon += 1
-              s.pendingNextStarter = state.playerB?.id ?? null  // loser throws first
+              s.pendingNextStarter = state.playerB?.id ?? null
             } else {
               s.playerBLegsWon += 1
               s.pendingNextStarter = state.playerA?.id ?? null
@@ -286,10 +268,23 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           }
         })
 
-        // Broadcast to other devices AFTER local state is already updated
+        // Queue doubles prompt
+        if (data.isCheckout) {
+          set((s) => { s.pendingCheckoutVisitId = data.visit.id })
+        } else {
+          const needsDoublesPrompt =
+            data.isBust ||
+            (previousRemainder <= 50 && previousRemainder % 2 === 0) ||
+            (previousRemainder < 40 && previousRemainder % 2 !== 0) ||
+            (!data.isBust && previousRemainder > 50 && data.newRemainder > 0 && data.newRemainder <= 50)
+
+          if (needsDoublesPrompt) {
+            set((s) => { s.pendingDoublesPrompt = { visitId: data.visit.id, type: "doubles" } })
+          }
+        }
+
         get()._broadcast?.("VISIT_RECORDED", data)
 
-        // Announce match win after the leg animation plays out
         if (data.matchWinnerId) {
           const winnerName =
             data.matchWinnerId === state.playerA?.id ? state.playerA?.name : state.playerB?.name
@@ -297,6 +292,99 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         }
       } catch {
         set((s) => { s.error = "Network error"; s.isSubmitting = false })
+      }
+    },
+
+    submitBust: async () => {
+      const state = get()
+      if (!state.matchId || !state.currentLegId || !state.currentTurnPlayerId) return
+      if (state.isSubmitting) return
+
+      const scoreThrown = state.dartInput ? (parseInt(state.dartInput, 10) || 0) : 0
+
+      set((s) => { s.isSubmitting = true; s.error = null })
+
+      try {
+        const res = await fetch(`/api/matches/${state.matchId}/visits`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            legId: state.currentLegId,
+            playerId: state.currentTurnPlayerId,
+            scoreThrown,
+            dartsUsed: 3,
+            doublesAttempted: 0,
+            forceBust: true,
+          }),
+        })
+
+        if (!res.ok) {
+          const err = await res.json()
+          const msg = err.error ?? "Failed to record bust"
+          set((s) => { s.error = msg; s.isSubmitting = false })
+          toast.error(msg)
+          return
+        }
+
+        const data: RecordVisitResponse = await res.json()
+
+        set((s) => {
+          s.dartInput = ""
+          s.isSubmitting = false
+          s.visits.push(data.visit)
+          s.allVisits.push(data.visit)
+          s.undoStack.push(data.visit.id)
+
+          // Swap turn on bust
+          s.currentTurnPlayerId =
+            state.currentTurnPlayerId === state.playerA?.id
+              ? state.playerB?.id ?? null
+              : state.playerA?.id ?? null
+
+          // Prompt immediately — bust always means possible dart at double
+          s.pendingDoublesPrompt = { visitId: data.visit.id, type: "doubles" }
+        })
+
+        get()._broadcast?.("VISIT_RECORDED", data)
+      } catch {
+        set((s) => { s.error = "Network error"; s.isSubmitting = false })
+      }
+    },
+
+    confirmDoublesPrompt: async (dartsUsed: number | null, doublesAttempted: number) => {
+      const state = get()
+      const { visitId, type } = state.pendingDoublesPrompt ?? {}
+      if (!visitId || !state.matchId) return
+
+      const body: Record<string, number> = { doublesAttempted }
+      if (dartsUsed !== null) body.dartsUsed = dartsUsed
+
+      await fetch(`/api/matches/${state.matchId}/visits/${visitId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+
+      const id = visitId
+      set((s) => {
+        s.visits = s.visits.map((v) => {
+          if (v.id !== id) return v
+          return { ...v, doublesAttempted, ...(dartsUsed !== null ? { dartsUsed } : {}) }
+        })
+        s.allVisits = s.allVisits.map((v) => {
+          if (v.id !== id) return v
+          return { ...v, doublesAttempted, ...(dartsUsed !== null ? { dartsUsed } : {}) }
+        })
+        s.pendingDoublesPrompt = null
+      })
+
+      if (type === "checkout") {
+        const { pendingNextStarter, isMatchWon } = get()
+        if (!isMatchWon && pendingNextStarter) {
+          set((s) => { s.pendingNextStarter = null })
+          get().startNewLeg(pendingNextStarter)
+        }
+        // If isMatchWon, MatchWinReveal now shows (pendingDoublesPrompt cleared)
       }
     },
 
@@ -326,31 +414,32 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           s.playerARemainder = data.playerARemainder
           s.playerBRemainder = data.playerBRemainder
           s.currentTurnPlayerId = data.currentTurnPlayerId
-          s.isBustDialogOpen = false
+          s.pendingDoublesPrompt = null
+          s.pendingCheckoutVisitId = null
         })
       } catch {
         set((s) => { s.isSubmitting = false })
       }
     },
 
-    confirmBust: () => {
-      set((state) => {
-        state.isBustDialogOpen = false
-        // Swap turn (bust = turn over)
-        state.currentTurnPlayerId =
-          state.currentTurnPlayerId === state.playerA?.id
-            ? state.playerB?.id ?? null
-            : state.playerA?.id ?? null
-      })
-    },
-
     dismissLegWin: () => {
-      const { pendingNextStarter, isMatchWon } = get()
+      const { pendingNextStarter, isMatchWon, pendingCheckoutVisitId } = get()
       set((state) => {
         state.isLegWinAnimating = false
         state.legWinnerId = null
-        state.pendingNextStarter = null
+        if (!pendingCheckoutVisitId) {
+          state.pendingNextStarter = null
+        }
       })
+
+      if (pendingCheckoutVisitId) {
+        set((s) => {
+          s.pendingDoublesPrompt = { visitId: pendingCheckoutVisitId, type: "checkout" }
+          s.pendingCheckoutVisitId = null
+        })
+        return
+      }
+
       if (!isMatchWon && pendingNextStarter) {
         get().startNewLeg(pendingNextStarter)
       }
@@ -388,7 +477,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           s.legWinnerId = null
         })
 
-        // Broadcast to other devices AFTER local state is already updated
         get()._broadcast?.("LEG_STARTED", { legId: leg.id, starterId })
       } catch {
         set((s) => { s.isSubmitting = false })
@@ -399,7 +487,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       const preState = get()
       if (preState.visits.some((v) => v.id === data.visit.id)) return
 
-      // Capture speech data before state mutation
       const isPlayerA = data.visit.playerId === preState.playerA?.id
       const otherRemainder = isPlayerA ? preState.playerBRemainder : preState.playerARemainder
       const otherPlayerName = isPlayerA ? (preState.playerB?.name ?? "") : (preState.playerA?.name ?? "")
@@ -408,13 +495,10 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.visits.push(data.visit)
         state.allVisits.push(data.visit)
 
-        if (data.isBust) {
-          state.isBustDialogOpen = true
-          return
+        if (!data.isBust) {
+          if (isPlayerA) state.playerARemainder = data.newRemainder
+          else state.playerBRemainder = data.newRemainder
         }
-
-        if (isPlayerA) state.playerARemainder = data.newRemainder
-        else state.playerBRemainder = data.newRemainder
 
         state.currentTurnPlayerId =
           data.visit.playerId === state.playerA?.id
@@ -440,7 +524,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         }
       })
 
-      // Announce after state update so speech fires on both devices
       announceVisit(data.visit.scoreThrown, otherRemainder, otherPlayerName, data.isCheckout, data.isBust)
     },
 
@@ -479,7 +562,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.playerBRemainder = state.startingScore
         state.visits = []
         state.undoStack = []
-        state.isBustDialogOpen = false
         state.isLegWinAnimating = false
         state.legWinnerId = null
       })
