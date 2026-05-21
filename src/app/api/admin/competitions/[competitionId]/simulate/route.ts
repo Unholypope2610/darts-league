@@ -110,13 +110,7 @@ export async function POST(
     if (!competition) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
     const fixtures = await prisma.fixture.findMany({
-      where: {
-        competitionId,
-        status: "SCHEDULED",
-        matchId: null,
-        playerAId: { not: null },
-        playerBId: { not: null },
-      },
+      where: { competitionId, status: "SCHEDULED", matchId: null },
       select: { id: true, playerAId: true, playerBId: true },
     })
 
