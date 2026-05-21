@@ -30,15 +30,25 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
 
   const { mutate: simulate, isPending: isSimulating } = useMutation({
     mutationFn: () =>
-      fetch(`/api/admin/competitions/${competitionId}/simulate`, { method: "POST" }).then((r) => r.json()),
-    onSuccess: (data: { simulated: number }) => {
+      fetch(`/api/admin/competitions/${competitionId}/simulate`, { method: "POST" }).then(async (r) => {
+        let json: unknown
+        try { json = await r.json() } catch { json = null }
+        if (!r.ok) {
+          const msg = json && typeof json === "object" && "error" in json && typeof (json as Record<string, unknown>).error === "string"
+            ? (json as Record<string, string>).error
+            : "Simulation failed"
+          throw new Error(msg)
+        }
+        return json as { simulated: number }
+      }),
+    onSuccess: (data) => {
       toast.success(`Simulated ${data.simulated} fixture${data.simulated !== 1 ? "s" : ""}`)
       setConfirmSimulate(false)
       qc.invalidateQueries({ queryKey: ["fixtures", competitionId] })
       qc.invalidateQueries({ queryKey: ["table", competitionId] })
       qc.invalidateQueries({ queryKey: ["competition-stats", competitionId] })
     },
-    onError: () => toast.error("Simulation failed"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Simulation failed"),
   })
 
   if (isLoading) return <Skeleton className="h-64 rounded-xl max-w-md" />

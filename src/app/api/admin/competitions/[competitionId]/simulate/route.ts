@@ -123,76 +123,80 @@ export async function POST(
   const now = new Date()
   let simulated = 0
 
-  for (const fixture of fixtures) {
-    const playerAId = fixture.playerAId!
-    const playerBId = fixture.playerBId!
+  try {
+    for (const fixture of fixtures) {
+      const playerAId = fixture.playerAId!
+      const playerBId = fixture.playerBId!
 
-    // Randomly choose match winner and how many legs the loser wins
-    const matchWinnerId = Math.random() < 0.5 ? playerAId : playerBId
-    const matchLoserId = matchWinnerId === playerAId ? playerBId : playerAId
-    const loserLegsWon = Math.floor(Math.random() * legsToWin)
+      const matchWinnerId = Math.random() < 0.5 ? playerAId : playerBId
+      const matchLoserId = matchWinnerId === playerAId ? playerBId : playerAId
+      const loserLegsWon = Math.floor(Math.random() * legsToWin)
 
-    // Build outcome array: last leg always won by match winner
-    const outcomes: ("W" | "L")[] = shuffle([
-      ...Array<"W">(legsToWin - 1).fill("W"),
-      ...Array<"L">(loserLegsWon).fill("L"),
-    ])
-    outcomes.push("W")
+      const outcomes: ("W" | "L")[] = shuffle([
+        ...Array<"W">(legsToWin - 1).fill("W"),
+        ...Array<"L">(loserLegsWon).fill("L"),
+      ])
+      outcomes.push("W")
 
-    const playerAScore = outcomes.filter(
-      (o) => (o === "W") === (matchWinnerId === playerAId),
-    ).length
-    const playerBScore = outcomes.length - playerAScore
+      const playerAScore = outcomes.filter(
+        (o) => (o === "W") === (matchWinnerId === playerAId),
+      ).length
+      const playerBScore = outcomes.length - playerAScore
 
-    await prisma.$transaction(async (tx) => {
-      const match = await tx.match.create({
-        data: {
-          playerAId,
-          playerBId,
-          startingScore,
-          bestOf,
-          finishType,
-          isSets: false,
-          playerAScore,
-          playerBScore,
-          winnerId: matchWinnerId,
-          startedAt: now,
-          completedAt: now,
-        },
-      })
-
-      for (let legIdx = 0; legIdx < outcomes.length; legIdx++) {
-        const legWinnerId = outcomes[legIdx] === "W" ? matchWinnerId : matchLoserId
-        const legLoserId = legWinnerId === playerAId ? playerBId : playerAId
-        const winnerStarts = Math.random() < 0.5
-
-        const { visits, dartsThrown } = buildLegVisits(
-          startingScore, legWinnerId, legLoserId, winnerStarts,
-        )
-
-        const leg = await tx.leg.create({
+      await prisma.$transaction(async (tx) => {
+        const match = await tx.match.create({
           data: {
-            matchId: match.id,
-            legNumber: legIdx + 1,
-            starterId: winnerStarts ? legWinnerId : legLoserId,
-            winnerId: legWinnerId,
-            dartsThrown,
+            playerAId,
+            playerBId,
+            startingScore,
+            bestOf,
+            finishType,
+            isSets: false,
+            playerAScore,
+            playerBScore,
+            winnerId: matchWinnerId,
+            startedAt: now,
             completedAt: now,
           },
         })
 
-        await tx.visit.createMany({
-          data: visits.map((v) => ({ ...v, legId: leg.id })),
+        for (let legIdx = 0; legIdx < outcomes.length; legIdx++) {
+          const legWinnerId = outcomes[legIdx] === "W" ? matchWinnerId : matchLoserId
+          const legLoserId = legWinnerId === playerAId ? playerBId : playerAId
+          const winnerStarts = Math.random() < 0.5
+
+          const { visits, dartsThrown } = buildLegVisits(
+            startingScore, legWinnerId, legLoserId, winnerStarts,
+          )
+
+          const leg = await tx.leg.create({
+            data: {
+              matchId: match.id,
+              legNumber: legIdx + 1,
+              starterId: winnerStarts ? legWinnerId : legLoserId,
+              winnerId: legWinnerId,
+              dartsThrown,
+              completedAt: now,
+            },
+          })
+
+          await tx.visit.createMany({
+            data: visits.map((v) => ({ ...v, legId: leg.id })),
+          })
+        }
+
+        await tx.fixture.update({
+          where: { id: fixture.id },
+          data: { status: "COMPLETED", matchId: match.id },
         })
-      }
+      }, { timeout: 30000 })
 
-      await tx.fixture.update({
-        where: { id: fixture.id },
-        data: { status: "COMPLETED", matchId: match.id },
-      })
-    })
-
-    simulated++
+      simulated++
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("[simulate]", message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 
   return NextResponse.json({ simulated })
