@@ -5,7 +5,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 export function useBracket(competitionId: string) {
   return useQuery({
     queryKey: ["bracket", competitionId],
-    queryFn: () => fetch(`/api/competitions/${competitionId}/bracket`).then((r) => r.json()),
+    queryFn: () =>
+      fetch(`/api/competitions/${competitionId}/bracket`).then(async (r) => {
+        const json = await r.json()
+        if (!r.ok) throw new Error(json?.error ?? "Failed to load bracket")
+        return json
+      }),
     enabled: !!competitionId,
   })
 }
