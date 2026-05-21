@@ -62,7 +62,7 @@ function VisitCell({ visit, viewerPlayerId, onEdit }: { visit: VisitRecord | nul
 
   if (editing) {
     return (
-      <div className="px-2 py-1.5 flex items-center gap-1">
+      <div className="px-2 py-1.5 flex items-center gap-2">
         <input
           autoFocus
           type="number"
@@ -76,8 +76,8 @@ function VisitCell({ visit, viewerPlayerId, onEdit }: { visit: VisitRecord | nul
           }}
           className="w-12 bg-muted rounded px-1 py-0.5 text-sm font-score font-bold text-center border border-primary outline-none"
         />
-        <button onClick={confirm} className="text-emerald-400 text-xs font-bold touch-manipulation" style={{ touchAction: "manipulation" }}>✓</button>
-        <button onClick={() => setEditing(false)} className="text-muted-foreground text-xs font-bold touch-manipulation" style={{ touchAction: "manipulation" }}>✕</button>
+        <button onClick={confirm} className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-base font-bold touch-manipulation" style={{ touchAction: "manipulation" }}>✓</button>
+        <button onClick={() => setEditing(false)} className="px-2.5 py-1 rounded-lg bg-muted text-muted-foreground text-base font-bold touch-manipulation" style={{ touchAction: "manipulation" }}>✕</button>
       </div>
     )
   }

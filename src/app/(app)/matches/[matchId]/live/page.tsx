@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { MessageCircle } from "lucide-react"
+import { motion } from "framer-motion"
 import { useLiveMatch } from "@/hooks/useLiveMatch"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { useMatchChat } from "@/hooks/useMatchChat"
@@ -52,6 +53,7 @@ export default function LiveMatchPage({ params }: PageProps) {
   }, [isLoading, isMatchWon, matchId, router])
 
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const dragBoundsRef = useRef<HTMLDivElement>(null)
 
   const myPlayerId = me?.playerId ?? null
   const derivedRole: Role =
@@ -126,10 +128,17 @@ export default function LiveMatchPage({ params }: PageProps) {
 
       <LiveScoringLayout myRole={myRole} />
 
-      {/* Floating chat button */}
-      <button
+      {/* Invisible drag boundary covering the full viewport */}
+      <div ref={dragBoundsRef} className="fixed inset-0 pointer-events-none z-[39]" />
+
+      {/* Floating chat button — draggable */}
+      <motion.button
+        drag
+        dragConstraints={dragBoundsRef}
+        dragMomentum={false}
+        whileTap={{ scale: 0.95 }}
         onClick={() => setIsChatOpen((o) => !o)}
-        className="fixed bottom-6 right-4 z-40 size-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg active:scale-95 transition-all"
+        className="fixed bottom-6 right-4 z-40 size-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg"
         aria-label="Open chat"
       >
         <MessageCircle className="size-5" />
@@ -138,7 +147,7 @@ export default function LiveMatchPage({ params }: PageProps) {
             {chat.unreadCount > 9 ? "9+" : chat.unreadCount}
           </span>
         )}
-      </button>
+      </motion.button>
 
       {playerA && playerB && (
         <MatchChatPanel

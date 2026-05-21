@@ -563,8 +563,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
     applyRemoteEdit: (updatedVisits: VisitRecord[]) => {
       const updatedMap = new Map(updatedVisits.map((v) => [v.id, v]))
       set((s) => {
-        s.visits = s.visits.map((v) => updatedMap.get(v.id) ?? v)
-        s.allVisits = s.allVisits.map((v) => updatedMap.get(v.id) ?? v)
+        s.visits = s.visits.map((v) => { const u = updatedMap.get(v.id); return u ? { ...v, ...u } : v })
+        s.allVisits = s.allVisits.map((v) => { const u = updatedMap.get(v.id); return u ? { ...v, ...u } : v })
         const aLast = [...s.visits].reverse().find((v) => v.playerId === s.playerA?.id && !v.isBust)
         const bLast = [...s.visits].reverse().find((v) => v.playerId === s.playerB?.id && !v.isBust)
         if (aLast) s.playerARemainder = aLast.runningRemainder
