@@ -2,6 +2,7 @@
 
 import { use } from "react"
 import { useLeagueTable } from "@/hooks/useLeagueTable"
+import { useCompetition } from "@/hooks/useCompetitions"
 import { LeagueTable } from "@/components/table/LeagueTable"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -12,6 +13,8 @@ interface PageProps {
 export default function TablePage({ params }: PageProps) {
   const { competitionId } = use(params)
   const { data: divisions, isLoading } = useLeagueTable(competitionId)
+  const { data: competition } = useCompetition(competitionId)
+  const isActive = competition?.status === "ACTIVE"
 
   if (isLoading) return <Skeleton className="h-64 rounded-xl" />
 
@@ -22,7 +25,7 @@ export default function TablePage({ params }: PageProps) {
           {divisions.length > 1 && (
             <h2 className="font-black text-lg text-white">{division.divisionName}</h2>
           )}
-          <LeagueTable rows={division.rows} topQualifyCount={4} />
+          <LeagueTable rows={division.rows} topQualifyCount={4} showLeader={isActive} />
         </div>
       ))}
       {!divisions?.length && (

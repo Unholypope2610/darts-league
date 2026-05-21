@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { updateCompetitionSchema } from "@/lib/validations/competition.schema"
+import { getLeagueWinner } from "@/lib/utils/getLeagueWinner"
 
 export async function GET(
   _req: Request,
@@ -43,9 +44,24 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
+  let winnerId: string | undefined
+  if (parsed.data.status === "COMPLETED") {
+    const comp = await prisma.competition.findUnique({
+      where: { id: competitionId },
+      select: {
+        type: true,
+        divisions: { orderBy: { tier: "asc" }, take: 1, select: { id: true } },
+      },
+    })
+    const div = comp?.divisions[0]
+    if (div && (comp?.type === "SINGLE_LEAGUE" || comp?.type === "DIVISIONS")) {
+      winnerId = (await getLeagueWinner(competitionId, div.id)) ?? undefined
+    }
+  }
+
   const competition = await prisma.competition.update({
     where: { id: competitionId },
-    data: parsed.data,
+    data: { ...parsed.data, ...(winnerId ? { winnerId } : {}) },
   })
   return NextResponse.json(competition)
 }

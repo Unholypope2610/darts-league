@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { Crown } from "lucide-react"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { FormDots } from "./FormDots"
 import { cn } from "@/lib/utils/cn"
@@ -12,6 +13,7 @@ interface LeagueTableProps {
   topQualifyCount?: number
   promotionCount?: number
   relegationCount?: number
+  showLeader?: boolean
 }
 
 export function LeagueTable({
@@ -19,6 +21,7 @@ export function LeagueTable({
   topQualifyCount = 4,
   promotionCount = 0,
   relegationCount = 0,
+  showLeader = false,
 }: LeagueTableProps) {
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
@@ -66,6 +69,9 @@ export function LeagueTable({
                   >
                     <PlayerAvatar name={row.name} avatarUrl={row.avatarUrl} size="sm" />
                     <span className="font-medium truncate max-w-[140px]">{row.name}</span>
+                    {showLeader && idx === 0 && (
+                      <Crown className="size-3.5 text-amber-400 shrink-0" />
+                    )}
                   </Link>
                 </td>
                 <td className="px-2 py-3 text-center font-mono">{row.played}</td>

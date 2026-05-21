@@ -11,7 +11,9 @@ export const createCompetitionSchema = z.object({
   legSize: z.number().int().min(1).optional().nullable(),
 })
 
-export const updateCompetitionSchema = createCompetitionSchema.partial()
+export const updateCompetitionSchema = createCompetitionSchema.partial().extend({
+  status: z.enum(["DRAFT", "ACTIVE", "COMPLETED"]).optional(),
+})
 
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>
 export type UpdateCompetitionInput = z.infer<typeof updateCompetitionSchema>

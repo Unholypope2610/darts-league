@@ -72,10 +72,10 @@ export async function POST(
         data: { divisionId: tier1.id, playerId: pid },
       }),
     ),
-    // Mark competition completed
+    // Mark competition completed and record the tier-1 champion
     prisma.competition.update({
       where: { id: competitionId },
-      data: { status: "COMPLETED" },
+      data: { status: "COMPLETED", winnerId: tier1Standings[0] ?? null },
     }),
   ])
 
