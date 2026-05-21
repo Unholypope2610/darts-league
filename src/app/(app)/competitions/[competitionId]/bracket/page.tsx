@@ -24,7 +24,7 @@ export default function BracketPage({ params }: PageProps) {
       { topN },
       {
         onSuccess: () => toast.success("Bracket generated!"),
-        onError: () => toast.error("Failed to generate bracket"),
+        onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to generate bracket"),
       },
     )
   }
