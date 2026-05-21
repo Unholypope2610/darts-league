@@ -10,6 +10,7 @@ const TABS = [
   { label: "Overview", path: "" },
   { label: "Fixtures", path: "/fixtures" },
   { label: "Table", path: "/table" },
+  { label: "Stats", path: "/stats" },
   { label: "Bracket", path: "/bracket" },
   { label: "Settings", path: "/settings" },
 ]
