@@ -36,68 +36,80 @@ export async function POST(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { competitionId } = await params
-  const body = await req.json()
+
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+  }
+
   const parsed = generateFixturesSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const competition = await prisma.competition.findUnique({
-    where: { id: competitionId },
-    include: {
-      divisions: {
-        include: { players: true },
-        orderBy: { tier: "asc" },
-      },
-    },
-  })
-  if (!competition) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
-  // Determine which division(s) to generate for
-  const divisionsToGenerate = parsed.data.divisionId
-    ? competition.divisions.filter((d) => d.id === parsed.data.divisionId)
-    : competition.divisions
-
-  const allFixtures: unknown[] = []
-
-  for (const division of divisionsToGenerate) {
-    const playerIds = division.players.map((p) => p.playerId)
-    if (playerIds.length < 2) continue
-
-    const generated = generateFixtures(playerIds, parsed.data.rounds)
-
-    const fixtures = await prisma.$transaction(
-      generated.map((f) =>
-        prisma.fixture.create({
-          data: {
-            competitionId,
-            divisionId: division.id,
-            matchday: f.matchday,
-            playerAId: f.playerAId,
-            playerBId: f.playerBId,
-            status: "SCHEDULED",
-          },
-          include: { playerA: true, playerB: true },
-        }),
-      ),
-    )
-    allFixtures.push(...fixtures)
-  }
-
-  if (allFixtures.length === 0) {
-    return NextResponse.json(
-      { error: "No players found in this competition. Add players to the division before generating fixtures." },
-      { status: 400 },
-    )
-  }
-
-  // Activate the competition if it was in DRAFT
-  if (competition.status === "DRAFT") {
-    await prisma.competition.update({
+  try {
+    const competition = await prisma.competition.findUnique({
       where: { id: competitionId },
-      data: { status: "ACTIVE" },
+      include: {
+        divisions: {
+          include: { players: true },
+          orderBy: { tier: "asc" },
+        },
+      },
     })
-  }
+    if (!competition) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  return NextResponse.json(allFixtures, { status: 201 })
+    // Determine which division(s) to generate for
+    const divisionsToGenerate = parsed.data.divisionId
+      ? competition.divisions.filter((d) => d.id === parsed.data.divisionId)
+      : competition.divisions
+
+    const allFixtures: unknown[] = []
+
+    for (const division of divisionsToGenerate) {
+      const playerIds = division.players.map((p) => p.playerId)
+      if (playerIds.length < 2) continue
+
+      const generated = generateFixtures(playerIds, parsed.data.rounds)
+
+      const fixtures = await prisma.$transaction(
+        generated.map((f) =>
+          prisma.fixture.create({
+            data: {
+              competitionId,
+              divisionId: division.id,
+              matchday: f.matchday,
+              playerAId: f.playerAId,
+              playerBId: f.playerBId,
+              status: "SCHEDULED",
+            },
+            include: { playerA: true, playerB: true },
+          }),
+        ),
+      )
+      allFixtures.push(...fixtures)
+    }
+
+    if (allFixtures.length === 0) {
+      return NextResponse.json(
+        { error: "No players found in this competition. Add players to the division before generating fixtures." },
+        { status: 400 },
+      )
+    }
+
+    // Activate the competition if it was in DRAFT
+    if (competition.status === "DRAFT") {
+      await prisma.competition.update({
+        where: { id: competitionId },
+        data: { status: "ACTIVE" },
+      })
+    }
+
+    return NextResponse.json(allFixtures, { status: 201 })
+  } catch (err) {
+    console.error("[fixtures/generate]", err)
+    return NextResponse.json({ error: "Failed to generate fixtures" }, { status: 500 })
+  }
 }
