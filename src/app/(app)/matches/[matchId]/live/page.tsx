@@ -2,9 +2,8 @@
 
 import { use, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { MessageCircle, RotateCcw, XCircle } from "lucide-react"
-import { toast } from "sonner"
+import { useQuery } from "@tanstack/react-query"
+import { MessageCircle } from "lucide-react"
 import { useLiveMatch } from "@/hooks/useLiveMatch"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { useMatchChat } from "@/hooks/useMatchChat"
@@ -26,8 +25,6 @@ export default function LiveMatchPage({ params }: PageProps) {
   const isMatchWon = useLiveMatchStore((s) => s.isMatchWon)
   const playerA = useLiveMatchStore((s) => s.playerA)
   const playerB = useLiveMatchStore((s) => s.playerB)
-  const createdByUserId = useLiveMatchStore((s) => s.createdByUserId)
-
   const { data: me } = useQuery({
     queryKey: ["me"],
     queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
@@ -53,47 +50,6 @@ export default function LiveMatchPage({ params }: PageProps) {
       if (isMatchWon) router.replace(`/matches/${matchId}`)
     }
   }, [isLoading, isMatchWon, matchId, router])
-
-  const isMatchAdmin = !!me?.id && (me.id === createdByUserId || me.role === "ADMIN")
-
-  const qc = useQueryClient()
-  const [adminConfirm, setAdminConfirm] = useState<"abandon" | "restart" | null>(null)
-
-  const { mutate: abandon, isPending: isAbandoning } = useMutation({
-    mutationFn: () =>
-      fetch(`/api/matches/${matchId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then((r) => r.json()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["casual-matches"] })
-      toast.success("Match abandoned")
-      router.push("/matches")
-    },
-    onError: () => toast.error("Failed to abandon match"),
-  })
-
-  const { mutate: restart, isPending: isRestarting } = useMutation({
-    mutationFn: async () => {
-      await fetch(`/api/matches/${matchId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
-      const res = await fetch("/api/matches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playerAId: playerA?.id,
-          playerBId: playerB?.id,
-          bestOf: 7,
-          startingScore: 501,
-          finishType: "DOUBLE_OUT",
-          startingPlayerId: playerA?.id,
-        }),
-      })
-      return res.json()
-    },
-    onSuccess: (newMatch) => {
-      qc.invalidateQueries({ queryKey: ["casual-matches"] })
-      toast.success("Match restarted!")
-      router.push(`/matches/${newMatch.id}/live`)
-    },
-    onError: () => toast.error("Failed to restart match"),
-  })
 
   const [isChatOpen, setIsChatOpen] = useState(false)
 
@@ -169,48 +125,6 @@ export default function LiveMatchPage({ params }: PageProps) {
       )}
 
       <LiveScoringLayout myRole={myRole} />
-
-      {/* Admin confirm overlay */}
-      {adminConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setAdminConfirm(null)} />
-          <div className="relative w-full max-w-sm mx-auto bg-card rounded-t-2xl border-t border-border shadow-2xl px-5 pt-5 pb-[max(20px,env(safe-area-inset-bottom))] flex flex-col gap-3">
-            <p className="text-sm font-semibold text-center">
-              {adminConfirm === "abandon" ? "Abandon this match?" : "Restart with the same settings?"}
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => setAdminConfirm(null)} className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-muted text-muted-foreground">Cancel</button>
-              <button
-                onClick={() => adminConfirm === "abandon" ? abandon() : restart()}
-                disabled={isAbandoning || isRestarting}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${adminConfirm === "abandon" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400"}`}
-              >
-                {isAbandoning || isRestarting ? "…" : adminConfirm === "abandon" ? "Yes, abandon" : "Yes, restart"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin controls — floating above chat button, match creator only */}
-      {isMatchAdmin && !isMatchWon && (
-        <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-2">
-          <button
-            onClick={() => setAdminConfirm("restart")}
-            className="size-10 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shadow active:scale-95 transition-all"
-            aria-label="Restart match"
-          >
-            <RotateCcw className="size-4" />
-          </button>
-          <button
-            onClick={() => setAdminConfirm("abandon")}
-            className="size-10 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center shadow active:scale-95 transition-all"
-            aria-label="Abandon match"
-          >
-            <XCircle className="size-4" />
-          </button>
-        </div>
-      )}
 
       {/* Floating chat button */}
       <button

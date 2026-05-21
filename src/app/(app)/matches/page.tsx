@@ -331,6 +331,7 @@ export default function CasualMatchesPage() {
   const { data: matches, isLoading } = useQuery<CasualMatch[]>({
     queryKey: ["casual-matches"],
     queryFn: () => fetch("/api/matches").then((r) => r.json()),
+    refetchInterval: 15000,
   })
   const { data: meData } = useQuery({
     queryKey: ["auth", "me"],
