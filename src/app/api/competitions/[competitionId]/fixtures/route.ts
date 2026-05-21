@@ -109,7 +109,8 @@ export async function POST(
 
     return NextResponse.json(allFixtures, { status: 201 })
   } catch (err) {
-    console.error("[fixtures/generate]", err)
-    return NextResponse.json({ error: "Failed to generate fixtures" }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("[fixtures/generate]", message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
