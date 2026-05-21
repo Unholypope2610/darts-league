@@ -92,9 +92,49 @@ export default function UsersSettingsPage() {
       }),
     onSuccess: (_, target) => {
       setConfirmTarget(null)
+      qc.invalidateQueries({ queryKey: ["competitions"] })
+      qc.invalidateQueries({ queryKey: ["casual-matches"] })
       toast.success(target === "casual-matches" ? "Casual matches cleared" : "Competitions cleared")
     },
     onError: () => toast.error("Failed to clear data"),
+  })
+
+  // Per-item deletion
+  const { data: competitionsRaw } = useQuery({
+    queryKey: ["competitions"],
+    queryFn: () => fetch("/api/competitions").then((r) => r.json()),
+    enabled: isAdmin,
+  })
+  const competitions: { id: string; name: string; season: string; status: string }[] =
+    Array.isArray(competitionsRaw) ? competitionsRaw : []
+
+  const { data: casualMatchesRaw } = useQuery({
+    queryKey: ["casual-matches"],
+    queryFn: () => fetch("/api/matches").then((r) => r.json()),
+    enabled: isAdmin,
+  })
+  const casualMatches: { id: string; playerA: { name: string }; playerB: { name: string }; startedAt: string; completedAt: string | null }[] =
+    Array.isArray(casualMatchesRaw) ? casualMatchesRaw : []
+
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState("")
+  const [selectedMatchId, setSelectedMatchId] = useState("")
+  const [confirmSpecific, setConfirmSpecific] = useState<{ target: "competition" | "match"; id: string; label: string } | null>(null)
+
+  const { mutate: deleteSpecific, isPending: isDeletingSpecific } = useMutation({
+    mutationFn: ({ target, id }: { target: string; id: string }) =>
+      fetch(`/api/admin/data?target=${target}&id=${id}`, { method: "DELETE" }).then((r) => {
+        if (!r.ok) throw new Error("Failed")
+        return r.json()
+      }),
+    onSuccess: (_, { target }) => {
+      setConfirmSpecific(null)
+      setSelectedCompetitionId("")
+      setSelectedMatchId("")
+      qc.invalidateQueries({ queryKey: ["competitions"] })
+      qc.invalidateQueries({ queryKey: ["casual-matches"] })
+      toast.success(target === "competition" ? "Competition deleted" : "Match deleted")
+    },
+    onError: () => toast.error("Failed to delete"),
   })
 
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -221,7 +261,9 @@ export default function UsersSettingsPage() {
             <p className="font-semibold text-destructive">Data Management</p>
             <p className="text-sm text-muted-foreground mt-0.5">Permanently delete test data. These actions cannot be undone.</p>
           </div>
+          {/* Bulk delete */}
           <div className="flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Bulk</p>
             <button
               onClick={() => setConfirmTarget("casual-matches")}
               className="w-full py-2 rounded-lg border border-destructive/40 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors"
@@ -235,6 +277,67 @@ export default function UsersSettingsPage() {
               Clear all competitions
             </button>
           </div>
+
+          {/* Delete specific competition */}
+          {competitions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Specific Competition</p>
+              <div className="flex gap-2">
+                <select
+                  value={selectedCompetitionId}
+                  onChange={(e) => setSelectedCompetitionId(e.target.value)}
+                  className="flex-1 h-9 rounded-lg text-sm px-2.5 bg-muted border border-border text-foreground outline-none"
+                >
+                  <option value="">Select competition…</option>
+                  {competitions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.season})</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    const c = competitions.find((x) => x.id === selectedCompetitionId)
+                    if (c) setConfirmSpecific({ target: "competition", id: c.id, label: `${c.name} (${c.season})` })
+                  }}
+                  disabled={!selectedCompetitionId}
+                  className="px-3 h-9 rounded-lg text-sm font-medium border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Delete specific match */}
+          {casualMatches.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Specific Match</p>
+              <div className="flex gap-2">
+                <select
+                  value={selectedMatchId}
+                  onChange={(e) => setSelectedMatchId(e.target.value)}
+                  className="flex-1 h-9 rounded-lg text-sm px-2.5 bg-muted border border-border text-foreground outline-none"
+                >
+                  <option value="">Select match…</option>
+                  {casualMatches.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.playerA.name} vs {m.playerB.name} · {new Date(m.startedAt).toLocaleDateString()}
+                      {m.completedAt ? "" : " (live)"}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    const m = casualMatches.find((x) => x.id === selectedMatchId)
+                    if (m) setConfirmSpecific({ target: "match", id: m.id, label: `${m.playerA.name} vs ${m.playerB.name}` })
+                  }}
+                  disabled={!selectedMatchId}
+                  className="px-3 h-9 rounded-lg text-sm font-medium border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -260,6 +363,31 @@ export default function UsersSettingsPage() {
               disabled={isClearing}
             >
               {isClearing ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm specific delete */}
+      <Dialog open={confirmSpecific !== null} onOpenChange={(open) => { if (!open) setConfirmSpecific(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete {confirmSpecific?.target === "competition" ? "competition" : "match"}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Permanently delete <span className="text-foreground font-medium">{confirmSpecific?.label}</span> and all associated data?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setConfirmSpecific(null)} disabled={isDeletingSpecific}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => confirmSpecific && deleteSpecific({ target: confirmSpecific.target, id: confirmSpecific.id })}
+              disabled={isDeletingSpecific}
+            >
+              {isDeletingSpecific ? "Deleting…" : "Delete"}
             </Button>
           </div>
         </DialogContent>

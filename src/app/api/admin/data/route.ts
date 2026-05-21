@@ -53,5 +53,55 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ deleted: true })
   }
 
+  const id = req.nextUrl.searchParams.get("id")
+
+  if (target === "competition" && id) {
+    const fixtures = await prisma.fixture.findMany({
+      where: { competitionId: id },
+      select: { matchId: true },
+    })
+    const fixtureMatchIds = fixtures.map((f) => f.matchId).filter(Boolean) as string[]
+
+    const bracketNodes = await prisma.bracketNode.findMany({
+      where: { competitionId: id },
+      select: { matchId: true },
+    })
+    const bracketMatchIds = bracketNodes.map((n) => n.matchId).filter(Boolean) as string[]
+
+    const matchIds = [...new Set([...fixtureMatchIds, ...bracketMatchIds])]
+
+    await prisma.$transaction([
+      prisma.fixture.updateMany({ where: { competitionId: id }, data: { matchId: null } }),
+      prisma.visit.deleteMany({ where: { leg: { matchId: { in: matchIds } } } }),
+      prisma.leg.deleteMany({ where: { matchId: { in: matchIds } } }),
+      prisma.match.deleteMany({ where: { id: { in: matchIds } } }),
+      prisma.bracketNode.deleteMany({ where: { competitionId: id } }),
+      prisma.fixture.deleteMany({ where: { competitionId: id } }),
+      prisma.competition.delete({ where: { id } }),
+    ])
+
+    return NextResponse.json({ deleted: true })
+  }
+
+  if (target === "match" && id) {
+    // Only allow deleting casual matches (no fixture, no bracket)
+    const match = await prisma.match.findUnique({
+      where: { id },
+      include: { fixture: true },
+    })
+    if (!match) return NextResponse.json({ error: "Not found" }, { status: 404 })
+    if (match.fixture || match.bracketNodeId) {
+      return NextResponse.json({ error: "Cannot delete competition matches here" }, { status: 400 })
+    }
+
+    await prisma.$transaction([
+      prisma.visit.deleteMany({ where: { leg: { matchId: id } } }),
+      prisma.leg.deleteMany({ where: { matchId: id } }),
+      prisma.match.delete({ where: { id } }),
+    ])
+
+    return NextResponse.json({ deleted: true })
+  }
+
   return NextResponse.json({ error: "Invalid target" }, { status: 400 })
 }
