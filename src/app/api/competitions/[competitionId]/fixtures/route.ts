@@ -84,6 +84,13 @@ export async function POST(
     allFixtures.push(...fixtures)
   }
 
+  if (allFixtures.length === 0) {
+    return NextResponse.json(
+      { error: "No players found in this competition. Add players to the division before generating fixtures." },
+      { status: 400 },
+    )
+  }
+
   // Activate the competition if it was in DRAFT
   if (competition.status === "DRAFT") {
     await prisma.competition.update({

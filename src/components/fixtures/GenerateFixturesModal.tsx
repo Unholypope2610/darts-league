@@ -26,7 +26,7 @@ export function GenerateFixturesModal({ competitionId, open, onClose }: Generate
           toast.success("Fixtures generated!")
           onClose()
         },
-        onError: () => toast.error("Failed to generate fixtures"),
+        onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to generate fixtures"),
       },
     )
   }

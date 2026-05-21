@@ -18,7 +18,11 @@ export function useGenerateFixtures(competitionId: string) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(opts),
-      }).then((r) => r.json()),
+      }).then(async (r) => {
+        const json = await r.json()
+        if (!r.ok) throw new Error(json.error ?? "Failed to generate fixtures")
+        return json
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["fixtures", competitionId] }),
   })
 }
