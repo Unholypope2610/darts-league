@@ -59,20 +59,32 @@ export async function POST(req: Request) {
     return newMatch
   })
 
-  // Notify both players that a match has started
+  // Find the creator's linked player so we can skip notifying them
+  const creatorUser = await prisma.user.findUnique({ where: { id: userId }, select: { playerId: true } })
+  const creatorPlayerId = creatorUser?.playerId ?? null
+
+  // Only notify players who didn't create the match
   const supabase = createServerSupabaseClient()
-  await Promise.allSettled([
-    supabase.channel(`player:${match.playerAId}`).send({
-      type: "broadcast",
-      event: "MATCH_STARTED",
-      payload: { matchId: match.id, opponentName: match.playerB.name },
-    }),
-    supabase.channel(`player:${match.playerBId}`).send({
-      type: "broadcast",
-      event: "MATCH_STARTED",
-      payload: { matchId: match.id, opponentName: match.playerA.name },
-    }),
-  ])
+  const notifications: Promise<unknown>[] = []
+  if (match.playerAId !== creatorPlayerId) {
+    notifications.push(
+      supabase.channel(`player:${match.playerAId}`).send({
+        type: "broadcast",
+        event: "MATCH_STARTED",
+        payload: { matchId: match.id, opponentName: match.playerB.name },
+      })
+    )
+  }
+  if (match.playerBId !== creatorPlayerId) {
+    notifications.push(
+      supabase.channel(`player:${match.playerBId}`).send({
+        type: "broadcast",
+        event: "MATCH_STARTED",
+        payload: { matchId: match.id, opponentName: match.playerA.name },
+      })
+    )
+  }
+  await Promise.allSettled(notifications)
 
   return NextResponse.json(match, { status: 201 })
 }
