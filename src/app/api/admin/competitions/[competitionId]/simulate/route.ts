@@ -100,95 +100,92 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const { competitionId } = await params
-
-  const competition = await prisma.competition.findUnique({
-    where: { id: competitionId },
-    select: { bestOf: true, startingScore: true, finishType: true },
-  })
-  if (!competition) return NextResponse.json({ error: "Not found" }, { status: 404 })
-
-  const fixtures = await prisma.fixture.findMany({
-    where: {
-      competitionId,
-      status: "SCHEDULED",
-      matchId: null,
-      playerAId: { not: null },
-      playerBId: { not: null },
-    },
-    select: { id: true, playerAId: true, playerBId: true },
-  })
-
-  if (fixtures.length === 0) return NextResponse.json({ simulated: 0 })
-
-  const { bestOf, startingScore, finishType } = competition
-  const legsToWin = Math.floor(bestOf / 2) + 1
-  const now = new Date()
-
-  // Build all rows in memory with pre-generated IDs — no DB calls needed.
-  type MatchRow = { id: string; playerAId: string; playerBId: string; startingScore: number; bestOf: number; finishType: string; isSets: boolean; playerAScore: number; playerBScore: number; winnerId: string; startedAt: Date; completedAt: Date }
-  type LegRow = { id: string; matchId: string; legNumber: number; starterId: string; winnerId: string; dartsThrown: number; completedAt: Date }
-  type VisitRow = VisitData & { legId: string }
-
-  const matchRows: MatchRow[] = []
-  const legRows: LegRow[] = []
-  const visitRows: VisitRow[] = []
-  const fixtureUpdates: { id: string; matchId: string }[] = []
-
-  for (const fixture of fixtures) {
-    const playerAId = fixture.playerAId!
-    const playerBId = fixture.playerBId!
-
-    const matchWinnerId = Math.random() < 0.5 ? playerAId : playerBId
-    const matchLoserId = matchWinnerId === playerAId ? playerBId : playerAId
-    const loserLegsWon = Math.floor(Math.random() * legsToWin)
-
-    const outcomes: ("W" | "L")[] = shuffle([
-      ...Array<"W">(legsToWin - 1).fill("W"),
-      ...Array<"L">(loserLegsWon).fill("L"),
-    ])
-    outcomes.push("W")
-
-    const playerAScore = outcomes.filter(
-      (o) => (o === "W") === (matchWinnerId === playerAId),
-    ).length
-    const playerBScore = outcomes.length - playerAScore
-
-    const matchId = randomUUID()
-    matchRows.push({ id: matchId, playerAId, playerBId, startingScore, bestOf, finishType, isSets: false, playerAScore, playerBScore, winnerId: matchWinnerId, startedAt: now, completedAt: now })
-    fixtureUpdates.push({ id: fixture.id, matchId })
-
-    for (let legIdx = 0; legIdx < outcomes.length; legIdx++) {
-      const legWinnerId = outcomes[legIdx] === "W" ? matchWinnerId : matchLoserId
-      const legLoserId = legWinnerId === playerAId ? playerBId : playerAId
-      const winnerStarts = Math.random() < 0.5
-      const { visits, dartsThrown } = buildLegVisits(startingScore, legWinnerId, legLoserId, winnerStarts)
-
-      const legId = randomUUID()
-      legRows.push({ id: legId, matchId, legNumber: legIdx + 1, starterId: winnerStarts ? legWinnerId : legLoserId, winnerId: legWinnerId, dartsThrown, completedAt: now })
-      for (const v of visits) visitRows.push({ ...v, legId })
-    }
-  }
-
   try {
-    // Three bulk inserts in one transaction instead of hundreds of sequential calls.
-    await prisma.$transaction([
-      prisma.match.createMany({ data: matchRows }),
-      prisma.leg.createMany({ data: legRows }),
-      prisma.visit.createMany({ data: visitRows }),
-    ])
+    const { competitionId } = await params
 
-    // Update fixtures in parallel (one UPDATE per fixture, but all fired at once).
+    const competition = await prisma.competition.findUnique({
+      where: { id: competitionId },
+      select: { bestOf: true, startingScore: true, finishType: true },
+    })
+    if (!competition) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    const fixtures = await prisma.fixture.findMany({
+      where: {
+        competitionId,
+        status: "SCHEDULED",
+        matchId: null,
+        playerAId: { not: null },
+        playerBId: { not: null },
+      },
+      select: { id: true, playerAId: true, playerBId: true },
+    })
+
+    if (fixtures.length === 0) return NextResponse.json({ simulated: 0 })
+
+    const { bestOf, startingScore, finishType } = competition
+    const legsToWin = Math.floor(bestOf / 2) + 1
+    const now = new Date()
+
+    type MatchRow = { id: string; playerAId: string; playerBId: string; startingScore: number; bestOf: number; finishType: string; isSets: boolean; playerAScore: number; playerBScore: number; winnerId: string; startedAt: Date; completedAt: Date }
+    type LegRow = { id: string; matchId: string; legNumber: number; starterId: string; winnerId: string; dartsThrown: number; completedAt: Date }
+    type VisitRow = VisitData & { legId: string }
+
+    const matchRows: MatchRow[] = []
+    const legRows: LegRow[] = []
+    const visitRows: VisitRow[] = []
+    const fixtureUpdates: { id: string; matchId: string }[] = []
+
+    for (const fixture of fixtures) {
+      const playerAId = fixture.playerAId!
+      const playerBId = fixture.playerBId!
+
+      const matchWinnerId = Math.random() < 0.5 ? playerAId : playerBId
+      const matchLoserId = matchWinnerId === playerAId ? playerBId : playerAId
+      const loserLegsWon = Math.floor(Math.random() * legsToWin)
+
+      const outcomes: ("W" | "L")[] = shuffle([
+        ...Array<"W">(legsToWin - 1).fill("W"),
+        ...Array<"L">(loserLegsWon).fill("L"),
+      ])
+      outcomes.push("W")
+
+      const playerAScore = outcomes.filter(
+        (o) => (o === "W") === (matchWinnerId === playerAId),
+      ).length
+      const playerBScore = outcomes.length - playerAScore
+
+      const matchId = randomUUID()
+      matchRows.push({ id: matchId, playerAId, playerBId, startingScore, bestOf, finishType, isSets: false, playerAScore, playerBScore, winnerId: matchWinnerId, startedAt: now, completedAt: now })
+      fixtureUpdates.push({ id: fixture.id, matchId })
+
+      for (let legIdx = 0; legIdx < outcomes.length; legIdx++) {
+        const legWinnerId = outcomes[legIdx] === "W" ? matchWinnerId : matchLoserId
+        const legLoserId = legWinnerId === playerAId ? playerBId : playerAId
+        const winnerStarts = Math.random() < 0.5
+        const { visits, dartsThrown } = buildLegVisits(startingScore, legWinnerId, legLoserId, winnerStarts)
+
+        const legId = randomUUID()
+        legRows.push({ id: legId, matchId, legNumber: legIdx + 1, starterId: winnerStarts ? legWinnerId : legLoserId, winnerId: legWinnerId, dartsThrown, completedAt: now })
+        for (const v of visits) visitRows.push({ ...v, legId })
+      }
+    }
+
+    // Three bulk inserts instead of hundreds of sequential calls.
+    await prisma.match.createMany({ data: matchRows })
+    await prisma.leg.createMany({ data: legRows })
+    await prisma.visit.createMany({ data: visitRows })
+
+    // Update fixture statuses in parallel.
     await Promise.all(
       fixtureUpdates.map(({ id, matchId }) =>
         prisma.fixture.update({ where: { id }, data: { status: "COMPLETED", matchId } })
       )
     )
+
+    return NextResponse.json({ simulated: fixtures.length })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error("[simulate]", message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
-
-  return NextResponse.json({ simulated: fixtures.length })
 }
