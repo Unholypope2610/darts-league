@@ -17,7 +17,7 @@ export default function BracketPage({ params }: PageProps) {
   const { competitionId } = use(params)
   const { data: nodes, isLoading } = useBracket(competitionId)
   const { mutate: generateBracket, isPending } = useGenerateBracket(competitionId)
-  const [topN, setTopN] = useState<4 | 8>(4)
+  const [topN, setTopN] = useState<2 | 4 | 8>(4)
 
   function handleGenerate() {
     generateBracket(
@@ -38,9 +38,10 @@ export default function BracketPage({ params }: PageProps) {
         <div className="flex items-center gap-2">
           <select
             value={topN}
-            onChange={(e) => setTopN(Number(e.target.value) as 4 | 8)}
+            onChange={(e) => setTopN(Number(e.target.value) as 2 | 4 | 8)}
             className="text-sm border border-border rounded-lg px-2 py-1.5 bg-background"
           >
+            <option value={2}>Top 2</option>
             <option value={4}>Top 4</option>
             <option value={8}>Top 8</option>
           </select>

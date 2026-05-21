@@ -17,15 +17,26 @@ export interface StandingEntry {
 
 /**
  * Generates bracket nodes for a single-elimination tournament.
- * Supports 4 players (2 semis + 1 final) or 8 players (4 quarters + 2 semis + 1 final).
- * Seeding: 1v4, 2v3 for semis (or 1v8, 2v7, 3v6, 4v5 for quarters).
+ * Supports 2 (final only), 4 (2 semis + final), or 8 players (4 quarters + 2 semis + final).
  */
 export function generateBracket(
   competitionId: string,
   standings: StandingEntry[],
-  topN: 4 | 8 = 4,
+  topN: 2 | 4 | 8 = 4,
 ): Omit<BracketNodeInput, "winnerNextNodeId">[] {
   const qualified = standings.slice(0, topN)
+
+  if (topN === 2) {
+    return [
+      {
+        competitionId,
+        round: 1,
+        position: 0,
+        seedAId: qualified[0]?.playerId ?? null,
+        seedBId: qualified[1]?.playerId ?? null,
+      },
+    ]
+  }
 
   if (topN === 4) {
     // Semi 1: seed 1 vs seed 4  (position 0)

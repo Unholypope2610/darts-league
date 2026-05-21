@@ -13,7 +13,7 @@ export async function POST(
 
   const { competitionId } = await params
   const body = await req.json().catch(() => ({}))
-  const topN: 4 | 8 = body.topN === 8 ? 8 : 4
+  const topN: 2 | 4 | 8 = body.topN === 2 ? 2 : body.topN === 8 ? 8 : 4
 
   // Get league table standings
   const competition = await prisma.competition.findUnique({
@@ -79,13 +79,13 @@ export async function POST(
     nodeInputs.map((n) => prisma.bracketNode.create({ data: n })),
   )
 
-  // Wire winners: for topN=4: semis (round=2) → final (round=1)
-  // For topN=8: quarters → semis → final
+  // Wire winners: topN=2 needs no wiring (single final node).
+  // topN=4: semis → final. topN=8: quarters → semis → final.
   if (topN === 4) {
     const [semi1, semi2, final] = nodes
     await prisma.bracketNode.update({ where: { id: semi1.id }, data: { winnerNextNodeId: final.id } })
     await prisma.bracketNode.update({ where: { id: semi2.id }, data: { winnerNextNodeId: final.id } })
-  } else {
+  } else if (topN === 8) {
     const quarters = nodes.filter((n) => n.round === 4)
     const semis = nodes.filter((n) => n.round === 2)
     const [final] = nodes.filter((n) => n.round === 1)

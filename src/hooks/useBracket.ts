@@ -13,7 +13,7 @@ export function useBracket(competitionId: string) {
 export function useGenerateBracket(competitionId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (opts: { topN: 4 | 8 }) =>
+    mutationFn: (opts: { topN: 2 | 4 | 8 }) =>
       fetch(`/api/competitions/${competitionId}/bracket/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
