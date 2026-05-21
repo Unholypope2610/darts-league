@@ -4,7 +4,7 @@ import { canEditPlayer } from "@/lib/auth"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"]
-const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
+const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
 const BUCKET = "avatars"
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
