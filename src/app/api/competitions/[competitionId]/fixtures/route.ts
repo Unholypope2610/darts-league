@@ -66,38 +66,41 @@ export async function POST(
       ? competition.divisions.filter((d) => d.id === parsed.data.divisionId)
       : competition.divisions
 
-    const allFixtures: unknown[] = []
+    type FixtureInput = {
+      competitionId: string
+      divisionId: string
+      matchday: number
+      playerAId: string
+      playerBId: string
+      status: "SCHEDULED"
+    }
+    const allFixtureData: FixtureInput[] = []
 
     for (const division of divisionsToGenerate) {
       const playerIds = division.players.map((p) => p.playerId)
       if (playerIds.length < 2) continue
 
       const generated = generateFixtures(playerIds, parsed.data.rounds)
-
-      const fixtures = await prisma.$transaction(
-        generated.map((f) =>
-          prisma.fixture.create({
-            data: {
-              competitionId,
-              divisionId: division.id,
-              matchday: f.matchday,
-              playerAId: f.playerAId,
-              playerBId: f.playerBId,
-              status: "SCHEDULED",
-            },
-            include: { playerA: true, playerB: true },
-          }),
-        ),
-      )
-      allFixtures.push(...fixtures)
+      for (const f of generated) {
+        allFixtureData.push({
+          competitionId,
+          divisionId: division.id,
+          matchday: f.matchday,
+          playerAId: f.playerAId,
+          playerBId: f.playerBId,
+          status: "SCHEDULED",
+        })
+      }
     }
 
-    if (allFixtures.length === 0) {
+    if (allFixtureData.length === 0) {
       return NextResponse.json(
         { error: "No players found in this competition. Add players to the division before generating fixtures." },
         { status: 400 },
       )
     }
+
+    await prisma.fixture.createMany({ data: allFixtureData })
 
     // Activate the competition if it was in DRAFT
     if (competition.status === "DRAFT") {
@@ -107,7 +110,7 @@ export async function POST(
       })
     }
 
-    return NextResponse.json(allFixtures, { status: 201 })
+    return NextResponse.json({ count: allFixtureData.length }, { status: 201 })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error("[fixtures/generate]", message)
