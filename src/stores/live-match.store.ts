@@ -44,6 +44,7 @@ interface LiveMatchStore {
   // Doubles tracking prompt
   pendingDoublesPrompt: { visitId: string; type: "checkout" | "doubles" } | null
   pendingCheckoutVisitId: string | null
+  awaitingMatchWinReveal: boolean  // suppresses reveal on remote devices until doubles confirmed
 
   // Realtime broadcast injected by useLiveMatch hook
   _broadcast: ((event: string, payload: unknown) => void) | null
@@ -57,6 +58,7 @@ interface LiveMatchStore {
   submitVisit: () => Promise<void>
   submitBust: () => Promise<void>
   confirmDoublesPrompt: (dartsUsed: number | null, doublesAttempted: number) => Promise<void>
+  applyDoublesConfirmed: (visitId: string, doublesAttempted: number, dartsUsed: number | null) => void
   undoLastVisit: () => Promise<void>
   dismissLegWin: () => void
   startNewLeg: (starterId: string) => Promise<void>
@@ -96,6 +98,7 @@ const initialState = {
   undoStack: [],
   pendingDoublesPrompt: null,
   pendingCheckoutVisitId: null,
+  awaitingMatchWinReveal: false,
   _broadcast: null,
 }
 
@@ -380,11 +383,13 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
       if (type === "checkout") {
         const { pendingNextStarter, isMatchWon } = get()
-        if (!isMatchWon && pendingNextStarter) {
+        if (isMatchWon) {
+          // Broadcast so remote devices can update their visit data and show the reveal
+          get()._broadcast?.("DOUBLES_CONFIRMED", { visitId: id, doublesAttempted, dartsUsed: dartsUsed ?? null })
+        } else if (pendingNextStarter) {
           set((s) => { s.pendingNextStarter = null })
           get().startNewLeg(pendingNextStarter)
         }
-        // If isMatchWon, MatchWinReveal now shows (pendingDoublesPrompt cleared)
       }
     },
 
@@ -521,10 +526,24 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           state.winnerId = data.matchWinnerId
           state.isMatchWon = true
           state.isMatchDraw = data.isMatchDraw
+          // Suppress reveal until DOUBLES_CONFIRMED arrives from the submitting device
+          state.awaitingMatchWinReveal = true
         }
       })
 
       announceVisit(data.visit.scoreThrown, otherRemainder, otherPlayerName, data.isCheckout, data.isBust)
+    },
+
+    applyDoublesConfirmed: (visitId: string, doublesAttempted: number, dartsUsed: number | null) => {
+      set((s) => {
+        const update = (v: VisitRecord) => {
+          if (v.id !== visitId) return v
+          return { ...v, doublesAttempted, ...(dartsUsed !== null ? { dartsUsed } : {}) }
+        }
+        s.visits = s.visits.map(update)
+        s.allVisits = s.allVisits.map(update)
+        s.awaitingMatchWinReveal = false
+      })
     },
 
     editVisit: async (visitId: string, newScore: number) => {

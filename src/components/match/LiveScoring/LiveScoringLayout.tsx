@@ -71,6 +71,7 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
     visits,
     allVisits,
     pendingDoublesPrompt,
+    awaitingMatchWinReveal,
     isMatchWon,
     startNewLeg,
     editVisit,
@@ -200,7 +201,7 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
       </div>
 
       <LegWinAnimation />
-      {!pendingDoublesPrompt && <MatchWinReveal />}
+      {!pendingDoublesPrompt && !awaitingMatchWinReveal && <MatchWinReveal />}
       <DoublesPrompt />
     </>
   )

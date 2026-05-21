@@ -12,6 +12,7 @@ export function useLiveMatch(matchId: string) {
   const applyRemoteVisit = useLiveMatchStore((s) => s.applyRemoteVisit)
   const applyRemoteLeg = useLiveMatchStore((s) => s.applyRemoteLeg)
   const applyRemoteEdit = useLiveMatchStore((s) => s.applyRemoteEdit)
+  const applyDoublesConfirmed = useLiveMatchStore((s) => s.applyDoublesConfirmed)
 
   const { data, isLoading, error } = useQuery<MatchWithLegs>({
     queryKey: ["match", matchId],
@@ -42,6 +43,10 @@ export function useLiveMatch(matchId: string) {
       .on("broadcast", { event: "SCORE_EDITED" }, ({ payload }) => {
         applyRemoteEdit((payload as { updatedVisits: VisitRecord[] }).updatedVisits)
       })
+      .on("broadcast", { event: "DOUBLES_CONFIRMED" }, ({ payload }) => {
+        const p = payload as { visitId: string; doublesAttempted: number; dartsUsed: number | null }
+        applyDoublesConfirmed(p.visitId, p.doublesAttempted, p.dartsUsed)
+      })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           useLiveMatchStore.setState({
@@ -55,7 +60,7 @@ export function useLiveMatch(matchId: string) {
       useLiveMatchStore.setState({ _broadcast: null })
       supabase.removeChannel(channel)
     }
-  }, [matchId, applyRemoteVisit, applyRemoteLeg, applyRemoteEdit])
+  }, [matchId, applyRemoteVisit, applyRemoteLeg, applyRemoteEdit, applyDoublesConfirmed])
 
   useEffect(() => {
     return () => reset()
