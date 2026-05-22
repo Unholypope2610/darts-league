@@ -42,8 +42,8 @@ export async function GET() {
     const first9Average = parseFloat(calculateAverage(first9Visits).toFixed(2))
 
     const allLegsDarts = [
-      ...p.matchesAsA.flatMap((m) => m.legs),
-      ...p.matchesAsB.flatMap((m) => m.legs),
+      ...p.matchesAsA.filter((m) => m.startingScore === 501).flatMap((m) => m.legs),
+      ...p.matchesAsB.filter((m) => m.startingScore === 501).flatMap((m) => m.legs),
     ]
     const wonLegDarts = allLegsDarts.filter((l) => l.winnerId === p.id).map((l) => l.dartsThrown)
     const bestLegDarts = wonLegDarts.length > 0 ? Math.min(...wonLegDarts) : null

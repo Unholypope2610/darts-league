@@ -49,7 +49,7 @@ export async function GET(
   )
 
   const first9Visits = allVisits.filter((v) => v.visitNumber <= 3)
-  const allLegs = allMatches.flatMap((m) => m.legs)
+  const allLegs = allMatches.filter((m) => m.startingScore === 501).flatMap((m) => m.legs)
   const bestLegDarts = bestLeg(allLegs, playerId)
 
   const averageHistory = [...allMatches]
