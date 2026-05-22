@@ -121,6 +121,19 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
               </Button>
             </>
           )}
+          {competition.status === "COMPLETED" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => update({ status: "ACTIVE" }, {
+                onSuccess: () => toast.success("Reverted to active."),
+                onError: () => toast.error("Failed to update status"),
+              })}
+              disabled={isPending}
+            >
+              Revert to Active
+            </Button>
+          )}
         </div>
       </div>
 
