@@ -6,13 +6,13 @@ import { usePathname } from "next/navigation"
 import { useCompetition } from "@/hooks/useCompetitions"
 import { cn } from "@/lib/utils/cn"
 
-const TABS = [
-  { label: "Overview", path: "" },
-  { label: "Fixtures", path: "/fixtures" },
-  { label: "Table", path: "/table" },
-  { label: "Stats", path: "/stats" },
-  { label: "Bracket", path: "/bracket" },
-  { label: "Settings", path: "/settings" },
+const ALL_TABS = [
+  { label: "Overview", path: "", hideFor: [] },
+  { label: "Fixtures", path: "/fixtures", hideFor: ["KNOCKOUT"] },
+  { label: "Table", path: "/table", hideFor: ["KNOCKOUT"] },
+  { label: "Stats", path: "/stats", hideFor: [] },
+  { label: "Bracket", path: "/bracket", hideFor: [] },
+  { label: "Settings", path: "/settings", hideFor: [] },
 ]
 
 interface LayoutProps {
@@ -46,7 +46,7 @@ export default function CompetitionLayout({ children, params }: LayoutProps) {
 
       {/* Sub-navigation */}
       <div className="flex gap-1 border-b border-border overflow-x-auto">
-        {TABS.map((tab) => {
+        {ALL_TABS.filter((tab) => !competition || !tab.hideFor.includes(competition.type)).map((tab) => {
           const href = base + tab.path
           const isActive = tab.path === "" ? pathname === base : pathname.startsWith(href)
           return (

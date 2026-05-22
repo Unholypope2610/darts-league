@@ -14,7 +14,6 @@ export async function POST(
   try {
     const { competitionId } = await params
     const body = await req.json().catch(() => ({}))
-    const topN: 2 | 4 | 8 = body.topN === 2 ? 2 : body.topN === 8 ? 8 : 4
 
     const competition = await prisma.competition.findUnique({
       where: { id: competitionId },
@@ -39,6 +38,11 @@ export async function POST(
 
     const playerIds = division.players.map((p) => p.playerId)
 
+    // Auto-determine topN from player count if not provided
+    const playerCount = playerIds.length
+    const autoTopN: 2 | 4 | 8 = playerCount <= 2 ? 2 : playerCount <= 4 ? 4 : 8
+    const topN: 2 | 4 | 8 = body.topN === 2 ? 2 : body.topN === 8 ? 8 : body.topN === 4 ? 4 : autoTopN
+
     // Build standings using only points and leg difference (no visits needed)
     const stats = playerIds.map((pid) => {
       let points = 0
@@ -59,6 +63,15 @@ export async function POST(
       if (b.legDifference !== a.legDifference) return b.legDifference - a.legDifference
       return b.legsFor - a.legsFor
     })
+
+    // Random seeding when no fixtures have been played (e.g. pure knockout draw)
+    const hasFixtures = competition.fixtures.length > 0
+    if (!hasFixtures) {
+      for (let i = stats.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [stats[i], stats[j]] = [stats[j], stats[i]]
+      }
+    }
 
     // Clear existing bracket nodes
     await prisma.bracketNode.deleteMany({ where: { competitionId } })
@@ -93,6 +106,14 @@ export async function POST(
       include: { seedA: true, seedB: true, winner: true },
       orderBy: [{ round: "desc" }, { position: "asc" }],
     })
+
+    // Activate KNOCKOUT competitions automatically — no league stage needed
+    if (competition.type === "KNOCKOUT" && competition.status === "DRAFT") {
+      await prisma.competition.update({
+        where: { id: competitionId },
+        data: { status: "ACTIVE" },
+      })
+    }
 
     return NextResponse.json(finalNodes, { status: 201 })
   } catch (err) {
