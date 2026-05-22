@@ -79,7 +79,7 @@ export default function BracketPage({ params }: PageProps) {
                 onChange={(e) => setBracketBestOf(Number(e.target.value))}
                 className="text-sm border border-border rounded-lg px-2 py-1.5 bg-background"
               >
-                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => <option key={n} value={n}>Bo{n}</option>)}
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => <option key={n} value={n}>{n === 1 ? "First to 1" : `Bo${n}`}</option>)}
               </select>
               <select
                 value={bracketFinishType}
