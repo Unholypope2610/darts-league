@@ -122,6 +122,16 @@ export function BracketNode({ node, competitionId, canScore }: BracketNodeProps)
         matchId={summaryOpen ? (node.matchId ?? null) : null}
         onClose={() => setSummaryOpen(false)}
       />
+      {!isComplete && !canScore && node.matchId && node.seedA && node.seedB && (
+        <div className="px-3 py-2 bg-muted/20">
+          <Link
+            href={`/matches/${node.matchId}/live`}
+            className="block text-center text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 font-medium hover:bg-emerald-500/25 transition-colors"
+          >
+            Watch
+          </Link>
+        </div>
+      )}
       {!isComplete && node.seedA && node.seedB && canScore && (
         <div className="px-3 py-2 bg-muted/20">
           {node.matchId ? (
