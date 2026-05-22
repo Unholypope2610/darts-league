@@ -46,16 +46,25 @@ export async function PATCH(
 
   let winnerId: string | undefined
   if (parsed.data.status === "COMPLETED") {
-    const comp = await prisma.competition.findUnique({
-      where: { id: competitionId },
-      select: {
-        type: true,
-        divisions: { orderBy: { tier: "asc" }, take: 1, select: { id: true } },
-      },
+    // Bracket final winner takes precedence over league table leader
+    const finalNode = await prisma.bracketNode.findFirst({
+      where: { competitionId, round: 1, winnerId: { not: null } },
+      select: { winnerId: true },
     })
-    const div = comp?.divisions[0]
-    if (div && (comp?.type === "SINGLE_LEAGUE" || comp?.type === "DIVISIONS")) {
-      winnerId = (await getLeagueWinner(competitionId, div.id)) ?? undefined
+    if (finalNode?.winnerId) {
+      winnerId = finalNode.winnerId
+    } else {
+      const comp = await prisma.competition.findUnique({
+        where: { id: competitionId },
+        select: {
+          type: true,
+          divisions: { orderBy: { tier: "asc" }, take: 1, select: { id: true } },
+        },
+      })
+      const div = comp?.divisions[0]
+      if (div && (comp?.type === "SINGLE_LEAGUE" || comp?.type === "DIVISIONS")) {
+        winnerId = (await getLeagueWinner(competitionId, div.id)) ?? undefined
+      }
     }
   }
 
