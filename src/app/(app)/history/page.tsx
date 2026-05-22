@@ -32,7 +32,7 @@ export default function HistoryPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="History"
+        title="Champions Wall"
         description="Season archive and past winners"
         actions={
           <Link

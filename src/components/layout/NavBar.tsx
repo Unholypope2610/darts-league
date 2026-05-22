@@ -25,7 +25,7 @@ const navItems = [
   { href: "/matches", label: "Casual", icon: Swords },
   { href: "/tables", label: "Tables", icon: BarChart2 },
   { href: "/brackets", label: "Brackets", icon: Target },
-  { href: "/history", label: "History", icon: History },
+  { href: "/history", label: "Champions Wall", icon: History },
   { href: "/settings/users", label: "Settings", icon: Settings },
 ]
 
