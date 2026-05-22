@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
-import { PageHeader } from "@/components/shared/PageHeader"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -31,18 +30,23 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Champions Wall"
-        description="Season archive and past winners"
-        actions={
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-amber-400" />
+            Champions Wall
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">Season archive and past winners</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           <Link
             href="/history/records"
             className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
           >
             Hall of Fame →
           </Link>
-        }
-      />
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="flex flex-col gap-3">
