@@ -61,7 +61,18 @@ export default function LiveMatchPage({ params }: PageProps) {
     : myPlayerId && playerB?.id === myPlayerId ? "playerB"
     : "spectator"
 
-  const myRole: Role = sessionRole ?? derivedRole
+  // If we can positively identify the viewer as a player (their linked playerId matches),
+  // always trust that over any stored session choice. This prevents a stale "spectator"
+  // entry in sessionStorage from locking a player out of their camera controls.
+  const myRole: Role = derivedRole !== "spectator" ? derivedRole : (sessionRole ?? "spectator")
+
+  // Evict stale "spectator" session entry when the viewer is actually a player.
+  useEffect(() => {
+    if (derivedRole !== "spectator" && sessionRole === "spectator") {
+      sessionStorage.removeItem(`match-role-${matchId}`)
+      setSessionRole(null)
+    }
+  }, [derivedRole, sessionRole, matchId])
 
   const userName =
     myRole === "playerA" ? (playerA?.name ?? "Player A")

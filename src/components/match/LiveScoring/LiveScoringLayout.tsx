@@ -78,8 +78,17 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
   } = useLiveMatchStore()
 
   // Spectate both players' cams permanently — hooks must be called unconditionally.
-  const { remoteStream: playerACamStream } = useBoardCamSpectate(matchId ?? "", playerA?.id ?? "")
-  const { remoteStream: playerBCamStream } = useBoardCamSpectate(matchId ?? "", playerB?.id ?? "")
+  // Pass "" for your own channel so the hook exits early; you see your own cam via
+  // the local preview in PlayerPanel, and self-spectation would create a feedback loop
+  // where your own spectate hook fires READY at your own broadcast hook endlessly.
+  const { remoteStream: playerACamStream } = useBoardCamSpectate(
+    matchId ?? "",
+    myRole !== "playerA" ? (playerA?.id ?? "") : "",
+  )
+  const { remoteStream: playerBCamStream } = useBoardCamSpectate(
+    matchId ?? "",
+    myRole !== "playerB" ? (playerB?.id ?? "") : "",
+  )
 
   if (!playerA || !playerB) return null
 
