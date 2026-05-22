@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
+import { Shuffle } from "lucide-react"
 
 type ModalPlayer = { id: string; name: string; avatarUrl: string | null }
 
@@ -62,8 +63,8 @@ export function PreMatchModal({
             <Select value={String(bestOf)} onValueChange={(v) => setBestOf(Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
-                  <SelectItem key={n} value={String(n)}>Best of {n} legs</SelectItem>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Best of ${n} legs`}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -84,7 +85,17 @@ export function PreMatchModal({
 
           {/* Who throws first */}
           <div className="flex flex-col gap-2">
-            <Label>First Throw</Label>
+            <div className="flex items-center justify-between">
+              <Label>First Throw</Label>
+              <button
+                type="button"
+                onClick={() => setStarter(Math.random() < 0.5 ? playerA.id : playerB.id)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Shuffle className="size-3" />
+                Random
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {[playerA, playerB].map((p) => (
                 <button
