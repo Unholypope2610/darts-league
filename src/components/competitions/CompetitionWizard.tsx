@@ -57,25 +57,28 @@ export function CompetitionWizard() {
   }
 
   function handleCreate() {
-    handleSubmit((data) => {
-      const payload: Record<string, unknown> = { ...data, type }
-      if (type === "SINGLE_LEAGUE" || type === "KNOCKOUT") {
-        payload.playerIds = selectedPlayers
-      } else {
-        payload.divisions = [
-          { name: "Division 1", tier: 1, playerIds: div1Players },
-          { name: "Division 2", tier: 2, playerIds: div2Players },
-        ]
-      }
+    handleSubmit(
+      (data) => {
+        const payload: Record<string, unknown> = { ...data, type }
+        if (type === "SINGLE_LEAGUE" || type === "KNOCKOUT") {
+          payload.playerIds = selectedPlayers
+        } else {
+          payload.divisions = [
+            { name: "Division 1", tier: 1, playerIds: div1Players },
+            { name: "Division 2", tier: 2, playerIds: div2Players },
+          ]
+        }
 
-      mutate(payload as Parameters<typeof mutate>[0], {
-        onSuccess: (comp) => {
-          toast.success("Competition created!")
-          router.push(`/competitions/${comp.id}`)
-        },
-        onError: () => toast.error("Failed to create competition"),
-      })
-    })()
+        mutate(payload as Parameters<typeof mutate>[0], {
+          onSuccess: (comp) => {
+            toast.success("Competition created!")
+            router.push(`/competitions/${comp.id}`)
+          },
+          onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to create competition"),
+        })
+      },
+      () => toast.error("Missing required fields — go back and check the details step"),
+    )()
   }
 
   return (

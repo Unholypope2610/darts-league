@@ -22,7 +22,11 @@ export function useCreateCompetition() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<Competition> & { playerIds?: string[]; divisions?: { name: string; tier: number; playerIds: string[] }[] }) =>
-      fetch("/api/competitions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
+      fetch("/api/competitions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(async (r) => {
+        const json = await r.json()
+        if (!r.ok) throw new Error(json?.error ?? "Failed to create competition")
+        return json
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["competitions"] }),
   })
 }
