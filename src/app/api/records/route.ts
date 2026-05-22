@@ -35,11 +35,6 @@ export async function GET() {
         },
       },
     }),
-    prisma.player.findMany({
-      where: { competitionsWon: { some: {} } },
-      select: { id: true, name: true, avatarUrl: true, _count: { select: { competitionsWon: true } } },
-      orderBy: { competitionsWon: { _count: "desc" } },
-    }),
     prisma.match.findMany({
       where: { completedAt: { not: null } },
       include: {
@@ -48,6 +43,11 @@ export async function GET() {
         legs: { include: { visits: true } },
         fixture: { include: { competition: { select: { id: true, name: true, season: true } } } },
       },
+    }),
+    prisma.player.findMany({
+      where: { competitionsWon: { some: {} } },
+      select: { id: true, name: true, avatarUrl: true, _count: { select: { competitionsWon: true } } },
+      orderBy: { competitionsWon: { _count: "desc" } },
     }),
   ])
 
