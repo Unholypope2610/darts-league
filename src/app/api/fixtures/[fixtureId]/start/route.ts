@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
+import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { startMatchSchema } from "@/lib/validations/visit.schema"
 
 export async function POST(
@@ -56,6 +57,25 @@ export async function POST(
 
     return [newMatch]
   })
+
+  const creatorUser = await prisma.user.findUnique({ where: { id: userId }, select: { playerId: true } })
+  const creatorPlayerId = creatorUser?.playerId ?? null
+
+  const supabase = createServerSupabaseClient()
+  const notifications: Promise<unknown>[] = []
+  if (match.playerAId !== creatorPlayerId) {
+    notifications.push(supabase.channel(`player:${match.playerAId}`).send({
+      type: "broadcast", event: "MATCH_STARTED",
+      payload: { matchId: match.id, opponentName: match.playerB.name },
+    }))
+  }
+  if (match.playerBId !== creatorPlayerId) {
+    notifications.push(supabase.channel(`player:${match.playerBId}`).send({
+      type: "broadcast", event: "MATCH_STARTED",
+      payload: { matchId: match.id, opponentName: match.playerA.name },
+    }))
+  }
+  await Promise.allSettled(notifications)
 
   return NextResponse.json(match, { status: 201 })
 }
