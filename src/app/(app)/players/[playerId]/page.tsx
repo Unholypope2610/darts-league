@@ -151,7 +151,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
             const sumXY = hist.reduce((s, d, i) => s + i * d.average, 0)
             const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
             const intercept = (sumY - slope * sumX) / n
-            const PROJ = 3
+            const PROJ = 15
             type ChartPoint = { date: string; average: number | null; projected: number | null }
             const chartData: ChartPoint[] = hist.map((d, i) => ({
               date: d.date,
