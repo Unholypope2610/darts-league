@@ -21,6 +21,86 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isLivePage])
 
   useEffect(() => {
+    const supabase = getSupabase()
+    const spectatorChannel = supabase.channel("match-spectators")
+
+    spectatorChannel.on("broadcast", { event: "MATCH_LIVE" }, ({ payload }) => {
+      const { matchId, playerAName, playerBName, playerAId, playerBId } = payload as {
+        matchId: string; playerAName: string; playerBName: string; playerAId: string; playerBId: string
+      }
+      // Players get their own "Join Now" toast — skip this one for them
+      if (playerIdRef.current === playerAId || playerIdRef.current === playerBId) return
+
+      toast.custom(
+        (id) => (
+          <div
+            style={{
+              background: "linear-gradient(135deg, #1e1b4b, #312e81)",
+              border: "1px solid #6366f1",
+              boxShadow: "0 0 32px rgba(99,102,241,0.4)",
+              borderRadius: "16px",
+              padding: "16px 20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+              minWidth: "280px",
+              maxWidth: "340px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#6366f1", display: "inline-block", animation: "pulse 1.5s infinite" }} />
+              <span style={{ color: "#a5b4fc", fontWeight: 800, fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                Match Live
+              </span>
+            </div>
+            <p style={{ color: "#ffffff", fontWeight: 700, fontSize: "16px", margin: 0 }}>
+              {playerAName} vs {playerBName}
+            </p>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => { toast.dismiss(id); router.push(`/matches/${matchId}/live`) }}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "10px",
+                  background: "#6366f1",
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: "14px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Watch Now →
+              </button>
+              <button
+                onClick={() => toast.dismiss(id)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#a5b4fc",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: 30_000, id: `match-live-${matchId}` },
+      )
+    })
+
+    spectatorChannel.subscribe()
+
+    return () => { supabase.removeChannel(spectatorChannel) }
+  }, [router])
+
+  useEffect(() => {
     fetch("/api/auth/sync", { method: "POST" })
       .then((r) => r.json())
       .then((me) => {

@@ -57,6 +57,13 @@ export async function POST(
       payload: { matchId: match.id, opponentName: match.playerA.name },
     }))
   }
+  notifications.push(
+    supabase.channel("match-spectators").send({
+      type: "broadcast",
+      event: "MATCH_LIVE",
+      payload: { matchId: match.id, playerAName: match.playerA.name, playerBName: match.playerB.name, playerAId: match.playerAId, playerBId: match.playerBId },
+    })
+  )
   await Promise.allSettled(notifications)
 
   return NextResponse.json({ matchId: match.id })

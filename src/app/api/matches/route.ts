@@ -84,6 +84,13 @@ export async function POST(req: Request) {
       })
     )
   }
+  notifications.push(
+    supabase.channel("match-spectators").send({
+      type: "broadcast",
+      event: "MATCH_LIVE",
+      payload: { matchId: match.id, playerAName: match.playerA.name, playerBName: match.playerB.name, playerAId: match.playerAId, playerBId: match.playerBId },
+    })
+  )
   await Promise.allSettled(notifications)
 
   return NextResponse.json(match, { status: 201 })
