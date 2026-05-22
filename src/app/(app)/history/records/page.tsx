@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
+import { Trophy } from "lucide-react"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -13,6 +14,7 @@ interface RecordData {
   most180s: { player: { name: string; avatarUrl?: string | null }; count: number }[]
   highestAverage: { player: { name: string; avatarUrl?: string | null }; average: number; competition?: { name: string } | null } | null
   topAverages: { player: { name: string; avatarUrl?: string | null }; average: number }[]
+  mostTitles: { player: { name: string; avatarUrl?: string | null }; count: number }[]
 }
 
 function RecordCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -109,6 +111,24 @@ export default function RecordsPage() {
                   <PlayerAvatar name={entry.player.name} avatarUrl={entry.player.avatarUrl} size="sm" />
                   <span className="flex-1 text-sm font-medium">{entry.player.name}</span>
                   <span className="font-score font-bold text-lg">{entry.count}</span>
+                </div>
+              ))}
+            </div>
+          </RecordCard>
+        )}
+
+        {data?.mostTitles && data.mostTitles.length > 0 && (
+          <RecordCard title="Most Titles">
+            <div className="flex flex-col gap-2">
+              {data.mostTitles.map((entry, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
+                  <PlayerAvatar name={entry.player.name} avatarUrl={entry.player.avatarUrl} size="sm" />
+                  <span className="flex-1 text-sm font-medium">{entry.player.name}</span>
+                  <span className="flex items-center gap-1 font-score font-bold text-lg text-amber-400">
+                    <Trophy className="size-4" />
+                    {entry.count}
+                  </span>
                 </div>
               ))}
             </div>

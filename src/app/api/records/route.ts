@@ -6,7 +6,7 @@ export async function GET() {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const [allVisits, allLegs, allMatches] = await Promise.all([
+  const [allVisits, allLegs, allMatches, titlesLeaderboard] = await Promise.all([
     prisma.visit.findMany({
       where: { isBust: false },
       include: {
@@ -34,6 +34,11 @@ export async function GET() {
           },
         },
       },
+    }),
+    prisma.player.findMany({
+      where: { competitionsWon: { some: {} } },
+      select: { id: true, name: true, avatarUrl: true, _count: { select: { competitionsWon: true } } },
+      orderBy: { competitionsWon: { _count: "desc" } },
     }),
     prisma.match.findMany({
       where: { completedAt: { not: null } },
@@ -128,11 +133,17 @@ export async function GET() {
     .sort((a, b) => b.average - a.average)
     .slice(0, 10)
 
+  const mostTitles = titlesLeaderboard.map((p) => ({
+    player: { id: p.id, name: p.name, avatarUrl: p.avatarUrl },
+    count: p._count.competitionsWon,
+  }))
+
   return NextResponse.json({
     highestCheckout,
     bestLeg,
     most180s,
     highestAverage,
     topAverages,
+    mostTitles,
   })
 }
