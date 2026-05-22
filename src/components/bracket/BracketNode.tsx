@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
-import { useStartFixture } from "@/hooks/useFixtures"
 import { Trophy } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 
@@ -21,22 +20,32 @@ interface BracketNodeProps {
     matchId?: string | null
     match?: { playerAScore: number; playerBScore: number; winnerId?: string | null } | null
   }
+  competitionId: string
   canScore?: boolean
 }
 
-export function BracketNode({ node, canScore }: BracketNodeProps) {
+export function BracketNode({ node, competitionId, canScore }: BracketNodeProps) {
   const router = useRouter()
-  const { mutate: startFixture, isPending } = useStartFixture()
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [isStarting, setIsStarting] = useState(false)
   const isComplete = !!node.winner
   const isFinal = node.round === 1
 
-  function handleStart() {
-    if (!node.matchId) {
-      toast.error("No match linked to this bracket node")
+  async function handleStart() {
+    if (node.matchId) {
+      router.push(`/matches/${node.matchId}/live`)
       return
     }
-    router.push(`/matches/${node.matchId}/live`)
+    setIsStarting(true)
+    try {
+      const r = await fetch(`/api/competitions/${competitionId}/bracket/${node.id}/start`, { method: "POST" })
+      const json = await r.json()
+      if (!r.ok) throw new Error(json?.error ?? "Failed to start match")
+      router.push(`/matches/${json.matchId}/live`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start match")
+      setIsStarting(false)
+    }
   }
 
   const ROUND_LABELS: Record<number, string> = { 1: "Final", 2: "Semi-Final", 4: "Quarter-Final" }
@@ -109,10 +118,10 @@ export function BracketNode({ node, canScore }: BracketNodeProps) {
           ) : (
             <button
               onClick={handleStart}
-              disabled={isPending}
+              disabled={isStarting}
               className="w-full text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50"
             >
-              {isPending ? "…" : "Start Match"}
+              {isStarting ? "…" : "Start Match"}
             </button>
           )}
         </div>

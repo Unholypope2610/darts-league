@@ -50,6 +50,9 @@ model Competition {
   finishType    String   @default("DOUBLE_OUT")
   isSets        Boolean  @default(false)
   legSize       Int?
+  bracketBestOf      Int?
+  bracketStartingScore Int?
+  bracketFinishType  String?
   winnerId      String?
   winner        Player?  @relation("CompetitionWinner", fields: [winnerId], references: [id])
   createdAt     DateTime @default(now())

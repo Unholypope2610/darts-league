@@ -30,7 +30,7 @@ function CompetitionBracket({ competition }: { competition: Competition }) {
         </Link>
       </div>
       {nodes?.length ? (
-        <BracketView nodes={nodes} canScore={true} />
+        <BracketView nodes={nodes} competitionId={competition.id} canScore={true} />
       ) : (
         <p className="text-sm text-muted-foreground">No bracket generated yet. Go to the competition to generate one.</p>
       )}

@@ -83,7 +83,7 @@ export async function POST(
 
     const competition = await prisma.competition.findUnique({
       where: { id: competitionId },
-      select: { bestOf: true, startingScore: true, finishType: true },
+      select: { bestOf: true, startingScore: true, finishType: true, bracketBestOf: true, bracketStartingScore: true, bracketFinishType: true },
     })
     if (!competition) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -94,7 +94,9 @@ export async function POST(
 
     if (nodes.length === 0) return NextResponse.json({ error: "No bracket generated yet" }, { status: 400 })
 
-    const { bestOf, startingScore, finishType } = competition
+    const bestOf = competition.bracketBestOf ?? competition.bestOf
+    const startingScore = competition.bracketStartingScore ?? competition.startingScore
+    const finishType = competition.bracketFinishType ?? competition.finishType
     const legsToWin = Math.floor(bestOf / 2) + 1
     const now = new Date()
 

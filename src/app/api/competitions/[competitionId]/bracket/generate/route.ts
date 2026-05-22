@@ -13,7 +13,7 @@ export async function POST(
 
   try {
     const { competitionId } = await params
-    const body = await req.json().catch(() => ({}))
+    const body = await req.json().catch(() => ({}) as Record<string, unknown>)
 
     const competition = await prisma.competition.findUnique({
       where: { id: competitionId },
@@ -100,6 +100,17 @@ export async function POST(
     // topN === 2: single final node, no wiring needed
 
     await prisma.bracketNode.createMany({ data: nodesWithIds })
+
+    // Save bracket-phase format overrides to Competition (league competitions only — knockouts use their own format)
+    if (competition.type !== "KNOCKOUT") {
+      const bracketBestOf = typeof body.bracketBestOf === "number" ? body.bracketBestOf : null
+      const bracketStartingScore = typeof body.bracketStartingScore === "number" ? body.bracketStartingScore : null
+      const bracketFinishType = typeof body.bracketFinishType === "string" ? body.bracketFinishType : null
+      await prisma.competition.update({
+        where: { id: competitionId },
+        data: { bracketBestOf, bracketStartingScore, bracketFinishType },
+      })
+    }
 
     const finalNodes = await prisma.bracketNode.findMany({
       where: { competitionId },

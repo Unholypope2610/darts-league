@@ -13,6 +13,9 @@ export interface Competition {
   finishType: string
   isSets: boolean
   legSize: number | null
+  bracketBestOf: number | null
+  bracketStartingScore: number | null
+  bracketFinishType: string | null
   winnerId: string | null
   createdAt: string
   updatedAt: string
