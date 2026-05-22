@@ -1,11 +1,13 @@
 "use client"
 
 import Link from "next/link"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Trophy } from "lucide-react"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatAverage } from "@/lib/utils/format"
 
 interface RecordData {
@@ -14,7 +16,7 @@ interface RecordData {
   most180s: { player: { name: string; avatarUrl?: string | null }; count: number }[]
   highestAverage: { player: { name: string; avatarUrl?: string | null }; average: number; competition?: { name: string } | null } | null
   topAverages: { player: { name: string; avatarUrl?: string | null }; average: number }[]
-  mostTitles: { player: { name: string; avatarUrl?: string | null }; count: number }[]
+  mostTitles: { player: { name: string; avatarUrl?: string | null }; count: number; competitionsWon: { id: string; name: string; season: string; type: string }[] }[]
 }
 
 function RecordCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -44,6 +46,7 @@ export default function RecordsPage() {
     queryKey: ["records"],
     queryFn: () => fetch("/api/records").then((r) => r.json()),
   })
+  const [titlesModal, setTitlesModal] = useState<{ name: string; competitions: { id: string; name: string; season: string; type: string }[] } | null>(null)
 
   if (isLoading) {
     return (
@@ -125,15 +128,42 @@ export default function RecordsPage() {
                   <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
                   <PlayerAvatar name={entry.player.name} avatarUrl={entry.player.avatarUrl} size="sm" />
                   <span className="flex-1 text-sm font-medium">{entry.player.name}</span>
-                  <span className="flex items-center gap-1 font-score font-bold text-lg text-amber-400">
+                  <button
+                    onClick={() => setTitlesModal({ name: entry.player.name, competitions: entry.competitionsWon })}
+                    className="flex items-center gap-1 font-score font-bold text-lg text-amber-400 hover:text-amber-300 transition-colors"
+                  >
                     <Trophy className="size-4" />
                     {entry.count}
-                  </span>
+                  </button>
                 </div>
               ))}
             </div>
           </RecordCard>
         )}
+
+        <Dialog open={!!titlesModal} onOpenChange={(open) => { if (!open) setTitlesModal(null) }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trophy className="size-4 text-amber-400" />
+                {titlesModal?.name} — Titles
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-2 pt-1">
+              {titlesModal?.competitions.map((c) => (
+                <div key={c.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+                  <div>
+                    <p className="font-medium text-sm">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">{c.season}</p>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                    {c.type}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {data?.topAverages && data.topAverages.length > 0 && (

@@ -46,7 +46,11 @@ export async function GET() {
     }),
     prisma.player.findMany({
       where: { competitionsWon: { some: {} } },
-      select: { id: true, name: true, avatarUrl: true, _count: { select: { competitionsWon: true } } },
+      select: {
+        id: true, name: true, avatarUrl: true,
+        _count: { select: { competitionsWon: true } },
+        competitionsWon: { select: { id: true, name: true, season: true, type: true } },
+      },
       orderBy: { competitionsWon: { _count: "desc" } },
     }),
   ])
@@ -136,6 +140,7 @@ export async function GET() {
   const mostTitles = titlesLeaderboard.map((p) => ({
     player: { id: p.id, name: p.name, avatarUrl: p.avatarUrl },
     count: p._count.competitionsWon,
+    competitionsWon: p.competitionsWon,
   }))
 
   return NextResponse.json({
