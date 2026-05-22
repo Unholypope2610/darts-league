@@ -15,6 +15,7 @@ interface RecordData {
   bestLeg: { player: { name: string; avatarUrl?: string | null }; darts: number; competition?: { name: string } | null } | null
   most180s: { player: { name: string; avatarUrl?: string | null }; count: number }[]
   highestAverage: { player: { name: string; avatarUrl?: string | null }; average: number; competition?: { name: string } | null } | null
+  bestFirst9: { player: { name: string; avatarUrl?: string | null }; average: number; competition?: { name: string } | null } | null
   topAverages: { player: { name: string; avatarUrl?: string | null }; average: number }[]
   mostTitles: { player: { name: string; avatarUrl?: string | null }; count: number; competitionsWon: { id: string; name: string; season: string; type: string }[] }[]
 }
@@ -90,6 +91,17 @@ export default function RecordsPage() {
               avatarUrl={data.highestAverage.player.avatarUrl}
               stat={formatAverage(data.highestAverage.average)}
               label={data.highestAverage.competition?.name}
+            />
+          </RecordCard>
+        )}
+
+        {data?.bestFirst9 && (
+          <RecordCard title="Best First 9 Average">
+            <PlayerRow
+              name={data.bestFirst9.player.name}
+              avatarUrl={data.bestFirst9.player.avatarUrl}
+              stat={formatAverage(data.bestFirst9.average)}
+              label={data.bestFirst9.competition?.name}
             />
           </RecordCard>
         )}

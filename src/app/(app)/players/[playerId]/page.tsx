@@ -3,6 +3,7 @@
 import { use, useState } from "react"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
+import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts"
 import { usePlayer } from "@/hooks/usePlayers"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
@@ -50,6 +51,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
     { label: "Drawn", value: cs.drawn },
     { label: "Lost", value: cs.lost, className: "text-red-400" },
     { label: "Avg", value: cs.average > 0 ? cs.average.toFixed(2) : "—", className: "text-primary" },
+    { label: "F9", value: cs.first9Average > 0 ? cs.first9Average.toFixed(2) : "—", className: "text-primary" },
     { label: "D%", value: cs.doublesPercentage > 0 ? `${cs.doublesPercentage.toFixed(1)}%` : "—" },
     { label: "Hi CO", value: cs.highestCheckout > 0 ? cs.highestCheckout : "—", className: "text-emerald-400" },
     { label: "180s", value: cs.highest180s, className: "text-amber-400" },
@@ -126,9 +128,9 @@ export default function PlayerProfilePage({ params }: PageProps) {
         <TabsContent value="overview" className="mt-4 flex flex-col gap-4">
           {/* Stats grid */}
           <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-4">
+            <div className="grid grid-cols-3">
               {statGrid.map(({ label, value, className }) => (
-                <div key={label} className="flex flex-col items-center py-4 px-2 border-b border-r border-border/50 last:border-r-0 [&:nth-child(4)]:border-r-0 [&:nth-child(n+5)]:border-b-0">
+                <div key={label} className="flex flex-col items-center py-4 px-2 border-b border-r border-border/50 [&:nth-child(3n)]:border-r-0 [&:nth-child(n+7)]:border-b-0">
                   <span className="text-xs text-muted-foreground">{label}</span>
                   <span className={cn("font-score font-bold text-lg mt-0.5", className ?? "text-foreground")}>
                     {value}
@@ -137,6 +139,29 @@ export default function PlayerProfilePage({ params }: PageProps) {
               ))}
             </div>
           </div>
+
+          {/* Average trendline */}
+          {cs.averageHistory.length >= 2 && (
+            <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Average Trend</p>
+              <ResponsiveContainer width="100%" height={80}>
+                <AreaChart data={cs.averageHistory}>
+                  <defs>
+                    <linearGradient id="avgGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="average" stroke="var(--primary)" fill="url(#avgGrad)" strokeWidth={2} dot={false} />
+                  <Tooltip
+                    formatter={(v: unknown) => [(v as number).toFixed(2), "Avg"]}
+                    labelFormatter={() => ""}
+                    contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: 12 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
 
           {/* Recent form */}
           {cs.recentForm.length > 0 && (
@@ -160,15 +185,25 @@ export default function PlayerProfilePage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Top checkouts */}
-          {cs.top3Checkouts.length > 0 && (
-            <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Top Checkouts</p>
-              <div className="flex gap-2">
-                {cs.top3Checkouts.map((c, i) => (
-                  <span key={i} className="font-score font-bold text-lg text-emerald-400">{c}</span>
-                ))}
-              </div>
+          {/* Top checkouts + Best leg */}
+          {(cs.top3Checkouts.length > 0 || cs.bestLeg !== null) && (
+            <div className="rounded-xl border border-border bg-card p-4 flex gap-6">
+              {cs.top3Checkouts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Top Checkouts</p>
+                  <div className="flex gap-2">
+                    {cs.top3Checkouts.map((c, i) => (
+                      <span key={i} className="font-score font-bold text-lg text-emerald-400">{c}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {cs.bestLeg !== null && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Best Leg</p>
+                  <span className="font-score font-bold text-lg text-blue-400">{cs.bestLeg}d</span>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

@@ -38,6 +38,8 @@ export interface Player {
   topCheckouts: number[]
   recentForm: ("W" | "D" | "L")[]
   titles: number
+  first9Average: number
+  bestLeg: number | null
 }
 
 export interface CareerStats {
@@ -51,6 +53,9 @@ export interface CareerStats {
   doublesPercentage: number
   top3Checkouts: number[]
   recentForm: ("W" | "D" | "L")[]
+  first9Average: number
+  bestLeg: number | null
+  averageHistory: { date: string; average: number }[]
 }
 
 export interface H2HRecord {

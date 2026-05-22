@@ -95,7 +95,7 @@ export async function GET() {
   }
   const most180s = Object.values(s180Counts).sort((a, b) => b.count - a.count).slice(0, 10)
 
-  // Highest match average per match
+  // Highest match average + best first 9 per match
   type MatchAvgEntry = {
     player: { id: string; name: string; avatarUrl: string | null }
     average: number
@@ -104,6 +104,7 @@ export async function GET() {
     date: Date
   }
   let highestAverage: MatchAvgEntry | null = null
+  let bestFirst9: MatchAvgEntry | null = null
   for (const match of allMatches) {
     for (const pId of [match.playerAId, match.playerBId]) {
       const player = pId === match.playerAId ? match.playerA : match.playerB
@@ -119,6 +120,16 @@ export async function GET() {
           matchId: match.id,
           competition: match.fixture?.competition ?? null,
           date: match.startedAt,
+        }
+      }
+
+      const f9Visits = playerVisits.filter((v) => v.visitNumber <= 3)
+      const f9Darts = f9Visits.reduce((a, v) => a + v.dartsUsed, 0)
+      const f9Score = f9Visits.reduce((a, v) => a + v.scoreThrown, 0)
+      if (f9Darts > 0) {
+        const f9avg = (f9Score / f9Darts) * 3
+        if (!bestFirst9 || f9avg > bestFirst9.average) {
+          bestFirst9 = { player, average: f9avg, matchId: match.id, competition: match.fixture?.competition ?? null, date: match.startedAt }
         }
       }
     }
@@ -148,6 +159,7 @@ export async function GET() {
     bestLeg,
     most180s,
     highestAverage,
+    bestFirst9,
     topAverages,
     mostTitles,
   })

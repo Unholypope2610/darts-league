@@ -11,8 +11,8 @@ export async function GET() {
   const players = await prisma.player.findMany({
     orderBy: { name: "asc" },
     include: {
-      matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true } },
-      matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true } },
+      matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true, legs: { select: { winnerId: true, dartsThrown: true } } } },
+      matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true, legs: { select: { winnerId: true, dartsThrown: true } } } },
       visits: { select: { scoreThrown: true, dartsUsed: true, doublesAttempted: true, isBust: true, isCheckout: true, visitNumber: true, playerId: true, runningRemainder: true } },
       _count: { select: { competitionsWon: true } },
     },
@@ -38,8 +38,18 @@ export async function GET() {
     const c180s = count180s(visits)
     const topCO = top3Checkouts(visits)
 
+    const first9Visits = visits.filter((v) => v.visitNumber <= 3)
+    const first9Average = parseFloat(calculateAverage(first9Visits).toFixed(2))
+
+    const allLegsDarts = [
+      ...p.matchesAsA.flatMap((m) => m.legs),
+      ...p.matchesAsB.flatMap((m) => m.legs),
+    ]
+    const wonLegDarts = allLegsDarts.filter((l) => l.winnerId === p.id).map((l) => l.dartsThrown)
+    const bestLegDarts = wonLegDarts.length > 0 ? Math.min(...wonLegDarts) : null
+
     const { matchesAsA: _a, matchesAsB: _b, visits: _v, _count, ...rest } = p
-    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO, recentForm, titles: _count.competitionsWon }
+    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO, recentForm, titles: _count.competitionsWon, first9Average, bestLeg: bestLegDarts }
   })
 
   return NextResponse.json(withStats)

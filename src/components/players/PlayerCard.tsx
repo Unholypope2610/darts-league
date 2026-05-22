@@ -59,7 +59,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
       </div>
 
       {/* Badges row */}
-      {(player.count180s > 0 || player.topCheckouts.length > 0 || player.doublesPercentage > 0) && (
+      {(player.count180s > 0 || player.topCheckouts.length > 0 || player.doublesPercentage > 0 || player.first9Average > 0 || player.bestLeg !== null) && (
         <div className="flex items-center gap-1.5 flex-wrap">
           {player.count180s > 0 && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
@@ -74,6 +74,16 @@ export function PlayerCard({ player }: PlayerCardProps) {
           {player.doublesPercentage > 0 && (
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
               {player.doublesPercentage.toFixed(1)}% D
+            </span>
+          )}
+          {player.first9Average > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              F9: {player.first9Average.toFixed(2)}
+            </span>
+          )}
+          {player.bestLeg !== null && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30">
+              BL: {player.bestLeg}d
             </span>
           )}
         </div>

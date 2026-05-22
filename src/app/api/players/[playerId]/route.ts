@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { updatePlayerSchema } from "@/lib/validations/player.schema"
-import { calculateAverage, count180s, highestCheckout, doublesPercentage, top3Checkouts } from "@/lib/utils/stats"
+import { calculateAverage, count180s, highestCheckout, doublesPercentage, top3Checkouts, bestLeg } from "@/lib/utils/stats"
 
 export async function GET(
   _req: Request,
@@ -48,6 +48,19 @@ export async function GET(
     m.legs.flatMap((l) => l.visits.filter((v) => v.playerId === playerId)),
   )
 
+  const first9Visits = allVisits.filter((v) => v.visitNumber <= 3)
+  const allLegs = allMatches.flatMap((m) => m.legs)
+  const bestLegDarts = bestLeg(allLegs, playerId)
+
+  const averageHistory = [...allMatches]
+    .reverse()
+    .map((m) => {
+      const matchVisits = m.legs.flatMap((l) => l.visits.filter((v) => v.playerId === playerId))
+      const avg = calculateAverage(matchVisits)
+      return { date: (m.completedAt ?? m.startedAt).toISOString(), average: parseFloat(avg.toFixed(2)) }
+    })
+    .filter((e) => e.average > 0)
+
   const careerStats = {
     played: allMatches.length,
     won: allMatches.filter((m) => m.winnerId === playerId).length,
@@ -61,6 +74,9 @@ export async function GET(
     recentForm: allMatches.slice(0, 5).map((m) =>
       m.winnerId === playerId ? "W" : m.winnerId === null ? "D" : "L"
     ) as ("W" | "D" | "L")[],
+    first9Average: calculateAverage(first9Visits),
+    bestLeg: bestLegDarts,
+    averageHistory,
   }
 
   // Compute H2H records grouped by opponent
