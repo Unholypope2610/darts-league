@@ -1,10 +1,10 @@
 "use client"
 
-import { use } from "react"
-import Link from "next/link"
+import { use, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
+import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import { useFixtures } from "@/hooks/useFixtures"
 import { useBracket } from "@/hooks/useBracket"
 import { seedLabel } from "@/lib/algorithms/bracket-generator"
@@ -59,14 +59,14 @@ interface MatchResultRowProps {
   scoreA: number
   scoreB: number
   winnerId: string | null | undefined
-  matchId: string
+  onClick: () => void
 }
 
-function MatchResultRow({ playerA, playerB, scoreA, scoreB, winnerId, matchId }: MatchResultRowProps) {
+function MatchResultRow({ playerA, playerB, scoreA, scoreB, winnerId, onClick }: MatchResultRowProps) {
   return (
-    <Link
-      href={`/matches/${matchId}`}
-      className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors"
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors text-left"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
         <span className={cn("text-sm font-medium truncate", winnerId === playerA.id && "text-emerald-400")}>
@@ -83,12 +83,13 @@ function MatchResultRow({ playerA, playerB, scoreA, scoreB, winnerId, matchId }:
           {playerB.name}
         </span>
       </div>
-    </Link>
+    </button>
   )
 }
 
 export default function CompetitionStatsPage({ params }: PageProps) {
   const { competitionId } = use(params)
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery<TournamentStatsResponse>({
     queryKey: ["competition-stats", competitionId],
@@ -240,7 +241,7 @@ export default function CompetitionStatsPage({ params }: PageProps) {
                     scoreA={f.match!.playerAScore}
                     scoreB={f.match!.playerBScore}
                     winnerId={f.match!.winnerId}
-                    matchId={f.matchId!}
+                    onClick={() => setSelectedMatchId(f.matchId!)}
                   />
                 ))}
               </div>
@@ -269,7 +270,7 @@ export default function CompetitionStatsPage({ params }: PageProps) {
                       scoreA={n.match!.playerAScore}
                       scoreB={n.match!.playerBScore}
                       winnerId={n.match!.winnerId}
-                      matchId={n.matchId!}
+                      onClick={() => setSelectedMatchId(n.matchId!)}
                     />
                   ))}
               </div>
@@ -277,6 +278,8 @@ export default function CompetitionStatsPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
+      <MatchSummaryModal matchId={selectedMatchId} onClose={() => setSelectedMatchId(null)} />
     </div>
   )
 }

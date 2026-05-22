@@ -1,9 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
+import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import { useStartFixture } from "@/hooks/useFixtures"
 import { cn } from "@/lib/utils/cn"
 
@@ -24,6 +26,7 @@ interface BracketNodeProps {
 export function BracketNode({ node, canScore }: BracketNodeProps) {
   const router = useRouter()
   const { mutate: startFixture, isPending } = useStartFixture()
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const isComplete = !!node.winner
   const isFinal = node.round === 1
 
@@ -80,14 +83,18 @@ export function BracketNode({ node, canScore }: BracketNodeProps) {
       {/* Action */}
       {isComplete && node.matchId && (
         <div className="px-3 py-2 bg-muted/20">
-          <Link
-            href={`/matches/${node.matchId}`}
-            className="block text-center text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground font-medium hover:bg-muted/70 transition-colors"
+          <button
+            onClick={() => setSummaryOpen(true)}
+            className="w-full text-center text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground font-medium hover:bg-muted/70 transition-colors"
           >
             View Summary
-          </Link>
+          </button>
         </div>
       )}
+      <MatchSummaryModal
+        matchId={summaryOpen ? (node.matchId ?? null) : null}
+        onClose={() => setSummaryOpen(false)}
+      />
       {!isComplete && node.seedA && node.seedB && canScore && (
         <div className="px-3 py-2 bg-muted/20">
           {node.matchId ? (

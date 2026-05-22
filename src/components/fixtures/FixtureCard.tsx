@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { PreMatchModal } from "@/components/match/PreMatchModal"
+import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import { useStartFixture } from "@/hooks/useFixtures"
 import { cn } from "@/lib/utils/cn"
 
@@ -28,6 +29,7 @@ export function FixtureCard({ fixture, canScore }: FixtureCardProps) {
   const router = useRouter()
   const { mutate: startFixture, isPending } = useStartFixture()
   const [modalOpen, setModalOpen] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   function handleStart(config: { starterId: string; bestOf: number; startingScore: number; finishType: string }) {
     startFixture(
@@ -71,13 +73,16 @@ export function FixtureCard({ fixture, canScore }: FixtureCardProps) {
         {/* Score / Status */}
         <div className="flex flex-col items-center gap-0.5 shrink-0">
           {isCompleted && fixture.match ? (
-            <Link href={`/matches/${fixture.matchId}`} className="hover:text-primary transition-colors">
+            <button
+              onClick={() => setSummaryOpen(true)}
+              className="hover:text-primary transition-colors"
+            >
               <div className="flex items-center gap-2 font-score text-lg font-bold">
                 <span>{fixture.match.playerAScore}</span>
                 <span className="text-muted-foreground text-sm">–</span>
                 <span>{fixture.match.playerBScore}</span>
               </div>
-            </Link>
+            </button>
           ) : isLive ? (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-emerald-400 animate-pulse">LIVE</span>
@@ -109,6 +114,11 @@ export function FixtureCard({ fixture, canScore }: FixtureCardProps) {
           <PlayerAvatar name={fixture.playerB.name} avatarUrl={fixture.playerB.avatarUrl} size="sm" />
         </div>
       </div>
+
+      <MatchSummaryModal
+        matchId={summaryOpen ? (fixture.matchId ?? null) : null}
+        onClose={() => setSummaryOpen(false)}
+      />
 
       {modalOpen && (
         <PreMatchModal

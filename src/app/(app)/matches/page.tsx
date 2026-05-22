@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { formatDistanceToNow } from "date-fns"
 import { Swords, Trophy, Clock, RotateCcw, XCircle } from "lucide-react"
+import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import type { Player } from "@/types/api"
 
 interface CasualMatch {
@@ -178,7 +179,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
   )
 }
 
-function MatchCard({ match, myUserId, isAdmin }: { match: CasualMatch; myUserId?: string; isAdmin?: boolean }) {
+function MatchCard({ match, myUserId, isAdmin, onSelect }: { match: CasualMatch; myUserId?: string; isAdmin?: boolean; onSelect?: (id: string) => void }) {
   const router = useRouter()
   const qc = useQueryClient()
   const isLive = !match.completedAt
@@ -257,9 +258,10 @@ function MatchCard({ match, myUserId, isAdmin }: { match: CasualMatch; myUserId?
 
       {/* Card content */}
       {!confirm && (
-        <a
-          href={isLive ? `/matches/${match.id}/live` : `/matches/${match.id}`}
-          className="block p-4 hover:-translate-y-0.5 transition-all"
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+        <div
+          onClick={() => isLive ? router.push(`/matches/${match.id}/live`) : onSelect?.(match.id)}
+          className="block p-4 hover:-translate-y-0.5 transition-all cursor-pointer"
         >
           {isLive && (
             <div className="flex items-center gap-1.5 mb-3">
@@ -299,7 +301,7 @@ function MatchCard({ match, myUserId, isAdmin }: { match: CasualMatch; myUserId?
             <Clock className="w-3 h-3" />
             {formatDistanceToNow(new Date(match.startedAt), { addSuffix: true })}
           </div>
-        </a>
+        </div>
       )}
 
       {/* Abandon / Restart actions — live matches, admin or creator only */}
@@ -328,6 +330,7 @@ function MatchCard({ match, myUserId, isAdmin }: { match: CasualMatch; myUserId?
 
 export default function CasualMatchesPage() {
   const [modalOpen, setModalOpen] = useState(false)
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
   const { data: matches, isLoading } = useQuery<CasualMatch[]>({
     queryKey: ["casual-matches"],
     queryFn: () => fetch("/api/matches").then((r) => r.json()),
@@ -376,7 +379,7 @@ export default function CasualMatchesPage() {
             <h2 className="font-black text-white uppercase tracking-wider text-sm">In Progress</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {live.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} isAdmin={isAdmin} />)}
+            {live.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} isAdmin={isAdmin} onSelect={setSelectedMatchId} />)}
           </div>
         </section>
       )}
@@ -386,7 +389,7 @@ export default function CasualMatchesPage() {
         <section>
           <h2 className="font-black text-white uppercase tracking-wider text-sm mb-4">Recent Results</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {recent.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} isAdmin={isAdmin} />)}
+            {recent.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} isAdmin={isAdmin} onSelect={setSelectedMatchId} />)}
           </div>
         </section>
       )}
@@ -406,6 +409,7 @@ export default function CasualMatchesPage() {
       )}
 
       <NewMatchModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <MatchSummaryModal matchId={selectedMatchId} onClose={() => setSelectedMatchId(null)} />
     </div>
   )
 }
