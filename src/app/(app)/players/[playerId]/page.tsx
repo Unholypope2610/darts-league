@@ -62,14 +62,19 @@ export default function PlayerProfilePage({ params }: PageProps) {
       <PageHeader
         title={player.name}
         actions={
-          canEdit ? (
-            <Link
-              href={`/players/${player.id}/edit`}
-              className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
-            >
-              Edit
+          <div className="flex items-center gap-2">
+            <Link href="/players" className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
+              ← Players
             </Link>
-          ) : undefined
+            {canEdit && (
+              <Link
+                href={`/players/${player.id}/edit`}
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+              >
+                Edit
+              </Link>
+            )}
+          </div>
         }
       />
 
