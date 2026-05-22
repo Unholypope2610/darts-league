@@ -1,9 +1,13 @@
 "use client"
 
 import { use } from "react"
+import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
+import { useFixtures } from "@/hooks/useFixtures"
+import { useBracket } from "@/hooks/useBracket"
+import { seedLabel } from "@/lib/algorithms/bracket-generator"
 import { cn } from "@/lib/utils/cn"
 
 interface PlayerTournamentStats {
@@ -49,6 +53,40 @@ function fmt(n: number | null, suffix = ""): string {
   return `${n}${suffix}`
 }
 
+interface MatchResultRowProps {
+  playerA: { id: string; name: string; avatarUrl?: string | null }
+  playerB: { id: string; name: string; avatarUrl?: string | null }
+  scoreA: number
+  scoreB: number
+  winnerId: string | null | undefined
+  matchId: string
+}
+
+function MatchResultRow({ playerA, playerB, scoreA, scoreB, winnerId, matchId }: MatchResultRowProps) {
+  return (
+    <Link
+      href={`/matches/${matchId}`}
+      className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors"
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+        <span className={cn("text-sm font-medium truncate", winnerId === playerA.id && "text-emerald-400")}>
+          {playerA.name}
+        </span>
+        <PlayerAvatar name={playerA.name} avatarUrl={playerA.avatarUrl ?? null} size="sm" />
+      </div>
+      <div className="font-score font-bold text-lg shrink-0 w-16 text-center">
+        {scoreA} <span className="text-muted-foreground text-sm">–</span> {scoreB}
+      </div>
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <PlayerAvatar name={playerB.name} avatarUrl={playerB.avatarUrl ?? null} size="sm" />
+        <span className={cn("text-sm font-medium truncate", winnerId === playerB.id && "text-emerald-400")}>
+          {playerB.name}
+        </span>
+      </div>
+    </Link>
+  )
+}
+
 export default function CompetitionStatsPage({ params }: PageProps) {
   const { competitionId } = use(params)
 
@@ -56,6 +94,9 @@ export default function CompetitionStatsPage({ params }: PageProps) {
     queryKey: ["competition-stats", competitionId],
     queryFn: () => fetch(`/api/competitions/${competitionId}/stats`).then((r) => r.json()),
   })
+
+  const { data: fixtures } = useFixtures(competitionId)
+  const { data: bracket } = useBracket(competitionId)
 
   if (isLoading) {
     return (
@@ -80,6 +121,47 @@ export default function CompetitionStatsPage({ params }: PageProps) {
     { key: "highestCheckout", label: "Hi CO", render: (p: PlayerTournamentStats) => fmt(p.highestCheckout), className: "text-emerald-400" },
     { key: "bestLeg", label: "Best Leg", render: (p: PlayerTournamentStats) => p.bestLeg ? `${p.bestLeg}` : "—" },
   ]
+
+  // Fixture results — completed fixtures grouped by matchday
+  const completedFixtures = Array.isArray(fixtures)
+    ? (fixtures as Array<{
+        id: string
+        matchday: number
+        status: string
+        matchId: string | null
+        playerA: { id: string; name: string; avatarUrl: string | null }
+        playerB: { id: string; name: string; avatarUrl: string | null }
+        match: { playerAScore: number; playerBScore: number; winnerId: string | null } | null
+      }>).filter((f) => f.status === "COMPLETED" && f.matchId && f.match)
+    : []
+
+  const fixturesByMatchday = completedFixtures.reduce<Record<number, typeof completedFixtures>>((acc, f) => {
+    ;(acc[f.matchday] ??= []).push(f)
+    return acc
+  }, {})
+
+  const matchdays = Object.keys(fixturesByMatchday).map(Number).sort((a, b) => a - b)
+
+  // Bracket results — completed nodes grouped by round
+  const completedNodes = Array.isArray(bracket)
+    ? (bracket as Array<{
+        id: string
+        round: number
+        position: number
+        seedA: { id: string; name: string; avatarUrl: string | null } | null
+        seedB: { id: string; name: string; avatarUrl: string | null } | null
+        winnerId: string | null
+        matchId: string | null
+        match: { playerAScore: number; playerBScore: number; winnerId: string | null } | null
+      }>).filter((n) => n.winnerId && n.matchId && n.match && n.seedA && n.seedB)
+    : []
+
+  const bracketByRound = completedNodes.reduce<Record<number, typeof completedNodes>>((acc, n) => {
+    ;(acc[n.round] ??= []).push(n)
+    return acc
+  }, {})
+
+  const bracketRounds = Object.keys(bracketByRound).map(Number).sort((a, b) => a - b)
 
   return (
     <div className="flex flex-col gap-6">
@@ -137,6 +219,62 @@ export default function CompetitionStatsPage({ params }: PageProps) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Fixture results */}
+      {matchdays.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h3 className="font-semibold">Fixture Results</h3>
+          <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/50">
+            {matchdays.map((md) => (
+              <div key={md}>
+                <div className="px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground">
+                  Matchday {md}
+                </div>
+                {fixturesByMatchday[md].map((f) => (
+                  <MatchResultRow
+                    key={f.id}
+                    playerA={f.playerA}
+                    playerB={f.playerB}
+                    scoreA={f.match!.playerAScore}
+                    scoreB={f.match!.playerBScore}
+                    winnerId={f.match!.winnerId}
+                    matchId={f.matchId!}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bracket results */}
+      {bracketRounds.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h3 className="font-semibold">Bracket Results</h3>
+          <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border/50">
+            {bracketRounds.map((round) => (
+              <div key={round}>
+                <div className="px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground">
+                  {seedLabel(round)}
+                </div>
+                {bracketByRound[round]
+                  .sort((a, b) => a.position - b.position)
+                  .map((n) => (
+                    <MatchResultRow
+                      key={n.id}
+                      playerA={n.seedA!}
+                      playerB={n.seedB!}
+                      scoreA={n.match!.playerAScore}
+                      scoreB={n.match!.playerBScore}
+                      winnerId={n.match!.winnerId}
+                      matchId={n.matchId!}
+                    />
+                  ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

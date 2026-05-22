@@ -71,11 +71,13 @@ export function FixtureCard({ fixture, canScore }: FixtureCardProps) {
         {/* Score / Status */}
         <div className="flex flex-col items-center gap-0.5 shrink-0">
           {isCompleted && fixture.match ? (
-            <div className="flex items-center gap-2 font-score text-lg font-bold">
-              <span>{fixture.match.playerAScore}</span>
-              <span className="text-muted-foreground text-sm">–</span>
-              <span>{fixture.match.playerBScore}</span>
-            </div>
+            <Link href={`/matches/${fixture.matchId}`} className="hover:text-primary transition-colors">
+              <div className="flex items-center gap-2 font-score text-lg font-bold">
+                <span>{fixture.match.playerAScore}</span>
+                <span className="text-muted-foreground text-sm">–</span>
+                <span>{fixture.match.playerBScore}</span>
+              </div>
+            </Link>
           ) : isLive ? (
             <div className="flex flex-col items-center">
               <span className="text-xs font-bold text-emerald-400 animate-pulse">LIVE</span>
