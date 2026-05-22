@@ -77,7 +77,7 @@ export async function POST(
     await prisma.bracketNode.deleteMany({ where: { competitionId } })
 
     // Pre-generate IDs so we can wire winnerNextNodeId without extra round-trips
-    const nodeInputs = generateBracket(competitionId, stats, topN)
+    const nodeInputs = generateBracket(competitionId, stats, topN, competition.type !== "KNOCKOUT")
     const ids = nodeInputs.map(() => randomUUID())
 
     // Attach IDs to inputs

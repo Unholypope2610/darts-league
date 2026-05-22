@@ -23,6 +23,7 @@ export function generateBracket(
   competitionId: string,
   standings: StandingEntry[],
   topN: 2 | 4 | 8 = 4,
+  seeded = true,
 ): Omit<BracketNodeInput, "winnerNextNodeId">[] {
   const qualified = standings.slice(0, topN)
 
@@ -39,23 +40,22 @@ export function generateBracket(
   }
 
   if (topN === 4) {
-    // Semi 1: seed 1 vs seed 4  (position 0)
-    // Semi 2: seed 2 vs seed 3  (position 1)
-    // Final:  winner of semi1 vs winner of semi2 (position 0)
+    // Seeded: 1v4, 2v3 (top seeds kept apart until final)
+    // Unseeded: 0v1, 2v3 (open draw — any player can face any other)
     return [
       {
         competitionId,
         round: 2,
         position: 0,
         seedAId: qualified[0]?.playerId ?? null,
-        seedBId: qualified[3]?.playerId ?? null,
+        seedBId: (seeded ? qualified[3] : qualified[1])?.playerId ?? null,
       },
       {
         competitionId,
         round: 2,
         position: 1,
-        seedAId: qualified[1]?.playerId ?? null,
-        seedBId: qualified[2]?.playerId ?? null,
+        seedAId: qualified[seeded ? 1 : 2]?.playerId ?? null,
+        seedBId: qualified[seeded ? 2 : 3]?.playerId ?? null,
       },
       {
         competitionId,
@@ -68,14 +68,21 @@ export function generateBracket(
   }
 
   // 8-player bracket
-  // Quarters: 1v8, 4v5, 2v7, 3v6
-  // Semis feed from quarters
-  // Final feeds from semis
-  return [
+  // Seeded:   1v8, 4v5, 2v7, 3v6  (top seeds kept apart)
+  // Unseeded: 0v1, 2v3, 4v5, 6v7  (open draw)
+  return seeded ? [
     { competitionId, round: 4, position: 0, seedAId: qualified[0]?.playerId ?? null, seedBId: qualified[7]?.playerId ?? null },
     { competitionId, round: 4, position: 1, seedAId: qualified[3]?.playerId ?? null, seedBId: qualified[4]?.playerId ?? null },
     { competitionId, round: 4, position: 2, seedAId: qualified[1]?.playerId ?? null, seedBId: qualified[6]?.playerId ?? null },
     { competitionId, round: 4, position: 3, seedAId: qualified[2]?.playerId ?? null, seedBId: qualified[5]?.playerId ?? null },
+    { competitionId, round: 2, position: 0, seedAId: null, seedBId: null },
+    { competitionId, round: 2, position: 1, seedAId: null, seedBId: null },
+    { competitionId, round: 1, position: 0, seedAId: null, seedBId: null },
+  ] : [
+    { competitionId, round: 4, position: 0, seedAId: qualified[0]?.playerId ?? null, seedBId: qualified[1]?.playerId ?? null },
+    { competitionId, round: 4, position: 1, seedAId: qualified[2]?.playerId ?? null, seedBId: qualified[3]?.playerId ?? null },
+    { competitionId, round: 4, position: 2, seedAId: qualified[4]?.playerId ?? null, seedBId: qualified[5]?.playerId ?? null },
+    { competitionId, round: 4, position: 3, seedAId: qualified[6]?.playerId ?? null, seedBId: qualified[7]?.playerId ?? null },
     { competitionId, round: 2, position: 0, seedAId: null, seedBId: null },
     { competitionId, round: 2, position: 1, seedAId: null, seedBId: null },
     { competitionId, round: 1, position: 0, seedAId: null, seedBId: null },
