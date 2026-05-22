@@ -9,6 +9,7 @@ import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Trophy } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 
 interface PageProps {
@@ -74,7 +75,15 @@ export default function PlayerProfilePage({ params }: PageProps) {
         <div className="flex flex-col gap-2">
           <h2 className="text-2xl font-bold">{player.name}</h2>
           {player.nickname && <p className="text-muted-foreground">"{player.nickname}"</p>}
-          <Badge variant="outline">{player.hand === "LEFT" ? "Left-handed" : "Right-handed"}</Badge>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline">{player.hand === "LEFT" ? "Left-handed" : "Right-handed"}</Badge>
+            {player.titles > 0 && (
+              <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                <Trophy className="size-3" />
+                {player.titles} {player.titles === 1 ? "Title" : "Titles"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

@@ -16,6 +16,7 @@ export async function GET(
   const player = await prisma.player.findUnique({
     where: { id: playerId },
     include: {
+      _count: { select: { competitionsWon: true } },
       matchesAsA: {
         include: {
           legs: { include: { visits: true } },
@@ -75,8 +76,8 @@ export async function GET(
     .map((e) => ({ ...e, played: e.won + e.drawn + e.lost }))
     .sort((a, b) => b.played - a.played)
 
-  const { matchesAsA: _a, matchesAsB: _b, ...playerBase } = player
-  return NextResponse.json({ ...playerBase, careerStats, h2h })
+  const { matchesAsA: _a, matchesAsB: _b, _count, ...playerBase } = player
+  return NextResponse.json({ ...playerBase, careerStats, h2h, titles: _count.competitionsWon })
 }
 
 export async function PATCH(
