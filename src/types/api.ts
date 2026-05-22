@@ -34,6 +34,7 @@ export interface Player {
   count180s: number
   topCheckouts: number[]
   recentForm: ("W" | "D" | "L")[]
+  titles: number
 }
 
 export interface CareerStats {

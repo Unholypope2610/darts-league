@@ -14,6 +14,7 @@ export async function GET() {
       matchesAsA: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true } },
       matchesAsB: { where: { completedAt: { not: null } }, select: { winnerId: true, startingScore: true, completedAt: true } },
       visits: { select: { scoreThrown: true, dartsUsed: true, doublesAttempted: true, isBust: true, isCheckout: true, visitNumber: true, playerId: true, runningRemainder: true } },
+      _count: { select: { competitionsWon: true } },
     },
   })
 
@@ -37,8 +38,8 @@ export async function GET() {
     const c180s = count180s(visits)
     const topCO = top3Checkouts(visits)
 
-    const { matchesAsA: _a, matchesAsB: _b, visits: _v, ...rest } = p
-    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO, recentForm }
+    const { matchesAsA: _a, matchesAsB: _b, visits: _v, _count, ...rest } = p
+    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO, recentForm, titles: _count.competitionsWon }
   })
 
   return NextResponse.json(withStats)

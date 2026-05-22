@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Trophy } from "lucide-react"
 import { PlayerAvatar } from "./PlayerAvatar"
 import { cn } from "@/lib/utils/cn"
 import type { Player } from "@/types/api"
@@ -24,7 +25,15 @@ export function PlayerCard({ player }: PlayerCardProps) {
             <p className="text-xs text-muted-foreground truncate">"{player.nickname}"</p>
           )}
         </div>
-        <span className="text-xs text-muted-foreground shrink-0">{player.hand === "LEFT" ? "L" : "R"}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {player.titles > 0 && (
+            <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              <Trophy className="size-2.5" />
+              {player.titles}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">{player.hand === "LEFT" ? "L" : "R"}</span>
+        </div>
       </div>
 
       {/* Stats row */}
