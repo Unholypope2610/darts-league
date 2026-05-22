@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import { useStartFixture } from "@/hooks/useFixtures"
+import { Trophy } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 
 interface BracketNodeProps {
@@ -68,6 +69,7 @@ export function BracketNode({ node, canScore }: BracketNodeProps) {
                 <span className={cn("flex-1 text-sm font-medium truncate", isWinner && "text-emerald-400")}>
                   {seed.name}
                 </span>
+                {isFinal && isWinner && <Trophy className="size-3.5 text-amber-400 shrink-0" />}
                 {score !== null && (
                   <span className={cn("font-score font-bold text-sm", isWinner ? "text-emerald-400" : "text-muted-foreground")}>
                     {score}
