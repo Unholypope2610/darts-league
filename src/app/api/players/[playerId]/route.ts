@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { updatePlayerSchema } from "@/lib/validations/player.schema"
-import { calculateAverage, count180s, highestCheckout, doublesPercentage, top3Checkouts, bestLeg } from "@/lib/utils/stats"
+import { calculateAverage, count180s, highestCheckout, doublesPercentage } from "@/lib/utils/stats"
 
 export async function GET(
   _req: Request,
@@ -49,8 +49,43 @@ export async function GET(
   )
 
   const first9Visits = allVisits.filter((v) => v.visitNumber <= 3)
-  const allLegs = allMatches.filter((m) => m.startingScore === 501).flatMap((m) => m.legs)
-  const bestLegDarts = bestLeg(allLegs, playerId)
+
+  // Top 3 unique checkout scores with match references
+  const checkoutMatchMap = new Map<number, Set<string>>()
+  for (const m of allMatches) {
+    for (const leg of m.legs) {
+      for (const v of leg.visits) {
+        if (v.playerId === playerId && v.isCheckout) {
+          if (!checkoutMatchMap.has(v.scoreThrown)) checkoutMatchMap.set(v.scoreThrown, new Set())
+          checkoutMatchMap.get(v.scoreThrown)!.add(m.id)
+        }
+      }
+    }
+  }
+  const top3CheckoutsDetailed = [...checkoutMatchMap.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, 3)
+    .map(([score, ids]) => ({ score, matchIds: [...ids] }))
+
+  // Best leg (501 only) with match references
+  let bestLegDarts: number | null = null
+  const bestLegMatchIds = new Set<string>()
+  for (const m of allMatches.filter((m) => m.startingScore === 501)) {
+    for (const leg of m.legs) {
+      if (leg.winnerId === playerId) {
+        if (bestLegDarts === null || leg.dartsThrown < bestLegDarts) {
+          bestLegDarts = leg.dartsThrown
+          bestLegMatchIds.clear()
+          bestLegMatchIds.add(m.id)
+        } else if (leg.dartsThrown === bestLegDarts) {
+          bestLegMatchIds.add(m.id)
+        }
+      }
+    }
+  }
+  const bestLegDetailed = bestLegDarts !== null
+    ? { darts: bestLegDarts, matchIds: [...bestLegMatchIds] }
+    : null
 
   const averageHistory = [...allMatches]
     .reverse()
@@ -70,12 +105,12 @@ export async function GET(
     highest180s: count180s(allVisits),
     highestCheckout: highestCheckout(allVisits),
     doublesPercentage: doublesPercentage(allVisits),
-    top3Checkouts: top3Checkouts(allVisits),
+    top3Checkouts: top3CheckoutsDetailed,
     recentForm: allMatches.slice(0, 5).map((m) =>
       m.winnerId === playerId ? "W" : m.winnerId === null ? "D" : "L"
     ) as ("W" | "D" | "L")[],
     first9Average: calculateAverage(first9Visits),
-    bestLeg: bestLegDarts,
+    bestLeg: bestLegDetailed,
     averageHistory,
   }
 

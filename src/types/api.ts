@@ -51,10 +51,10 @@ export interface CareerStats {
   highest180s: number
   highestCheckout: number
   doublesPercentage: number
-  top3Checkouts: number[]
+  top3Checkouts: { score: number; matchIds: string[] }[]
   recentForm: ("W" | "D" | "L")[]
   first9Average: number
-  bestLeg: number | null
+  bestLeg: { darts: number; matchIds: string[] } | null
   averageHistory: { date: string; average: number }[]
 }
 

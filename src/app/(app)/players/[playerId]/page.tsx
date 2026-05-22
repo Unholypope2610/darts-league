@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Trophy } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
+import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
+import { formatDate } from "@/lib/utils/format"
 
 interface PageProps {
   params: Promise<{ playerId: string }>
@@ -22,12 +24,20 @@ export default function PlayerProfilePage({ params }: PageProps) {
   const { playerId } = use(params)
   const { data: player, isLoading } = usePlayer(playerId)
   const [showTitles, setShowTitles] = useState(false)
+  const [summaryMatchId, setSummaryMatchId] = useState<string | null>(null)
+  const [picker, setPicker] = useState<{ label: string; matchIds: string[] } | null>(null)
   const { data: meData } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
     staleTime: Infinity,
   })
   const canEdit = meData?.role === "ADMIN" || (meData?.playerId && meData.playerId === playerId)
+
+  function handleStatClick(label: string, matchIds: string[]) {
+    if (matchIds.length === 0) return
+    if (matchIds.length === 1) setSummaryMatchId(matchIds[0])
+    else setPicker({ label, matchIds })
+  }
 
   if (isLoading) {
     return (
@@ -122,6 +132,28 @@ export default function PlayerProfilePage({ params }: PageProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Match picker — shown when a stat occurred in multiple games */}
+      <Dialog open={!!picker} onOpenChange={(o) => { if (!o) setPicker(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{picker?.label}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2">Occurred in multiple matches — pick one to view:</p>
+          <div className="flex flex-col gap-2 pt-1">
+            {picker?.matchIds.map((id) => (
+              <MatchPickerButton
+                key={id}
+                matchId={id}
+                playerId={playerId}
+                onSelect={() => { setPicker(null); setSummaryMatchId(id) }}
+              />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <MatchSummaryModal matchId={summaryMatchId} onClose={() => setSummaryMatchId(null)} />
 
       <Tabs defaultValue="overview">
         <TabsList className="w-full">
@@ -221,8 +253,14 @@ export default function PlayerProfilePage({ params }: PageProps) {
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Top Checkouts</p>
                   <div className="flex gap-2">
-                    {cs.top3Checkouts.map((c, i) => (
-                      <span key={i} className="font-score font-bold text-lg text-emerald-400">{c}</span>
+                    {cs.top3Checkouts.map((c) => (
+                      <button
+                        key={c.score}
+                        onClick={() => handleStatClick(`Checkout ${c.score}`, c.matchIds)}
+                        className="font-score font-bold text-lg text-emerald-400 hover:text-emerald-300 hover:underline underline-offset-2 transition-colors"
+                      >
+                        {c.score}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -230,7 +268,12 @@ export default function PlayerProfilePage({ params }: PageProps) {
               {cs.bestLeg !== null && (
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Best Leg</p>
-                  <span className="font-score font-bold text-lg text-blue-400">{cs.bestLeg}d</span>
+                  <button
+                    onClick={() => handleStatClick(`Best Leg (${cs.bestLeg!.darts} darts)`, cs.bestLeg!.matchIds)}
+                    className="font-score font-bold text-lg text-blue-400 hover:text-blue-300 hover:underline underline-offset-2 transition-colors text-left"
+                  >
+                    {cs.bestLeg.darts}d
+                  </button>
                 </div>
               )}
             </div>
@@ -275,5 +318,34 @@ export default function PlayerProfilePage({ params }: PageProps) {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+function MatchPickerButton({
+  matchId,
+  playerId,
+  onSelect,
+}: {
+  matchId: string
+  playerId: string
+  onSelect: () => void
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: match } = useQuery<any>({
+    queryKey: ["match", matchId],
+    queryFn: () => fetch(`/api/matches/${matchId}`).then((r) => r.json()),
+  })
+  const dateLabel = match ? formatDate(match.completedAt ?? match.startedAt) : "…"
+  const opponent = match
+    ? match.playerAId === playerId ? match.playerB?.name : match.playerA?.name
+    : null
+  return (
+    <button
+      onClick={onSelect}
+      className="w-full text-left rounded-xl border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors"
+    >
+      <p className="font-medium text-sm">{dateLabel}</p>
+      {opponent && <p className="text-xs text-muted-foreground">vs {opponent}</p>}
+    </button>
   )
 }
