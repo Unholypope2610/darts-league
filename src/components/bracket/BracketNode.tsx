@@ -28,8 +28,24 @@ export function BracketNode({ node, competitionId, canScore }: BracketNodeProps)
   const router = useRouter()
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
+  const [confirmRestart, setConfirmRestart] = useState(false)
+  const [isRestarting, setIsRestarting] = useState(false)
   const isComplete = !!node.winner
   const isFinal = node.round === 1
+
+  async function handleRestart() {
+    setIsRestarting(true)
+    try {
+      const r = await fetch(`/api/matches/${node.matchId}/restart`, { method: "POST" })
+      const json = await r.json()
+      if (!r.ok) throw new Error(json?.error ?? "Failed to restart")
+      setConfirmRestart(false)
+      router.push(`/matches/${node.matchId}/live`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to restart")
+      setIsRestarting(false)
+    }
+  }
 
   async function handleStart() {
     if (node.matchId) {
@@ -122,6 +138,36 @@ export function BracketNode({ node, competitionId, canScore }: BracketNodeProps)
               className="w-full text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50"
             >
               {isStarting ? "…" : "Start Match"}
+            </button>
+          )}
+        </div>
+      )}
+      {canScore && node.matchId && (
+        <div className="px-3 py-2 border-t border-border/50">
+          {confirmRestart ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground flex-1">Restart match?</span>
+              <button
+                onClick={handleRestart}
+                disabled={isRestarting}
+                className="text-[10px] px-2 py-1 rounded bg-destructive/80 text-destructive-foreground font-bold hover:bg-destructive disabled:opacity-50"
+              >
+                {isRestarting ? "…" : "Yes"}
+              </button>
+              <button
+                onClick={() => setConfirmRestart(false)}
+                disabled={isRestarting}
+                className="text-[10px] px-2 py-1 rounded bg-muted text-muted-foreground font-bold hover:bg-muted/70"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmRestart(true)}
+              className="w-full text-center text-[10px] px-3 py-1 rounded bg-muted text-muted-foreground font-medium hover:bg-muted/70 transition-colors"
+            >
+              Restart Match
             </button>
           )}
         </div>
