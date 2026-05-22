@@ -17,6 +17,7 @@ export async function GET(
     where: { id: playerId },
     include: {
       _count: { select: { competitionsWon: true } },
+      competitionsWon: { select: { id: true, name: true, season: true, type: true } },
       matchesAsA: {
         include: {
           legs: { include: { visits: true } },
@@ -76,8 +77,8 @@ export async function GET(
     .map((e) => ({ ...e, played: e.won + e.drawn + e.lost }))
     .sort((a, b) => b.played - a.played)
 
-  const { matchesAsA: _a, matchesAsB: _b, _count, ...playerBase } = player
-  return NextResponse.json({ ...playerBase, careerStats, h2h, titles: _count.competitionsWon })
+  const { matchesAsA: _a, matchesAsB: _b, _count, competitionsWon, ...playerBase } = player
+  return NextResponse.json({ ...playerBase, careerStats, h2h, titles: _count.competitionsWon, competitionsWon })
 }
 
 export async function PATCH(

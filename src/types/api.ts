@@ -61,6 +61,7 @@ export interface H2HRecord {
 export interface PlayerDetail extends Player {
   careerStats: CareerStats
   h2h: H2HRecord[]
+  competitionsWon: { id: string; name: string; season: string; type: string }[]
 }
 
 export interface LeagueTableRow {

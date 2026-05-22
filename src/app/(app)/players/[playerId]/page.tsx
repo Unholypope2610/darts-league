@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import { usePlayer } from "@/hooks/usePlayers"
@@ -9,6 +9,7 @@ import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Trophy } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 
@@ -19,6 +20,7 @@ interface PageProps {
 export default function PlayerProfilePage({ params }: PageProps) {
   const { playerId } = use(params)
   const { data: player, isLoading } = usePlayer(playerId)
+  const [showTitles, setShowTitles] = useState(false)
   const { data: meData } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
@@ -78,14 +80,41 @@ export default function PlayerProfilePage({ params }: PageProps) {
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline">{player.hand === "LEFT" ? "Left-handed" : "Right-handed"}</Badge>
             {player.titles > 0 && (
-              <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              <button
+                onClick={() => setShowTitles(true)}
+                className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+              >
                 <Trophy className="size-3" />
                 {player.titles} {player.titles === 1 ? "Title" : "Titles"}
-              </span>
+              </button>
             )}
           </div>
         </div>
       </div>
+
+      <Dialog open={showTitles} onOpenChange={setShowTitles}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="size-4 text-amber-400" />
+              Titles Won
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-1">
+            {player.competitionsWon.map((c) => (
+              <div key={c.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+                <div>
+                  <p className="font-medium text-sm">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">{c.season}</p>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  {c.type}
+                </span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="overview">
         <TabsList className="w-full">
