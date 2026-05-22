@@ -3,7 +3,7 @@
 import { use, useState } from "react"
 import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
-import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts"
+import { AreaChart, Area, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 import { usePlayer } from "@/hooks/usePlayers"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
@@ -140,28 +140,52 @@ export default function PlayerProfilePage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Average trendline */}
-          {cs.averageHistory.length >= 2 && (
-            <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Average Trend</p>
-              <ResponsiveContainer width="100%" height={80}>
-                <AreaChart data={cs.averageHistory}>
-                  <defs>
-                    <linearGradient id="avgGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="average" stroke="var(--primary)" fill="url(#avgGrad)" strokeWidth={2} dot={false} />
-                  <Tooltip
-                    formatter={(v: unknown) => [(v as number).toFixed(2), "Avg"]}
-                    labelFormatter={() => ""}
-                    contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: 12 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          {/* Average trendline with projection */}
+          {cs.averageHistory.length >= 2 && (() => {
+            const hist = cs.averageHistory
+            const n = hist.length
+            // Linear regression
+            const sumX = (n * (n - 1)) / 2
+            const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6
+            const sumY = hist.reduce((s, d) => s + d.average, 0)
+            const sumXY = hist.reduce((s, d, i) => s + i * d.average, 0)
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
+            const intercept = (sumY - slope * sumX) / n
+            const PROJ = 3
+            type ChartPoint = { date: string; average: number | null; projected: number | null }
+            const chartData: ChartPoint[] = hist.map((d, i) => ({
+              date: d.date,
+              average: d.average,
+              projected: i === n - 1 ? d.average : null,
+            }))
+            for (let i = 1; i <= PROJ; i++) {
+              const val = Math.min(170, Math.max(0, intercept + slope * (n - 1 + i)))
+              chartData.push({ date: `proj-${i}`, average: null, projected: parseFloat(val.toFixed(2)) })
+            }
+            return (
+              <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Average Trend</p>
+                <ResponsiveContainer width="100%" height={80}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="avgGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="average" stroke="var(--primary)" fill="url(#avgGrad)" strokeWidth={2} dot={false} connectNulls={false} />
+                    <Area type="monotone" dataKey="projected" stroke="var(--primary)" strokeOpacity={0.4} strokeDasharray="5 3" fill="none" strokeWidth={2} dot={false} connectNulls={false} />
+                    <ReferenceLine x={hist[n - 1].date} stroke="var(--border)" strokeDasharray="3 3" />
+                    <Tooltip
+                      formatter={(v: unknown, key: unknown) => [(v as number).toFixed(2), key === "projected" ? "Projected" : "Avg"]}
+                      labelFormatter={() => ""}
+                      contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: 12 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )
+          })()}
 
           {/* Recent form */}
           {cs.recentForm.length > 0 && (
