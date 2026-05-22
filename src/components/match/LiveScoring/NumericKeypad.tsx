@@ -11,9 +11,8 @@ const DIGITS = ["7", "8", "9", "4", "5", "6", "1", "2", "3"]
 export function NumericKeypad() {
   const {
     dartInput, inputDigit, inputShortcut, clearInput, backspace,
-    submitVisit, submitBust, undoLastVisit, isSubmitting,
+    submitVisit, submitBust, isSubmitting,
     playerARemainder, playerBRemainder, currentTurnPlayerId, playerA,
-    undoStack,
   } = useLiveMatchStore()
 
   const hasPrewarmedRef = useRef(false)
@@ -37,12 +36,11 @@ export function NumericKeypad() {
       if (e.key >= "0" && e.key <= "9") inputDigit(e.key)
       if (e.key === "Enter") submitVisit()
       if (e.key === "Backspace") backspace()
-      if (e.key === "u" || e.key === "U") undoLastVisit()
       if (e.key === "Escape") clearInput()
     }
     window.addEventListener("keydown", handleKey)
     return () => window.removeEventListener("keydown", handleKey)
-  }, [inputDigit, submitVisit, backspace, undoLastVisit, clearInput])
+  }, [inputDigit, submitVisit, backspace, clearInput])
 
   return (
     <div className="flex flex-col gap-2 w-full max-w-xs mx-auto select-none">
@@ -139,16 +137,6 @@ export function NumericKeypad() {
         </button>
       </div>
 
-      {/* Undo button */}
-      <button
-        onClick={() => undoLastVisit()}
-        disabled={isSubmitting || undoStack.length === 0}
-        className="py-2.5 rounded-xl text-sm font-medium bg-muted hover:bg-muted/80 active:scale-95 text-muted-foreground hover:text-foreground transition-all touch-manipulation disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ touchAction: "manipulation" }}
-        aria-label="Undo last visit (U)"
-      >
-        ↩ Undo (U)
-      </button>
     </div>
   )
 }
