@@ -107,7 +107,7 @@ export default function CompetitionOverviewPage({ params }: PageProps) {
       )}
 
       {/* Standings preview */}
-      {tableRows && tableRows.length > 0 && tableRows[0].rows.length > 0 && (
+      {competition.type !== "KNOCKOUT" && tableRows && tableRows.length > 0 && tableRows[0].rows.length > 0 && (
         <div>
           <h3 className="font-semibold mb-3">Standings</h3>
           <LeagueTable rows={tableRows[0].rows.slice(0, 6)} />
