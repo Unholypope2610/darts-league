@@ -231,6 +231,7 @@ export function CompetitionWizard() {
         <div className="flex flex-col gap-4">
           <h2 className="font-bold text-lg">Review & Create</h2>
           <div className="rounded-xl border border-border bg-muted/30 p-4 flex flex-col gap-2 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="font-medium">{watch("name") || <span className="text-red-400">Missing</span>}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{TYPE_INFO[type].label}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Season</span><span className="font-medium">{watch("season")}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Format</span><span className="font-medium">Bo{bestOf} • {startingScore} • {finishType.replace("_", " ")}</span></div>
