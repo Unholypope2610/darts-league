@@ -64,7 +64,10 @@ export default function LiveMatchPage({ params }: PageProps) {
   // If we can positively identify the viewer as a player (their linked playerId matches),
   // always trust that over any stored session choice. This prevents a stale "spectator"
   // entry in sessionStorage from locking a player out of their camera controls.
-  const myRole: Role = derivedRole !== "spectator" ? derivedRole : (sessionRole ?? "spectator")
+  // Exception: if the viewer explicitly chose "local" mode, honour that over auto-detection.
+  const myRole: Role = sessionRole === "local"
+    ? "local"
+    : derivedRole !== "spectator" ? derivedRole : (sessionRole ?? "spectator")
 
   // Evict stale "spectator" session entry when the viewer is actually a player.
   useEffect(() => {
@@ -108,38 +111,59 @@ export default function LiveMatchPage({ params }: PageProps) {
   }
 
   const showRolePrompt =
-    !sessionRole && derivedRole === "spectator" && !!me && !!playerA && !!playerB
+    !sessionRole && !!me && !!playerA && !!playerB
 
   return (
     <>
       {showRolePrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
           <div className="bg-card border border-border rounded-2xl p-6 flex flex-col gap-3 w-full max-w-xs">
-            <p className="text-sm font-semibold text-center text-foreground">Who are you in this match?</p>
-            <button
-              onClick={() => handleRoleSelect("playerA")}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
-            >
-              {playerA.name}
-            </button>
-            <button
-              onClick={() => handleRoleSelect("playerB")}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
-            >
-              {playerB.name}
-            </button>
-            <button
-              onClick={() => handleRoleSelect("local")}
-              className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
-            >
-              Score both players (one device)
-            </button>
-            <button
-              onClick={() => handleRoleSelect("spectator")}
-              className="w-full py-2 rounded-xl text-muted-foreground text-sm hover:text-foreground transition-colors"
-            >
-              Just spectating
-            </button>
+            <p className="text-sm font-semibold text-center text-foreground">How are you joining this match?</p>
+            {derivedRole !== "spectator" ? (
+              /* Linked player — offer their role or local mode */
+              <>
+                <button
+                  onClick={() => handleRoleSelect(derivedRole)}
+                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+                >
+                  Score my throws only
+                </button>
+                <button
+                  onClick={() => handleRoleSelect("local")}
+                  className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
+                >
+                  Score both players (one device)
+                </button>
+              </>
+            ) : (
+              /* Unidentified viewer — full selection */
+              <>
+                <button
+                  onClick={() => handleRoleSelect("playerA")}
+                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+                >
+                  {playerA.name}
+                </button>
+                <button
+                  onClick={() => handleRoleSelect("playerB")}
+                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+                >
+                  {playerB.name}
+                </button>
+                <button
+                  onClick={() => handleRoleSelect("local")}
+                  className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
+                >
+                  Score both players (one device)
+                </button>
+                <button
+                  onClick={() => handleRoleSelect("spectator")}
+                  className="w-full py-2 rounded-xl text-muted-foreground text-sm hover:text-foreground transition-colors"
+                >
+                  Just spectating
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
