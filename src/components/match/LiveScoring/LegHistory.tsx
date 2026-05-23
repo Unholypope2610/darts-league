@@ -57,7 +57,7 @@ function VisitCell({ visit, viewerPlayerId, onEdit }: { visit: VisitRecord | nul
     setEditing(false)
   }
 
-  const canEdit = onEdit && !visit.isBust && !visit.isCheckout
+  const canEdit = onEdit && !visit.isCheckout
     && (!viewerPlayerId || visit.playerId === viewerPlayerId)
 
   if (editing) {
