@@ -161,11 +161,11 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     }
   }, [facingMode, detectZoom])
 
-  const setZoom = useCallback(async (zoom: number) => {
+  const setZoom = useCallback((zoom: number) => {
     const track = streamRef.current?.getVideoTracks()[0]
     if (!track) return
-    await track.applyConstraints({ advanced: [{ zoom } as MediaTrackConstraintSet] })
     setZoomLevel(zoom)
+    track.applyConstraints({ advanced: [{ zoom } as MediaTrackConstraintSet] }).catch(() => {})
   }, [])
 
   useEffect(() => {

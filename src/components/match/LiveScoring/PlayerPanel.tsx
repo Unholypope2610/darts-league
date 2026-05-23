@@ -164,9 +164,8 @@ export function PlayerPanel({
       {isStreaming && zoomCapabilities && (
         <div className="w-full flex items-center justify-between gap-2">
           <button
-            onPointerDown={(e) => { e.preventDefault(); setZoom(Math.max(zoomCapabilities.min, parseFloat((zoomLevel - zoomCapabilities.step).toFixed(2)))) }}
-            className="flex-1 py-2 rounded-lg bg-muted border border-border text-lg font-bold text-foreground hover:bg-muted/60 active:scale-95 transition-all touch-manipulation"
-            style={{ touchAction: "manipulation" }}
+            onClick={() => setZoom(Math.max(zoomCapabilities.min, parseFloat((zoomLevel - zoomCapabilities.step).toFixed(2))))}
+            className="flex-1 py-2 rounded-lg bg-muted border border-border text-lg font-bold text-foreground hover:bg-muted/60 active:scale-95 transition-all"
           >
             −
           </button>
@@ -174,9 +173,8 @@ export function PlayerPanel({
             {zoomLevel.toFixed(1)}×
           </span>
           <button
-            onPointerDown={(e) => { e.preventDefault(); setZoom(Math.min(zoomCapabilities.max, parseFloat((zoomLevel + zoomCapabilities.step).toFixed(2)))) }}
-            className="flex-1 py-2 rounded-lg bg-muted border border-border text-lg font-bold text-foreground hover:bg-muted/60 active:scale-95 transition-all touch-manipulation"
-            style={{ touchAction: "manipulation" }}
+            onClick={() => setZoom(Math.min(zoomCapabilities.max, parseFloat((zoomLevel + zoomCapabilities.step).toFixed(2))))}
+            className="flex-1 py-2 rounded-lg bg-muted border border-border text-lg font-bold text-foreground hover:bg-muted/60 active:scale-95 transition-all"
           >
             +
           </button>
