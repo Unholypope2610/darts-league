@@ -100,7 +100,7 @@ export default function BracketPage({ params }: PageProps) {
       </div>
 
       {nodes?.length ? (
-        <BracketView nodes={nodes} competitionId={competitionId} canScore={true} />
+        <BracketView nodes={nodes} competitionId={competitionId} canScore={true} competitionCompleted={competition?.status === "COMPLETED"} />
       ) : (
         <EmptyState
           icon={<Network className="w-10 h-10" />}

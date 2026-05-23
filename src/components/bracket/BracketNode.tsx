@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
@@ -22,9 +23,10 @@ interface BracketNodeProps {
   }
   competitionId: string
   canScore?: boolean
+  competitionCompleted?: boolean
 }
 
-export function BracketNode({ node, competitionId, canScore }: BracketNodeProps) {
+export function BracketNode({ node, competitionId, canScore, competitionCompleted }: BracketNodeProps) {
   const router = useRouter()
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
@@ -32,6 +34,13 @@ export function BracketNode({ node, competitionId, canScore }: BracketNodeProps)
   const [isRestarting, setIsRestarting] = useState(false)
   const isComplete = !!node.winner
   const isFinal = node.round === 1
+
+  const { data: me } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
+    staleTime: Infinity,
+  })
+  const isAdmin = me?.role === "ADMIN"
 
   async function handleRestart() {
     setIsRestarting(true)
@@ -152,7 +161,7 @@ export function BracketNode({ node, competitionId, canScore }: BracketNodeProps)
           )}
         </div>
       )}
-      {canScore && node.matchId && (
+      {isAdmin && !competitionCompleted && node.matchId && (
         <div className="px-3 py-2 border-t border-border/50">
           {confirmRestart ? (
             <div className="flex items-center gap-1.5">

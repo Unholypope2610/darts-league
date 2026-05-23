@@ -6,9 +6,10 @@ interface BracketViewProps {
   nodes: Node[]
   competitionId: string
   canScore?: boolean
+  competitionCompleted?: boolean
 }
 
-export function BracketView({ nodes, competitionId, canScore }: BracketViewProps) {
+export function BracketView({ nodes, competitionId, canScore, competitionCompleted }: BracketViewProps) {
   // Group by round, sort descending (quarters before semis before final)
   const byRound: Record<number, Node[]> = {}
   for (const n of nodes) {
@@ -25,7 +26,7 @@ export function BracketView({ nodes, competitionId, canScore }: BracketViewProps
         {rounds.map((round) => (
           <div key={round} className="flex flex-col gap-6 justify-around" style={{ minHeight: `${byRound[round].length * 140}px` }}>
             {byRound[round].map((node) => (
-              <BracketNode key={node.id} node={node} competitionId={competitionId} canScore={canScore} />
+              <BracketNode key={node.id} node={node} competitionId={competitionId} canScore={canScore} competitionCompleted={competitionCompleted} />
             ))}
           </div>
         ))}

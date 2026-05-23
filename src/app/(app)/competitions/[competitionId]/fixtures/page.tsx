@@ -41,7 +41,7 @@ export default function FixturesPage({ params }: PageProps) {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
         </div>
       ) : (
-        <FixtureList fixtures={fixtures ?? []} canScore={true} />
+        <FixtureList fixtures={fixtures ?? []} canScore={true} competitionCompleted={competition?.status === "COMPLETED"} />
       )}
 
       <GenerateFixturesModal

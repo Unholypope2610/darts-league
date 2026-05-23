@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { PreMatchModal } from "@/components/match/PreMatchModal"
@@ -23,15 +24,23 @@ interface FixtureCardProps {
     competition?: { bestOf: number; startingScore: number; finishType: string } | null
   }
   canScore?: boolean
+  competitionCompleted?: boolean
 }
 
-export function FixtureCard({ fixture, canScore }: FixtureCardProps) {
+export function FixtureCard({ fixture, canScore, competitionCompleted }: FixtureCardProps) {
   const router = useRouter()
   const { mutate: startFixture, isPending } = useStartFixture()
   const [modalOpen, setModalOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [isRestarting, setIsRestarting] = useState(false)
+
+  const { data: me } = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
+    staleTime: Infinity,
+  })
+  const isAdmin = me?.role === "ADMIN"
 
   async function handleRestart() {
     setIsRestarting(true)
@@ -132,7 +141,7 @@ export function FixtureCard({ fixture, canScore }: FixtureCardProps) {
           </div>
         </div>
 
-        {canScore && fixture.matchId && (isLive || isCompleted) && (
+        {isAdmin && !competitionCompleted && fixture.matchId && (isLive || isCompleted) && (
           <div className="px-2 pt-1.5 flex items-center gap-2">
             {confirmRestart ? (
               <>
