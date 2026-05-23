@@ -15,6 +15,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isLivePage = pathname.includes("/live")
   const [navVisible, setNavVisible] = useState(false)
 
+  // Keep screen awake while the app is open
+  useEffect(() => {
+    if (!("wakeLock" in navigator)) return
+    let lock: WakeLockSentinel | null = null
+    const acquire = () => {
+      navigator.wakeLock.request("screen").then((l) => { lock = l }).catch(() => {})
+    }
+    acquire()
+    // Re-acquire after the tab becomes visible again (wake lock is released on hide)
+    const onVisible = () => { if (document.visibilityState === "visible") acquire() }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+      lock?.release().catch(() => {})
+    }
+  }, [])
+
   // Reset nav visibility when navigating away from live page
   useEffect(() => {
     if (!isLivePage) setNavVisible(false)
