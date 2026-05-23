@@ -28,9 +28,9 @@ interface PlayerPanelProps {
 }
 
 function runningAverage(visits: VisitRecord[], playerId: string): string {
-  const playerVisits = visits.filter((v) => v.playerId === playerId && !v.isBust)
+  const playerVisits = visits.filter((v) => v.playerId === playerId)
   if (playerVisits.length === 0) return "0.00"
-  const totalScore = playerVisits.reduce((acc, v) => acc + v.scoreThrown, 0)
+  const totalScore = playerVisits.reduce((acc, v) => acc + (v.isBust ? 0 : v.scoreThrown), 0)
   const totalDarts = playerVisits.reduce((acc, v) => acc + v.dartsUsed, 0)
   if (totalDarts === 0) return "0.00"
   return formatAverage((totalScore / totalDarts) * 3)
