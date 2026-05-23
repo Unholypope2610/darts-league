@@ -160,19 +160,26 @@ export function PlayerPanel({
       <ScoreDisplay remainder={remainder} isActive={isActive} isBust={isBust} />
       <CheckoutSuggestion remainder={remainder} className="w-full" />
 
-      {/* Zoom slider — shown when broadcasting and device supports zoom */}
+      {/* Zoom buttons — shown when broadcasting and device supports zoom */}
       {isStreaming && zoomCapabilities && (
-        <div className="w-full flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground shrink-0">Zoom</span>
-          <input
-            type="range"
-            min={zoomCapabilities.min}
-            max={zoomCapabilities.max}
-            step={zoomCapabilities.step}
-            value={zoomLevel}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-full accent-emerald-500"
-          />
+        <div className="w-full flex items-center justify-between gap-2">
+          <button
+            onPointerDown={(e) => { e.preventDefault(); setZoom(Math.max(zoomCapabilities.min, parseFloat((zoomLevel - zoomCapabilities.step).toFixed(2)))) }}
+            className="flex-1 py-2 rounded-lg bg-muted border border-border text-lg font-bold text-foreground hover:bg-muted/60 active:scale-95 transition-all touch-manipulation"
+            style={{ touchAction: "manipulation" }}
+          >
+            −
+          </button>
+          <span className="text-[11px] font-score font-bold text-muted-foreground w-10 text-center shrink-0">
+            {zoomLevel.toFixed(1)}×
+          </span>
+          <button
+            onPointerDown={(e) => { e.preventDefault(); setZoom(Math.min(zoomCapabilities.max, parseFloat((zoomLevel + zoomCapabilities.step).toFixed(2)))) }}
+            className="flex-1 py-2 rounded-lg bg-muted border border-border text-lg font-bold text-foreground hover:bg-muted/60 active:scale-95 transition-all touch-manipulation"
+            style={{ touchAction: "manipulation" }}
+          >
+            +
+          </button>
         </div>
       )}
 
