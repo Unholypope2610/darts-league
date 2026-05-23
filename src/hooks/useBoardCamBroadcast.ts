@@ -29,15 +29,21 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     const track = stream.getVideoTracks()[0]
     if (!track) return
     const capabilities = track.getCapabilities() as MediaTrackCapabilities & {
-      zoom?: { min: number; max: number; step: number }
+      zoom?: { min?: number; max?: number; step?: number }
     }
-    if (capabilities.zoom) {
-      setZoomCapabilities(capabilities.zoom)
-      setZoomLevel(capabilities.zoom.min)
-    } else {
+    const z = capabilities.zoom
+    if (!z) {
       setZoomCapabilities(null)
       setZoomLevel(1)
+      return
     }
+    // iOS returns zoom but may omit or NaN individual fields — normalize to safe values
+    // (the old slider UI silently worked around this; +/- buttons need explicit guards)
+    const min = Number.isFinite(z.min) ? z.min! : 1
+    const max = Number.isFinite(z.max) && z.max! > min ? z.max! : min + 4
+    const step = Number.isFinite(z.step) && z.step! > 0 ? z.step! : 1
+    setZoomCapabilities({ min, max, step })
+    setZoomLevel(min)
   }, [])
 
   const createOffer = useCallback(async (spectatorId: string) => {
