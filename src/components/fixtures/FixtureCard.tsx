@@ -40,7 +40,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
     queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
     staleTime: Infinity,
   })
-  const isAdmin = me?.role === "ADMIN"
+  const isParticipant = me?.playerId && (me.playerId === fixture.playerA.id || me.playerId === fixture.playerB.id)
 
   async function handleRestart() {
     setIsRestarting(true)
@@ -141,7 +141,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
           </div>
         </div>
 
-        {isAdmin && !competitionCompleted && fixture.matchId && (isLive || isCompleted) && (
+        {isParticipant && !competitionCompleted && fixture.matchId && (isLive || isCompleted) && (
           <div className="px-2 pt-1.5 flex items-center gap-2">
             {confirmRestart ? (
               <>

@@ -40,7 +40,7 @@ export function BracketNode({ node, competitionId, canScore, competitionComplete
     queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
     staleTime: Infinity,
   })
-  const isAdmin = me?.role === "ADMIN"
+  const isParticipant = me?.playerId && (me.playerId === node.seedA?.id || me.playerId === node.seedB?.id)
 
   async function handleRestart() {
     setIsRestarting(true)
@@ -161,7 +161,7 @@ export function BracketNode({ node, competitionId, canScore, competitionComplete
           )}
         </div>
       )}
-      {isAdmin && !competitionCompleted && node.matchId && (
+      {isParticipant && !competitionCompleted && node.matchId && (
         <div className="px-3 py-2 border-t border-border/50">
           {confirmRestart ? (
             <div className="flex items-center gap-1.5">
