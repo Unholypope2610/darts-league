@@ -97,12 +97,15 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const detectZoom = useCallback((stream: MediaStream): boolean => {
     const track = stream.getVideoTracks()[0]
     if (!track) return false
-    const caps = track.getCapabilities() as MediaTrackCapabilities & {
+    // getCapabilities() may not exist on older browsers — optional chain to empty object
+    const caps = (track.getCapabilities?.() ?? {}) as MediaTrackCapabilities & {
       zoom?: { min: number; max: number; step: number }
     }
-    if (caps.zoom) {
-      setZoomCapabilities(caps.zoom)
-      setZoomLevel(caps.zoom.min)
+    const z = caps.zoom
+    // Validate all values — some iOS versions return a zoom object with NaN/undefined fields
+    if (z && isFinite(z.min) && isFinite(z.max) && z.max > z.min && z.step > 0) {
+      setZoomCapabilities(z)
+      setZoomLevel(z.min)
       return true
     }
     return false
