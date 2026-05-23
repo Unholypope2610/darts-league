@@ -215,14 +215,13 @@ function MatchCard({ match, myUserId, isAdmin, onSelect }: { match: CasualMatch;
   const [confirm, setConfirm] = useState<"abandon" | "restart" | null>(null)
 
   const { mutate: abandon, isPending: isAbandoning } = useMutation({
-    mutationFn: () =>
-      fetch(`/api/matches/${match.id}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then((r) => r.json()),
+    mutationFn: () => fetch(`/api/matches/${match.id}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["casual-matches"] })
-      toast.success("Match abandoned")
+      toast.success("Match deleted")
       setConfirm(null)
     },
-    onError: () => toast.error("Failed to abandon match"),
+    onError: () => toast.error("Failed to delete match"),
   })
 
   const { mutate: restart, isPending: isRestarting } = useMutation({

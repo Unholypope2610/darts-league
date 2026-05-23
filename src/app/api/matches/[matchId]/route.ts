@@ -24,6 +24,24 @@ export async function PATCH(
   return NextResponse.json({ ok: true, isLocal: match.isLocal })
 }
 
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ matchId: string }> },
+) {
+  const { userId } = await auth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { matchId } = await params
+
+  // Detach fixture / bracket node before deleting (nullable FKs pointing at match)
+  await prisma.fixture.updateMany({ where: { matchId }, data: { matchId: null } })
+  await prisma.bracketNode.updateMany({ where: { matchId }, data: { matchId: null } })
+
+  await prisma.match.delete({ where: { id: matchId } })
+
+  return NextResponse.json({ ok: true })
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ matchId: string }> },
