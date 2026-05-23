@@ -13,7 +13,7 @@ import { MatchChatPanel } from "@/components/match/LiveChat/MatchChatPanel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { prewarmSpeech } from "@/lib/utils/speech"
 
-type Role = "playerA" | "playerB" | "spectator"
+type Role = "playerA" | "playerB" | "spectator" | "local"
 
 interface PageProps {
   params: Promise<{ matchId: string }>
@@ -77,6 +77,7 @@ export default function LiveMatchPage({ params }: PageProps) {
   const userName =
     myRole === "playerA" ? (playerA?.name ?? "Player A")
     : myRole === "playerB" ? (playerB?.name ?? "Player B")
+    : myRole === "local" ? "Local Scorer"
     : (me?.email?.split("@")[0] ?? "Spectator")
 
   const chat = useMatchChat({
@@ -126,6 +127,12 @@ export default function LiveMatchPage({ params }: PageProps) {
               className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
             >
               {playerB.name}
+            </button>
+            <button
+              onClick={() => handleRoleSelect("local")}
+              className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
+            >
+              Score both players (one device)
             </button>
             <button
               onClick={() => handleRoleSelect("spectator")}

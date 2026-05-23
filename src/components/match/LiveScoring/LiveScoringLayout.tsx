@@ -10,7 +10,7 @@ import { LegWinAnimation } from "./LegWinAnimation"
 import { MatchWinReveal } from "./MatchWinReveal"
 import { DoublesPrompt } from "./DoublesPrompt"
 
-type Role = "playerA" | "playerB" | "spectator"
+type Role = "playerA" | "playerB" | "spectator" | "local"
 
 interface LiveScoringLayoutProps {
   myRole: Role
@@ -81,9 +81,10 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
   // Pass "" for your own channel so the hook exits early; you see your own cam via
   // the local preview in PlayerPanel, and self-spectation would create a feedback loop
   // where your own spectate hook fires READY at your own broadcast hook endlessly.
+  // In local mode the device broadcasts on playerA's channel, so exclude it there too.
   const { remoteStream: playerACamStream } = useBoardCamSpectate(
     matchId ?? "",
-    myRole !== "playerA" ? (playerA?.id ?? "") : "",
+    myRole !== "playerA" && myRole !== "local" ? (playerA?.id ?? "") : "",
   )
   const { remoteStream: playerBCamStream } = useBoardCamSpectate(
     matchId ?? "",
@@ -133,18 +134,21 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
   const isAActive = currentTurnPlayerId === playerA.id
 
   // Is the current viewer the one who is throwing right now?
-  const isMyTurn =
-    (myRole === "playerA" && isAActive) || (myRole === "playerB" && !isAActive)
+  // In local mode, the keypad is always available (scoring for both players on one device).
+  const isMyTurn = myRole === "local"
+    ? true
+    : (myRole === "playerA" && isAActive) || (myRole === "playerB" && !isAActive)
 
-  // The throwing player's cam feed — shown in the keypad area when not your turn
-  const activeCamStream = isAActive ? playerACamStream : playerBCamStream
+  // The throwing player's cam feed — shown in the keypad area when not your turn.
+  // In local mode playerB has no broadcaster, so fall back to playerA's cam for spectators.
+  const activeCamStream = isAActive ? playerACamStream : (playerBCamStream ?? playerACamStream)
   const throwingPlayerName = isAActive ? playerA.name : playerB.name
 
-  // Each player can only control their own cam panel
-  const canControlA = myRole === "playerA"
+  // Each player can only control their own cam panel; local mode acts as playerA's broadcaster.
+  const canControlA = myRole === "playerA" || myRole === "local"
   const canControlB = myRole === "playerB"
 
-  // Pencil only shows on a player's own visits
+  // Pencil shows on a player's own visits; null means all visits are editable (local mode).
   const viewerPlayerId =
     myRole === "playerA" ? playerA.id
     : myRole === "playerB" ? playerB.id
@@ -194,6 +198,13 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
             canControl={canControlB}
           />
         </div>
+
+        {/* Turn indicator — only shown in local (one-device) mode */}
+        {myRole === "local" && !blockInteraction && (
+          <div className="text-center text-xs font-bold uppercase tracking-widest text-primary py-1">
+            {isAActive ? playerA.name : playerB.name}&apos;s turn
+          </div>
+        )}
 
         {/* Keypad — only shown when it's this viewer's turn and no prompt blocking */}
         {!blockInteraction && isMyTurn && <NumericKeypad />}
