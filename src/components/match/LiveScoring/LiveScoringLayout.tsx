@@ -119,9 +119,9 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
             </div>
             <button
               onClick={() => startNewLeg(Math.random() < 0.5 ? playerA.id : playerB.id)}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="px-6 py-3 rounded-xl bg-muted border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 active:scale-95 transition-all"
             >
-              Randomise
+              🎲 Randomise
             </button>
           </>
         ) : (
