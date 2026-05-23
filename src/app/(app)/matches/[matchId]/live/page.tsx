@@ -126,13 +126,13 @@ export default function LiveMatchPage({ params }: PageProps) {
                   onClick={() => handleRoleSelect(derivedRole)}
                   className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
                 >
-                  Score my throws only
+                  Online Play
                 </button>
                 <button
                   onClick={() => handleRoleSelect("local")}
                   className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
                 >
-                  Score both players (one device)
+                  Local Play (one device)
                 </button>
               </>
             ) : (
@@ -154,7 +154,7 @@ export default function LiveMatchPage({ params }: PageProps) {
                   onClick={() => handleRoleSelect("local")}
                   className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
                 >
-                  Score both players (one device)
+                  Local Play (one device)
                 </button>
                 <button
                   onClick={() => handleRoleSelect("spectator")}
