@@ -42,13 +42,14 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
   const [bestOf, setBestOf] = useState(7)
   const [startingScore, setStartingScore] = useState(501)
   const [finishType, setFinishType] = useState("DOUBLE_OUT")
+  const [isLocal, setIsLocal] = useState(false)
 
   const { mutate: createMatch, isPending } = useMutation({
     mutationFn: () =>
       fetch("/api/matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerAId, playerBId, bestOf, startingScore, finishType, startingPlayerId: startingPlayerId || playerAId }),
+        body: JSON.stringify({ playerAId, playerBId, bestOf, startingScore, finishType, startingPlayerId: startingPlayerId || playerAId, isLocal }),
       }).then((r) => r.json()),
     onSuccess: (match) => {
       qc.invalidateQueries({ queryKey: ["casual-matches"] })
@@ -119,6 +120,33 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
               </select>
             </div>
           )}
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["Online", "Local"] as const).map((opt) => {
+                const active = opt === "Local" ? isLocal : !isLocal
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setIsLocal(opt === "Local")}
+                    className="py-2 rounded-lg text-sm font-semibold transition-all"
+                    style={{
+                      background: active ? "rgba(16,185,129,0.15)" : "#1a1a1a",
+                      border: active ? "1px solid rgba(16,185,129,0.5)" : "1px solid rgba(255,255,255,0.08)",
+                      color: active ? "#10b981" : "#71717a",
+                    }}
+                  >
+                    {opt === "Online" ? "Online" : "Local (one device)"}
+                  </button>
+                )
+              })}
+            </div>
+            {isLocal && (
+              <p className="text-[11px] text-zinc-500">One device scores for both players in the same room.</p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">

@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { playerAId, playerBId, bestOf, startingScore, finishType, startingPlayerId } = body
+  const { playerAId, playerBId, bestOf, startingScore, finishType, startingPlayerId, isLocal } = body
 
   if (!playerAId || !playerBId) {
     return NextResponse.json({ error: "Both players are required" }, { status: 400 })
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
         bestOf: bestOf ?? 7,
         startingScore: startingScore ?? 501,
         finishType: finishType ?? "DOUBLE_OUT",
+        isLocal: isLocal === true,
         createdByUserId: userId,
       },
       include: {

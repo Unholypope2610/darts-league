@@ -10,6 +10,7 @@ interface LiveMatchStore {
   // Match metadata
   matchId: string | null
   createdByUserId: string | null
+  isLocal: boolean
   playerA: PlayerMeta | null
   playerB: PlayerMeta | null
   startingScore: number
@@ -72,6 +73,7 @@ interface LiveMatchStore {
 const initialState = {
   matchId: null,
   createdByUserId: null,
+  isLocal: false,
   playerA: null,
   playerB: null,
   startingScore: 501,
@@ -111,6 +113,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       set((state) => {
         state.matchId = match.id
         state.createdByUserId = match.createdByUserId ?? null
+        state.isLocal = match.isLocal ?? false
         state.playerA = match.playerA
         state.playerB = match.playerB
         state.startingScore = match.startingScore

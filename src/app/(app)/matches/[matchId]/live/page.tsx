@@ -32,12 +32,16 @@ export default function LiveMatchPage({ params }: PageProps) {
     staleTime: Infinity,
   })
 
-  const [sessionRole, setSessionRole] = useState<Role | null>(() => {
+  const isLocal = useLiveMatchStore((s) => s.isLocal)
+
+  // For local matches only: prompt once to distinguish the scorer from remote spectators.
+  // Online matches derive the role purely from the viewer's linked player account.
+  const [sessionRole, setSessionRole] = useState<"local" | "spectator" | null>(() => {
     if (typeof window === "undefined") return null
-    return (sessionStorage.getItem(`match-role-${matchId}`) as Role | null) ?? null
+    return (sessionStorage.getItem(`match-role-${matchId}`) as "local" | "spectator" | null) ?? null
   })
 
-  function handleRoleSelect(role: Role) {
+  function handleRoleSelect(role: "local" | "spectator") {
     prewarmSpeech()
     sessionStorage.setItem(`match-role-${matchId}`, role)
     setSessionRole(role)
@@ -61,21 +65,9 @@ export default function LiveMatchPage({ params }: PageProps) {
     : myPlayerId && playerB?.id === myPlayerId ? "playerB"
     : "spectator"
 
-  // If we can positively identify the viewer as a player (their linked playerId matches),
-  // always trust that over any stored session choice. This prevents a stale "spectator"
-  // entry in sessionStorage from locking a player out of their camera controls.
-  // Exception: if the viewer explicitly chose "local" mode, honour that over auto-detection.
-  const myRole: Role = sessionRole === "local"
-    ? "local"
-    : derivedRole !== "spectator" ? derivedRole : (sessionRole ?? "spectator")
-
-  // Evict stale "spectator" session entry when the viewer is actually a player.
-  useEffect(() => {
-    if (derivedRole !== "spectator" && sessionRole === "spectator") {
-      sessionStorage.removeItem(`match-role-${matchId}`)
-      setSessionRole(null)
-    }
-  }, [derivedRole, sessionRole, matchId])
+  // Online: role comes entirely from the viewer's linked account — no prompts, no choice.
+  // Local: prompt once so the scorer can be distinguished from remote spectators.
+  const myRole: Role = isLocal ? (sessionRole ?? "spectator") : derivedRole
 
   const userName =
     myRole === "playerA" ? (playerA?.name ?? "Player A")
@@ -110,60 +102,26 @@ export default function LiveMatchPage({ params }: PageProps) {
     )
   }
 
-  const showRolePrompt =
-    !sessionRole && !!me && !!playerA && !!playerB
+  const showRolePrompt = isLocal && !sessionRole && !!me && !!playerA && !!playerB
 
   return (
     <>
       {showRolePrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
           <div className="bg-card border border-border rounded-2xl p-6 flex flex-col gap-3 w-full max-w-xs">
-            <p className="text-sm font-semibold text-center text-foreground">How are you joining this match?</p>
-            {derivedRole !== "spectator" ? (
-              /* Linked player — offer their role or local mode */
-              <>
-                <button
-                  onClick={() => handleRoleSelect(derivedRole)}
-                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
-                >
-                  Online Play
-                </button>
-                <button
-                  onClick={() => handleRoleSelect("local")}
-                  className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
-                >
-                  Local Play (one device)
-                </button>
-              </>
-            ) : (
-              /* Unidentified viewer — full selection */
-              <>
-                <button
-                  onClick={() => handleRoleSelect("playerA")}
-                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
-                >
-                  {playerA.name}
-                </button>
-                <button
-                  onClick={() => handleRoleSelect("playerB")}
-                  className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
-                >
-                  {playerB.name}
-                </button>
-                <button
-                  onClick={() => handleRoleSelect("local")}
-                  className="w-full py-2.5 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted/70 transition-colors border border-border"
-                >
-                  Local Play (one device)
-                </button>
-                <button
-                  onClick={() => handleRoleSelect("spectator")}
-                  className="w-full py-2 rounded-xl text-muted-foreground text-sm hover:text-foreground transition-colors"
-                >
-                  Just spectating
-                </button>
-              </>
-            )}
+            <p className="text-sm font-semibold text-center text-foreground">Are you scoring this match?</p>
+            <button
+              onClick={() => handleRoleSelect("local")}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+            >
+              Yes, scoring for both
+            </button>
+            <button
+              onClick={() => handleRoleSelect("spectator")}
+              className="w-full py-2 rounded-xl text-muted-foreground text-sm hover:text-foreground transition-colors"
+            >
+              No, just watching
+            </button>
           </div>
         </div>
       )}

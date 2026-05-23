@@ -100,6 +100,7 @@ export interface PlayerMeta {
 export interface MatchWithLegs {
   id: string
   createdByUserId?: string | null
+  isLocal: boolean
   startingScore: number
   bestOf: number
   finishType: string

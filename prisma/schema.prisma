@@ -107,6 +107,7 @@ model Match {
   id              String    @id @default(cuid())
   bracketNodeId   String?
   createdByUserId String?
+  isLocal         Boolean   @default(false)
   startingScore   Int       @default(501)
   bestOf          Int       @default(7)
   finishType      String    @default("DOUBLE_OUT")
