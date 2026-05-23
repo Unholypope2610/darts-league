@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { useBoardCamSpectate } from "@/hooks/useBoardCamSpectate"
+import { prewarmSpeech } from "@/lib/utils/speech"
 import { PlayerPanel } from "./PlayerPanel"
 import { NumericKeypad } from "./NumericKeypad"
 import { LegHistory } from "./LegHistory"
@@ -132,7 +133,7 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
               {[playerA, playerB].map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => startNewLeg(p.id)}
+                  onClick={() => { prewarmSpeech(); startNewLeg(p.id) }}
                   className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
                 >
                   {p.name}
@@ -140,7 +141,7 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
               ))}
             </div>
             <button
-              onClick={() => startNewLeg(Math.random() < 0.5 ? playerA.id : playerB.id)}
+              onClick={() => { prewarmSpeech(); startNewLeg(Math.random() < 0.5 ? playerA.id : playerB.id) }}
               className="px-6 py-3 rounded-xl bg-muted border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 active:scale-95 transition-all"
             >
               🎲 Randomise

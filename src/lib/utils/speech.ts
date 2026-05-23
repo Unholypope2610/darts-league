@@ -68,6 +68,18 @@ export function announceVisit(
   }
 }
 
+export function announceFirstThrow(name: string, nickname: string | null) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  window.speechSynthesis.cancel()
+  const parts = name.trim().split(/\s+/)
+  const firstName = parts[0]
+  const surname = parts.slice(1).join(" ")
+  const text = nickname
+    ? `${firstName}, ${nickname}, ${surname ? surname + "," : ""} to throw first`.replace(/\s+/g, " ").trim()
+    : `${name} to throw first`
+  speak(text, 0.85, 1.0)
+}
+
 export function announceLegWin(winnerName: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return
   window.speechSynthesis.cancel()
