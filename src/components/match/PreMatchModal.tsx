@@ -5,8 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PlayerAvatar } from "@/components/players/PlayerAvatar"
-import { Shuffle } from "lucide-react"
 
 type ModalPlayer = { id: string; name: string; avatarUrl: string | null }
 
@@ -31,7 +29,6 @@ export function PreMatchModal({
   onStart,
   onClose,
 }: PreMatchModalProps) {
-  const [starter, setStarter] = useState<string>(playerA.id)
   const [bestOf, setBestOf] = useState<number>(defaultBestOf)
   const [startingScore, setStartingScore] = useState<number>(defaultStartingScore)
   const [finishType, setFinishType] = useState<string>(defaultFinishType)
@@ -83,40 +80,8 @@ export function PreMatchModal({
             </Select>
           </div>
 
-          {/* Who throws first */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label>First Throw</Label>
-              <button
-                type="button"
-                onClick={() => setStarter(Math.random() < 0.5 ? playerA.id : playerB.id)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Shuffle className="size-3" />
-                Random
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[playerA, playerB].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setStarter(p.id)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                    starter === p.id
-                      ? "border-emerald-500 bg-emerald-500/10"
-                      : "border-border hover:border-border/80"
-                  }`}
-                >
-                  <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="sm" />
-                  <span className="text-sm font-medium truncate max-w-[80px]">{p.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <Button
-            onClick={() => onStart({ starterId: starter, bestOf, startingScore, finishType })}
+            onClick={() => onStart({ starterId: playerA.id, bestOf, startingScore, finishType })}
             className="w-full"
             size="lg"
           >

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { formatDistanceToNow } from "date-fns"
-import { Swords, Trophy, Clock, RotateCcw, XCircle } from "lucide-react"
+import { Swords, Trophy, Clock, RotateCcw, XCircle, Shuffle } from "lucide-react"
 import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import type { Player } from "@/types/api"
 
@@ -107,7 +107,17 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
 
           {canStart && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Who Starts?</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Who Starts?</label>
+                <button
+                  type="button"
+                  onClick={() => setStartingPlayerId(Math.random() < 0.5 ? playerAId : playerBId)}
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-200 transition-colors"
+                >
+                  <Shuffle className="size-3" />
+                  Randomise
+                </button>
+              </div>
               <select
                 value={startingPlayerId || playerAId}
                 onChange={(e) => { if (e.target.value) setStartingPlayerId(e.target.value) }}
