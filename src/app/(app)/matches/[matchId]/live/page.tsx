@@ -69,6 +69,22 @@ export default function LiveMatchPage({ params }: PageProps) {
   // Local: prompt once so the scorer can be distinguished from remote spectators.
   const myRole: Role = isLocal ? (sessionRole ?? "spectator") : derivedRole
 
+  async function handleToggleLocal(newIsLocal: boolean) {
+    await fetch(`/api/matches/${matchId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isLocal: newIsLocal }),
+    })
+    useLiveMatchStore.setState({ isLocal: newIsLocal })
+    if (newIsLocal) {
+      sessionStorage.setItem(`match-role-${matchId}`, "local")
+      setSessionRole("local")
+    } else {
+      sessionStorage.removeItem(`match-role-${matchId}`)
+      setSessionRole(null)
+    }
+  }
+
   const userName =
     myRole === "playerA" ? (playerA?.name ?? "Player A")
     : myRole === "playerB" ? (playerB?.name ?? "Player B")
@@ -126,7 +142,7 @@ export default function LiveMatchPage({ params }: PageProps) {
         </div>
       )}
 
-      <LiveScoringLayout myRole={myRole} />
+      <LiveScoringLayout myRole={myRole} onToggleLocal={myRole !== "spectator" ? handleToggleLocal : undefined} />
 
       {/* Invisible drag boundary covering the full viewport */}
       <div ref={dragBoundsRef} className="fixed inset-0 pointer-events-none z-[39]" />

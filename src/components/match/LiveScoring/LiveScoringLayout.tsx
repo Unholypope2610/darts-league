@@ -14,6 +14,7 @@ type Role = "playerA" | "playerB" | "spectator" | "local"
 
 interface LiveScoringLayoutProps {
   myRole: Role
+  onToggleLocal?: (isLocal: boolean) => void
 }
 
 function CamFeedPanel({ stream, label }: { stream: MediaStream | null; label: string }) {
@@ -56,7 +57,7 @@ function CamFeedPanel({ stream, label }: { stream: MediaStream | null; label: st
   )
 }
 
-export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
+export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutProps) {
   const {
     matchId,
     playerA,
@@ -68,6 +69,7 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
     bestOf,
     currentTurnPlayerId,
     currentLegId,
+    isLocal,
     visits,
     allVisits,
     pendingDoublesPrompt,
@@ -105,6 +107,26 @@ export function LiveScoringLayout({ myRole }: LiveScoringLayoutProps) {
         )}
         {!isSpectator ? (
           <>
+            {onToggleLocal && (
+              <div className="flex rounded-xl overflow-hidden border border-border">
+                {(["Online", "Local"] as const).map((opt) => {
+                  const active = opt === "Local" ? isLocal : !isLocal
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => onToggleLocal(opt === "Local")}
+                      className="flex-1 py-2 px-4 text-xs font-semibold transition-colors"
+                      style={{
+                        background: active ? "rgba(16,185,129,0.15)" : "transparent",
+                        color: active ? "#10b981" : "#71717a",
+                      }}
+                    >
+                      {opt === "Local" ? "Local (one device)" : "Online"}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             <p className="text-muted-foreground text-sm">Who throws first?</p>
             <div className="flex gap-3">
               {[playerA, playerB].map((p) => (
