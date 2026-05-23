@@ -5,12 +5,11 @@ import { cn } from "@/lib/utils/cn"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { prewarmSpeech } from "@/lib/utils/speech"
 
-const SHORTCUTS = [26, 41, 45, 60, 85, 100, 140, 180]
 const DIGITS = ["7", "8", "9", "4", "5", "6", "1", "2", "3"]
 
 export function NumericKeypad() {
   const {
-    dartInput, inputDigit, inputShortcut, clearInput, backspace,
+    dartInput, inputDigit, clearInput, backspace,
     submitVisit, submitBust, isSubmitting,
     playerARemainder, playerBRemainder, currentTurnPlayerId, playerA,
   } = useLiveMatchStore()
@@ -44,26 +43,6 @@ export function NumericKeypad() {
 
   return (
     <div className="flex flex-col gap-2 w-full max-w-xs mx-auto select-none">
-      {/* Shortcut buttons — hidden when in checkout range */}
-      {currentRemainder > 170 && (
-        <div className="grid grid-cols-4 gap-1.5">
-          {SHORTCUTS.map((s) => (
-            <button
-              key={s}
-              onClick={() => handlePress(() => inputShortcut(s))}
-              className={cn(
-                "py-2 rounded-lg text-sm font-bold transition-all",
-                "bg-muted hover:bg-primary/20 hover:text-primary active:scale-95",
-                "touch-manipulation",
-              )}
-              style={{ touchAction: "manipulation" }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Score display with inline confirm tick */}
       <div className="flex items-center gap-2 h-14 rounded-xl bg-muted border border-border px-3">
         <span className="flex-1 font-score text-3xl font-bold tracking-tight">
