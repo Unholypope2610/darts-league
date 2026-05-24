@@ -110,7 +110,17 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const drawIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const offscreenVideoRef = useRef<HTMLVideoElement | null>(null)
   const canvasStreamRef = useRef<MediaStream | null>(null)
-  const overlayDataRef = useRef<OverlayData | null>(null)
+
+  // Overlay base data (names, legs, bestOf) — updated immediately from store
+  const overlayBaseRef = useRef<Omit<OverlayData, "playerRemainder" | "opponentRemainder"> | null>(null)
+  // Remainder targets from store vs animated display values.
+  // Display stays at the pre-throw score during a visit and counts down to the
+  // new value after the score is entered, so the burned-in overlay shows what
+  // the player was on rather than the post-throw remainder.
+  const playerRemainderTargetRef = useRef(501)
+  const playerRemainderDisplayRef = useRef(501)
+  const opponentRemainderTargetRef = useRef(501)
+  const opponentRemainderDisplayRef = useRef(501)
 
   // Subscribe to store for live overlay data
   const playerA = useLiveMatchStore((s) => s.playerA)
@@ -123,19 +133,24 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
 
   useEffect(() => {
     if (!playerA || !playerB) {
-      overlayDataRef.current = null
+      overlayBaseRef.current = null
       return
     }
     const isA = playerId === playerA.id
-    overlayDataRef.current = {
+    overlayBaseRef.current = {
       playerName: isA ? playerA.name : playerB.name,
-      playerRemainder: isA ? playerARemainder : playerBRemainder,
       playerLegsWon: isA ? playerALegsWon : playerBLegsWon,
       opponentName: isA ? playerB.name : playerA.name,
-      opponentRemainder: isA ? playerBRemainder : playerARemainder,
       opponentLegsWon: isA ? playerBLegsWon : playerALegsWon,
       bestOf,
     }
+    const newPlayer = isA ? playerARemainder : playerBRemainder
+    const newOpp = isA ? playerBRemainder : playerARemainder
+    // Jump display up immediately (new leg reset); animate down when score is entered
+    if (newPlayer > playerRemainderDisplayRef.current) playerRemainderDisplayRef.current = newPlayer
+    if (newOpp > opponentRemainderDisplayRef.current) opponentRemainderDisplayRef.current = newOpp
+    playerRemainderTargetRef.current = newPlayer
+    opponentRemainderTargetRef.current = newOpp
   }, [playerId, playerA, playerB, playerARemainder, playerBRemainder, playerALegsWon, playerBLegsWon, bestOf])
 
   const detectZoom = useCallback((stream: MediaStream) => {
@@ -228,12 +243,32 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       const cs = canvas.captureStream(25)
       canvasStreamRef.current = cs
 
-      // Draw camera frame + overlay at 25fps; overlay reads from ref so it always reflects
-      // the latest store values without needing to re-create the interval on every score change
+      // Draw camera frame + overlay at 25fps.
+      // Remainders animate toward target at 10pts/frame so the overlay shows the
+      // pre-throw score during the visit and counts down after the score is entered.
       drawIntervalRef.current = setInterval(() => {
         if (vid.readyState >= 2) ctx.drawImage(vid, 0, 0, cW, cH)
-        const data = overlayDataRef.current
-        if (data) drawOverlay(ctx, data, cW, cH)
+        const base = overlayBaseRef.current
+        if (base) {
+          const step = 10
+          if (playerRemainderDisplayRef.current > playerRemainderTargetRef.current) {
+            playerRemainderDisplayRef.current = Math.max(
+              playerRemainderTargetRef.current,
+              playerRemainderDisplayRef.current - step,
+            )
+          }
+          if (opponentRemainderDisplayRef.current > opponentRemainderTargetRef.current) {
+            opponentRemainderDisplayRef.current = Math.max(
+              opponentRemainderTargetRef.current,
+              opponentRemainderDisplayRef.current - step,
+            )
+          }
+          drawOverlay(ctx, {
+            ...base,
+            playerRemainder: playerRemainderDisplayRef.current,
+            opponentRemainder: opponentRemainderDisplayRef.current,
+          }, cW, cH)
+        }
       }, 40)
 
       const recorder = new MediaRecorder(cs, { mimeType })
