@@ -379,14 +379,9 @@ function ReplaysSection({ playerId }: { playerId: string }) {
             ref={(el) => {
               if (!el) return
               el.onloadedmetadata = () => {
-                if (el.duration === Infinity || isNaN(el.duration)) {
+                if (!Number.isFinite(el.duration) || el.duration === 0) {
                   el.currentTime = 1e101
-                }
-              }
-              el.ontimeupdate = () => {
-                if (el.currentTime > 0) {
-                  el.ontimeupdate = null
-                  el.currentTime = 0
+                  el.onseeked = () => { el.onseeked = null; el.currentTime = 0 }
                 }
               }
             }}
