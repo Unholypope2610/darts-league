@@ -14,14 +14,31 @@ export async function POST(req: Request) {
   const playerId = user.playerId
 
   const body = await req.json()
-  const { storageKey, matchId, scoreThrown, isCheckout, remainder, opponentName, playerLegsWon, oppLegsWon, startingScore, durationMs } = body
+  const { storageKey, matchId, scoreThrown, isCheckout, remainder, opponentName, playerLegsWon, oppLegsWon, startingScore, durationMs, scorerPlayerId } = body
 
   if (!storageKey || !matchId || typeof scoreThrown !== "number") {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
 
-  // Verify the storage key belongs to this player
-  if (!storageKey.startsWith(`${playerId}/`)) {
+  // In local play the scorer may differ from the authenticated user — verify they share a local match
+  let targetPlayerId = playerId
+  if (scorerPlayerId && scorerPlayerId !== playerId) {
+    const match = await prisma.match.findFirst({
+      where: {
+        id: matchId,
+        isLocal: true,
+        OR: [{ playerAId: playerId }, { playerBId: playerId }],
+      },
+      select: { playerAId: true, playerBId: true },
+    })
+    if (!match || (match.playerAId !== scorerPlayerId && match.playerBId !== scorerPlayerId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    targetPlayerId = scorerPlayerId
+  }
+
+  // Verify the storage key belongs to the target player
+  if (!storageKey.startsWith(`${targetPlayerId}/`)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -30,7 +47,7 @@ export async function POST(req: Request) {
 
   const replay = await prisma.replay.create({
     data: {
-      playerId,
+      playerId: targetPlayerId,
       matchId,
       scoreThrown,
       isCheckout: Boolean(isCheckout),

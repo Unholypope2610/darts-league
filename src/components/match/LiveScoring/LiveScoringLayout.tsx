@@ -11,7 +11,6 @@ import { LegWinAnimation } from "./LegWinAnimation"
 import { MatchWinReveal } from "./MatchWinReveal"
 import { DoublesPrompt } from "./DoublesPrompt"
 import { ActionReplayPrompt } from "./ActionReplayPrompt"
-import { ScoreOverlay } from "./ScoreOverlay"
 
 type Role = "playerA" | "playerB" | "spectator" | "local"
 
@@ -51,7 +50,11 @@ function CamFeedPanel({ stream, label }: { stream: MediaStream | null; label: st
           <p className="text-xs text-white/60">Reconnecting…</p>
         </div>
       )}
-      {stream && <ScoreOverlay />}
+      {stream && (
+        <span className="absolute bottom-2 left-3 text-xs font-semibold text-white/70 drop-shadow">
+          {label}
+        </span>
+      )}
     </div>
   )
 }

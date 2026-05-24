@@ -118,7 +118,11 @@ export function ActionReplayPrompt() {
       try { blob = await injectDuration(result.blob, result.durationMs) } catch { /* use original */ }
 
       // Step 1: get a signed upload URL from the server
-      const urlRes = await fetch("/api/replays/upload-url", { method: "POST" })
+      const urlRes = await fetch("/api/replays/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scorerPlayerId: pendingReplay.scorerPlayerId, matchId }),
+      })
       if (!urlRes.ok) throw new Error("Failed to get upload URL")
       const { token, path } = await urlRes.json() as { signedUrl: string; token: string; path: string }
 
@@ -136,6 +140,7 @@ export function ActionReplayPrompt() {
         body: JSON.stringify({
           storageKey: path,
           matchId,
+          scorerPlayerId: pendingReplay.scorerPlayerId,
           scoreThrown: pendingReplay.scoreThrown,
           isCheckout: pendingReplay.isCheckout,
           remainder: pendingReplay.remainder,

@@ -160,6 +160,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
           <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
           <TabsTrigger value="h2h" className="flex-1">Head to Head</TabsTrigger>
           {canEdit && <TabsTrigger value="replays" className="flex-1">Replays</TabsTrigger>}
+
         </TabsList>
 
         {/* Overview tab */}
@@ -320,7 +321,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
         {/* Replays tab — own profile only */}
         {canEdit && (
           <TabsContent value="replays" className="mt-4">
-            <ReplaysSection playerId={playerId} />
+            <ReplaysSection playerId={playerId} playerName={player.name} />
           </TabsContent>
         )}
       </Tabs>
@@ -343,7 +344,49 @@ interface ReplayRecord {
   createdAt: string
 }
 
-function ReplaysSection({ playerId }: { playerId: string }) {
+function truncateName(s: string, max = 12) {
+  return s.length > max ? s.slice(0, max).toUpperCase() + "…" : s.toUpperCase()
+}
+
+function ReplayVideoOverlay({ replay, playerName }: { replay: ReplayRecord; playerName: string }) {
+  return (
+    <div
+      className="absolute bottom-2 left-2 rounded-lg overflow-hidden select-none pointer-events-none z-10"
+      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(6px)", minWidth: 158 }}
+    >
+      <div className="flex items-center justify-between px-2 py-[3px] border-b border-white/10">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-white/50">
+          {replay.startingScore}
+        </span>
+        <span className="text-[9px] font-bold uppercase tracking-wider text-white/50">Legs</span>
+      </div>
+      <div className="flex items-center gap-2 px-2 py-[5px] bg-white/[0.08]">
+        <span className="flex-1 font-bold text-[11px] tracking-wide text-white">
+          {truncateName(playerName)}
+        </span>
+        <span className="w-[18px] h-[18px] rounded text-[10px] font-black flex items-center justify-center shrink-0 bg-amber-500 text-black">
+          {replay.playerLegsWon}
+        </span>
+        <span className="font-score font-black text-sm tabular-nums w-9 text-right shrink-0 text-white">
+          {replay.remainder}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 px-2 py-[5px]">
+        <span className="flex-1 font-bold text-[11px] tracking-wide text-white/55">
+          {truncateName(replay.opponentName)}
+        </span>
+        <span className="w-[18px] h-[18px] rounded text-[10px] font-black flex items-center justify-center shrink-0 bg-white/10 text-white/50">
+          {replay.oppLegsWon}
+        </span>
+        <span className="font-score font-black text-sm tabular-nums w-9 text-right shrink-0 text-white/50">
+          —
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function ReplaysSection({ playerId, playerName }: { playerId: string; playerName: string }) {
   const qc = useQueryClient()
   const { data: replays, isLoading } = useQuery<ReplayRecord[]>({
     queryKey: ["replays", playerId],
@@ -372,22 +415,25 @@ function ReplaysSection({ playerId }: { playerId: string }) {
     <div className="flex flex-col gap-3">
       {replays.map((r) => (
         <div key={r.id} className="rounded-xl border border-border bg-card overflow-hidden">
-          <video
-            src={r.viewUrl ?? r.storageUrl}
-            controls
-            playsInline
-            preload="metadata"
-            className="w-full max-h-64 bg-black object-contain"
-            ref={(el) => {
-              if (!el) return
-              el.onloadedmetadata = () => {
-                if (!Number.isFinite(el.duration) || el.duration === 0) {
-                  el.currentTime = 1e101
-                  el.onseeked = () => { el.onseeked = null; el.currentTime = 0 }
+          <div className="relative w-full bg-black">
+            <video
+              src={r.viewUrl ?? r.storageUrl}
+              controls
+              playsInline
+              preload="metadata"
+              className="w-full max-h-64 object-contain"
+              ref={(el) => {
+                if (!el) return
+                el.onloadedmetadata = () => {
+                  if (!Number.isFinite(el.duration) || el.duration === 0) {
+                    el.currentTime = 1e101
+                    el.onseeked = () => { el.onseeked = null; el.currentTime = 0 }
+                  }
                 }
-              }
-            }}
-          />
+              }}
+            />
+            <ReplayVideoOverlay replay={r} playerName={playerName} />
+          </div>
           <div className="px-4 py-3 flex items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">

@@ -54,6 +54,7 @@ interface LiveMatchStore {
     isCheckout: boolean
     remainder: number
     playerId: string
+    scorerPlayerId: string
     opponentName: string
     playerLegsWon: number
     oppLegsWon: number
@@ -322,6 +323,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
               isCheckout: data.isCheckout,
               remainder: data.visit.runningRemainder,
               playerId: cameraPlayerId,
+              scorerPlayerId: scorer.id,
               opponentName: opponent.name,
               playerLegsWon: isPlayerA ? state.playerALegsWon : state.playerBLegsWon,
               oppLegsWon: isPlayerA ? state.playerBLegsWon : state.playerALegsWon,

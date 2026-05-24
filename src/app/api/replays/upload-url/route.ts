@@ -5,14 +5,33 @@ import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const BUCKET = "Replays"
 
-export async function POST() {
+export async function POST(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { playerId: true } })
   if (!user?.playerId) return NextResponse.json({ error: "No player linked" }, { status: 403 })
 
-  const path = `${user.playerId}/${Date.now()}.webm`
+  let targetPlayerId = user.playerId
+
+  try {
+    const body = await req.json() as { scorerPlayerId?: string; matchId?: string }
+    if (body.scorerPlayerId && body.scorerPlayerId !== user.playerId && body.matchId) {
+      const match = await prisma.match.findFirst({
+        where: {
+          id: body.matchId,
+          isLocal: true,
+          OR: [{ playerAId: user.playerId }, { playerBId: user.playerId }],
+        },
+        select: { playerAId: true, playerBId: true },
+      })
+      if (match && (match.playerAId === body.scorerPlayerId || match.playerBId === body.scorerPlayerId)) {
+        targetPlayerId = body.scorerPlayerId
+      }
+    }
+  } catch { /* no body — use auth user's player */ }
+
+  const path = `${targetPlayerId}/${Date.now()}.webm`
   const supabase = createServerSupabaseClient()
 
   const { data, error } = await supabase.storage
