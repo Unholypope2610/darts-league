@@ -4,14 +4,23 @@ import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { captureReplayForPlayer } from "@/lib/replay-capture"
-import fixWebmDuration from "fix-webm-duration"
 
 const COUNTDOWN_SECS = 10
+
+async function applyDurationFix(blob: Blob, durationMs: number): Promise<Blob> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fix = require("fix-webm-duration") as (b: Blob, d: number, cb: (fixed: Blob) => void) => void
+    return await new Promise<Blob>((resolve) => fix(blob, durationMs, resolve))
+  } catch {
+    return blob
+  }
+}
 
 export function ActionReplayPrompt() {
   const { pendingReplay, matchId, startingScore, clearPendingReplay } = useLiveMatchStore()
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECS)
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "noVideo" | "error">("idle")
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -41,10 +50,11 @@ export function ActionReplayPrompt() {
 
   async function handleSave() {
     if (!pendingReplay || !matchId) return
+
     const result = captureReplayForPlayer(pendingReplay.playerId)
     if (!result) {
-      setStatus("error")
-      setTimeout(() => clearPendingReplay(), 1800)
+      setStatus("noVideo")
+      setTimeout(() => clearPendingReplay(), 2000)
       return
     }
 
@@ -52,11 +62,10 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
-      const fixedBlob = await new Promise<Blob>((resolve) =>
-        fixWebmDuration(result.blob, result.durationMs, resolve)
-      )
+      const videoBlob = await applyDurationFix(result.blob, result.durationMs)
+
       const form = new FormData()
-      form.append("video", fixedBlob, "replay.webm")
+      form.append("video", videoBlob, "replay.webm")
       form.append("matchId", matchId)
       form.append("scoreThrown", String(pendingReplay.scoreThrown))
       form.append("isCheckout", String(pendingReplay.isCheckout))
@@ -73,7 +82,7 @@ export function ActionReplayPrompt() {
       setTimeout(() => clearPendingReplay(), 1200)
     } catch {
       setStatus("error")
-      setTimeout(() => clearPendingReplay(), 1800)
+      setTimeout(() => clearPendingReplay(), 2000)
     }
   }
 
@@ -145,7 +154,8 @@ export function ActionReplayPrompt() {
             >
               {status === "saving" && "Saving…"}
               {status === "saved" && "Saved!"}
-              {status === "error" && "No video — try again"}
+              {status === "noVideo" && "Buffer not ready yet"}
+              {status === "error" && "Save failed — try again"}
               {status === "idle" && "Save Replay"}
             </button>
           </div>
