@@ -29,6 +29,73 @@ interface OverlayData {
   bestOf: number
 }
 
+// --- WebM timestamp normalizer ---
+// MediaRecorder chunks carry timestamps relative to when recording started.
+// A replay clipped from the middle of a long session would have, e.g., the
+// first cluster at 20000 ms, causing browsers to show the video as starting
+// at 0:20. We patch every cluster's Timecode element so the first one starts
+// at 0, making the video fully seekable from the beginning.
+
+function ebmlVIntSize(d: Uint8Array, pos: number): number {
+  const b = d[pos]
+  if (b >= 0x80) return 1
+  if (b >= 0x40) return 2
+  if (b >= 0x20) return 3
+  if (b >= 0x10) return 4
+  return 8
+}
+
+function ebmlVInt(d: Uint8Array, pos: number): number {
+  const sz = ebmlVIntSize(d, pos)
+  let v = d[pos] & (0xFF >> sz)
+  for (let i = 1; i < sz; i++) v = v * 256 + d[pos + i]
+  return v
+}
+
+function findClusterTimecode(d: Uint8Array, cPos: number): { writePos: number; size: number; value: number } | null {
+  let pos = cPos + 4 + ebmlVIntSize(d, cPos + 4) // past cluster ID + size VINT
+  for (let i = pos; i < Math.min(pos + 128, d.length - 8); i++) {
+    if (d[i] === 0xE7) { // Timecode element ID
+      const tcSzVLen = ebmlVIntSize(d, i + 1)
+      const tcSz = ebmlVInt(d, i + 1)
+      const wp = i + 1 + tcSzVLen
+      let value = 0
+      for (let j = 0; j < tcSz; j++) value = value * 256 + d[wp + j]
+      return { writePos: wp, size: tcSz, value }
+    }
+  }
+  return null
+}
+
+// Accepts and returns ArrayBuffer so results are always valid BlobParts.
+function normalizeWebMTimestamps(chunks: ArrayBuffer[]): ArrayBuffer[] {
+  const views = chunks.map(b => new Uint8Array(b))
+  let offset = 0
+  outer: for (const d of views) {
+    for (let i = 0; i < d.length - 8; i++) {
+      if (d[i] === 0x1F && d[i+1] === 0x43 && d[i+2] === 0xB6 && d[i+3] === 0x75) {
+        const tc = findClusterTimecode(d, i)
+        if (tc) { offset = tc.value; break outer }
+      }
+    }
+  }
+  if (offset === 0) return chunks
+  return chunks.map(buf => {
+    const copy = buf.slice(0) // ArrayBuffer.slice → fresh ArrayBuffer
+    const d = new Uint8Array(copy)
+    for (let i = 0; i < d.length - 8; i++) {
+      if (d[i] === 0x1F && d[i+1] === 0x43 && d[i+2] === 0xB6 && d[i+3] === 0x75) {
+        const tc = findClusterTimecode(d, i)
+        if (tc) {
+          let v = Math.max(0, tc.value - offset)
+          for (let j = tc.size - 1; j >= 0; j--) { d[tc.writePos + j] = v & 0xFF; v = Math.floor(v / 256) }
+        }
+      }
+    }
+    return copy
+  })
+}
+
 function clamp(n: string, max: number) {
   return n.length > max ? n.slice(0, max - 1) + "…" : n
 }
@@ -95,12 +162,11 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const isSwitchingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<{ data: Blob; time: number }[]>([])
-  // EBML header bytes extracted from the first MediaRecorder chunk (before first Cluster).
-  // Always prepended when building the replay blob so the file is valid even after the
-  // init chunk has been trimmed from the rolling buffer.
-  const initHeadersRef = useRef<Blob | null>(null)
-  const initChunkRef = useRef<{ data: Blob; time: number } | null>(null)
+  // Chunks stored as ArrayBuffer (valid BlobPart) so timestamps can be patched at capture time.
+  const chunksRef = useRef<{ data: ArrayBuffer; time: number }[]>([])
+  // EBML header bytes (before first Cluster) — prepended when building the replay blob.
+  const initHeadersRef = useRef<ArrayBuffer | null>(null)
+  const initChunkRef = useRef<{ data: ArrayBuffer; time: number } | null>(null)
   // One peer connection per spectator so viewers don't kill each other's feeds
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const creatingOfferRef = useRef<Set<string>>(new Set())
@@ -273,30 +339,33 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
 
       const recorder = new MediaRecorder(cs, { mimeType })
       recorderRef.current = recorder
+      // Eagerly convert each MediaRecorder chunk to ArrayBuffer so timestamps can
+      // be patched synchronously at capture time (no async needed in captureFunc).
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          const chunk = { data: e.data, time: Date.now() }
+        if (e.data.size === 0) return
+        const wallTime = Date.now()
+        e.data.arrayBuffer().then(buf => {
+          const chunk = { data: buf, time: wallTime }
           chunksRef.current.push(chunk)
 
           if (!initChunkRef.current) {
             initChunkRef.current = chunk
-            e.data.arrayBuffer().then(buf => {
-              const b = new Uint8Array(buf)
-              for (let i = 0; i < b.length - 4; i++) {
-                if (b[i] === 0x1F && b[i+1] === 0x43 && b[i+2] === 0xB6 && b[i+3] === 0x75) {
-                  initHeadersRef.current = new Blob([buf.slice(0, i)], { type: mimeType })
-                  return
-                }
+            // Extract the EBML header bytes that precede the first Cluster
+            const d = new Uint8Array(buf)
+            for (let i = 0; i < d.length - 4; i++) {
+              if (d[i] === 0x1F && d[i+1] === 0x43 && d[i+2] === 0xB6 && d[i+3] === 0x75) {
+                initHeadersRef.current = buf.slice(0, i)
+                return
               }
-              initHeadersRef.current = e.data
-            })
+            }
+            initHeadersRef.current = buf // fallback: no Cluster found in first chunk
           }
 
-          const cutoff = Date.now() - 30_000
+          const cutoff = wallTime - 30_000
           while (chunksRef.current.length > 0 && chunksRef.current[0].time < cutoff) {
             chunksRef.current.shift()
           }
-        }
+        })
       }
       recorder.start(1000)
       setReplayCaptureFunc(playerId, (): CaptureResult | null => {
@@ -307,8 +376,10 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         )
         if (filtered.length < 5) return null
         const durationMs = Date.now() - filtered[0].time
+        // Normalize cluster timestamps so the clip always starts at 0:00
+        const normalized = normalizeWebMTimestamps(filtered.map(c => c.data))
         return {
-          blob: new Blob([initHeadersRef.current!, ...filtered.map((c) => c.data)], { type: mimeType }),
+          blob: new Blob([initHeadersRef.current, ...normalized], { type: mimeType }),
           durationMs,
         }
       })
