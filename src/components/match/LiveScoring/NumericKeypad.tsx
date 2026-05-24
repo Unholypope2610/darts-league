@@ -43,9 +43,9 @@ export function NumericKeypad() {
 
   return (
     <div className="flex flex-col gap-2 w-full max-w-xs mx-auto select-none">
-      {/* Score display with inline confirm tick */}
-      <div className="flex items-center gap-2 h-14 rounded-xl bg-muted border border-border px-3">
-        <span className="flex-1 font-score text-3xl font-bold tracking-tight">
+      {/* Score display with confirm tick */}
+      <div className="flex items-stretch gap-2 h-14 rounded-xl bg-muted border border-border px-3">
+        <span className="flex-1 font-score text-3xl font-bold tracking-tight flex items-center">
           {dartInput === "" ? (
             <span className="text-muted-foreground text-xl">Enter score</span>
           ) : (
@@ -56,7 +56,7 @@ export function NumericKeypad() {
           onClick={() => handlePress(submitVisit)}
           disabled={score === null || isSubmitting}
           className={cn(
-            "h-11 w-11 shrink-0 rounded-lg text-xl font-bold transition-all touch-manipulation",
+            "my-1 aspect-square rounded-lg text-2xl font-bold transition-all touch-manipulation",
             score !== null && !isSubmitting
               ? "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
               : "bg-muted text-muted-foreground/40 cursor-not-allowed",

@@ -41,12 +41,12 @@ export function PreMatchModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.() }}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm max-h-[90dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Match Setup</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 overflow-y-auto pr-1">
           {/* Starting score */}
           <div className="flex flex-col gap-2">
             <Label>Starting Score</Label>
