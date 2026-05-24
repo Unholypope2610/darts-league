@@ -16,6 +16,7 @@ export const startMatchSchema = z.object({
   isSets: z.boolean().default(false),
   legSize: z.number().int().min(1).optional().nullable(),
   startingPlayerId: z.string(),
+  isLocal: z.boolean().default(false),
 })
 
 export type RecordVisitInput = z.infer<typeof recordVisitSchema>

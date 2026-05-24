@@ -16,7 +16,7 @@ interface PreMatchModalProps {
   defaultBestOf?: number
   defaultStartingScore?: number
   defaultFinishType?: string
-  onStart: (config: { starterId: string; bestOf: number; startingScore: number; finishType: string }) => void
+  onStart: (config: { starterId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean }) => void
   onClose?: () => void
 }
 
@@ -33,6 +33,7 @@ export function PreMatchModal({
   const [bestOf, setBestOf] = useState<number>(defaultBestOf)
   const [startingScore, setStartingScore] = useState<number>(defaultStartingScore)
   const [finishType, setFinishType] = useState<string>(defaultFinishType)
+  const [isLocal, setIsLocal] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.() }}>
@@ -81,8 +82,30 @@ export function PreMatchModal({
             </Select>
           </div>
 
+          {/* Match type */}
+          <div className="flex flex-col gap-2">
+            <Label>Match Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["Online", "Local"] as const).map((opt) => {
+                const active = opt === "Local" ? isLocal : !isLocal
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setIsLocal(opt === "Local")}
+                    className={`py-2 rounded-lg text-sm font-semibold transition-all border ${
+                      active ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {opt === "Local" ? "Local (one device)" : "Online"}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <Button
-            onClick={() => { prewarmSpeech(); onStart({ starterId: playerA.id, bestOf, startingScore, finishType }) }}
+            onClick={() => { prewarmSpeech(); onStart({ starterId: playerA.id, bestOf, startingScore, finishType, isLocal }) }}
             className="w-full"
             size="lg"
           >

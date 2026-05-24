@@ -27,13 +27,14 @@ export async function POST(
     return NextResponse.json({ error: "Fixture already completed" }, { status: 400 })
   }
 
-  const { startingPlayerId, ...matchFormat } = parsed.data
+  const { startingPlayerId, isLocal, ...matchFormat } = parsed.data
 
   // Create match + first leg in a transaction
   const [match] = await prisma.$transaction(async (tx) => {
     const newMatch = await tx.match.create({
       data: {
         ...matchFormat,
+        isLocal: isLocal === true,
         playerAId: fixture.playerAId,
         playerBId: fixture.playerBId,
       },

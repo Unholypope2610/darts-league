@@ -56,7 +56,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
     }
   }
 
-  function handleStart(config: { starterId: string; bestOf: number; startingScore: number; finishType: string }) {
+  function handleStart(config: { starterId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean }) {
     startFixture(
       {
         fixtureId: fixture.id,
@@ -65,6 +65,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
           bestOf: config.bestOf,
           startingScore: config.startingScore,
           finishType: config.finishType,
+          isLocal: config.isLocal,
         },
       },
       {
