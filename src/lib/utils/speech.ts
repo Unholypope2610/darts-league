@@ -1,6 +1,15 @@
 let cachedVoice: SpeechSynthesisVoice | null = null
 
+// Set to true by the live match page when the viewer is a spectator so the
+// caller is always active regardless of the per-device localStorage setting.
+let spectatorOverride = false
+
+export function setSpectatorCallerOverride(enabled: boolean) {
+  spectatorOverride = enabled
+}
+
 function isCallerEnabled(): boolean {
+  if (spectatorOverride) return true
   if (typeof window === "undefined") return true
   return localStorage.getItem("masterCallerEnabled") !== "false"
 }

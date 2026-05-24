@@ -11,7 +11,7 @@ import { useMatchChat } from "@/hooks/useMatchChat"
 import { LiveScoringLayout } from "@/components/match/LiveScoring/LiveScoringLayout"
 import { MatchChatPanel } from "@/components/match/LiveChat/MatchChatPanel"
 import { Skeleton } from "@/components/ui/skeleton"
-import { prewarmSpeech, announceFirstThrow } from "@/lib/utils/speech"
+import { prewarmSpeech, announceFirstThrow, setSpectatorCallerOverride } from "@/lib/utils/speech"
 
 type Role = "playerA" | "playerB" | "spectator" | "local"
 
@@ -37,6 +37,12 @@ export default function LiveMatchPage({ params }: PageProps) {
   const playerALegsWon = useLiveMatchStore((s) => s.playerALegsWon)
   const playerBLegsWon = useLiveMatchStore((s) => s.playerBLegsWon)
   const currentTurnPlayerId = useLiveMatchStore((s) => s.currentTurnPlayerId)
+
+  // Spectators always hear the caller regardless of the per-device localStorage setting
+  useEffect(() => {
+    setSpectatorCallerOverride(myRole === "spectator")
+    return () => setSpectatorCallerOverride(false)
+  }, [myRole])
 
   // Announce "First Name, Nickname, Surname to throw first" once when the first leg loads
   const hasAnnouncedRef = useRef(false)
