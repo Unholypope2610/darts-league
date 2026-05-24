@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { captureReplayForPlayer } from "@/lib/replay-capture"
+import { getSupabase } from "@/lib/supabase"
 
 const COUNTDOWN_SECS = 10
+const BUCKET = "Replays"
 
 export function ActionReplayPrompt() {
   const { pendingReplay, matchId, startingScore, clearPendingReplay } = useLiveMatchStore()
@@ -52,19 +54,35 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
-      const form = new FormData()
-      form.append("video", blob, "replay.webm")
-      form.append("matchId", matchId)
-      form.append("scoreThrown", String(pendingReplay.scoreThrown))
-      form.append("isCheckout", String(pendingReplay.isCheckout))
-      form.append("remainder", String(pendingReplay.remainder))
-      form.append("opponentName", pendingReplay.opponentName)
-      form.append("playerLegsWon", String(pendingReplay.playerLegsWon))
-      form.append("oppLegsWon", String(pendingReplay.oppLegsWon))
-      form.append("startingScore", String(startingScore))
+      // Step 1: get a signed upload URL from the server
+      const urlRes = await fetch("/api/replays/upload-url", { method: "POST" })
+      if (!urlRes.ok) throw new Error("Failed to get upload URL")
+      const { token, path } = await urlRes.json() as { signedUrl: string; token: string; path: string }
 
-      const res = await fetch("/api/replays", { method: "POST", body: form })
-      if (!res.ok) throw new Error("Upload failed")
+      // Step 2: upload blob directly to Supabase (bypasses Vercel payload limits)
+      const supabase = getSupabase()
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .uploadToSignedUrl(path, token, blob, { contentType: "video/webm" })
+      if (uploadError) throw new Error(uploadError.message)
+
+      // Step 3: save metadata via API (no blob, no size limit issue)
+      const metaRes = await fetch("/api/replays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storageKey: path,
+          matchId,
+          scoreThrown: pendingReplay.scoreThrown,
+          isCheckout: pendingReplay.isCheckout,
+          remainder: pendingReplay.remainder,
+          opponentName: pendingReplay.opponentName,
+          playerLegsWon: pendingReplay.playerLegsWon,
+          oppLegsWon: pendingReplay.oppLegsWon,
+          startingScore,
+        }),
+      })
+      if (!metaRes.ok) throw new Error("Failed to save metadata")
 
       setStatus("saved")
       setTimeout(() => clearPendingReplay(), 1200)

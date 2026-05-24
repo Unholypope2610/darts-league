@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 
 const BUCKET = "Replays"
-const MAX_BYTES = 100 * 1024 * 1024 // 100 MB
 
 export async function POST(req: Request) {
   const { userId } = await auth()
@@ -14,50 +13,33 @@ export async function POST(req: Request) {
   if (!user?.playerId) return NextResponse.json({ error: "No player linked to account" }, { status: 403 })
   const playerId = user.playerId
 
-  const formData = await req.formData()
-  const video = formData.get("video")
-  const matchId = formData.get("matchId")
-  const scoreThrown = Number(formData.get("scoreThrown"))
-  const isCheckout = formData.get("isCheckout") === "true"
-  const remainder = Number(formData.get("remainder"))
-  const opponentName = String(formData.get("opponentName") ?? "")
-  const playerLegsWon = Number(formData.get("playerLegsWon"))
-  const oppLegsWon = Number(formData.get("oppLegsWon"))
-  const startingScore = Number(formData.get("startingScore"))
+  const body = await req.json()
+  const { storageKey, matchId, scoreThrown, isCheckout, remainder, opponentName, playerLegsWon, oppLegsWon, startingScore } = body
 
-  if (!(video instanceof File) || !matchId || isNaN(scoreThrown)) {
+  if (!storageKey || !matchId || typeof scoreThrown !== "number") {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
-  if (video.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Video too large" }, { status: 400 })
+
+  // Verify the storage key belongs to this player
+  if (!storageKey.startsWith(`${playerId}/`)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const path = `${playerId}/${Date.now()}.webm`
   const supabase = createServerSupabaseClient()
-
-  const bytes = await video.arrayBuffer()
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, bytes, { contentType: "video/webm", upsert: false })
-
-  if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 })
-  }
-
-  const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storageKey)
 
   const replay = await prisma.replay.create({
     data: {
       playerId,
-      matchId: String(matchId),
+      matchId,
       scoreThrown,
-      isCheckout,
-      remainder,
-      opponentName,
-      playerLegsWon,
-      oppLegsWon,
-      startingScore,
-      storageKey: path,
+      isCheckout: Boolean(isCheckout),
+      remainder: Number(remainder),
+      opponentName: String(opponentName),
+      playerLegsWon: Number(playerLegsWon),
+      oppLegsWon: Number(oppLegsWon),
+      startingScore: Number(startingScore),
+      storageKey,
       storageUrl: publicUrl,
     },
   })
@@ -73,7 +55,6 @@ export async function GET(req: Request) {
   const playerId = searchParams.get("playerId")
   if (!playerId) return NextResponse.json({ error: "playerId required" }, { status: 400 })
 
-  // Only allow fetching own replays (or admin)
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { playerId: true, role: true } })
   if (user?.role !== "ADMIN" && user?.playerId !== playerId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
