@@ -139,6 +139,7 @@ export function PlayerPanel({
             <div className="flex items-center gap-2 w-full">
               <button
                 onClick={stop}
+                style={{ touchAction: "manipulation" }}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
               >
                 <span className="w-2 h-2 rounded-full shrink-0 bg-red-500 animate-pulse" />
@@ -147,6 +148,7 @@ export function PlayerPanel({
               <button
                 onClick={flipCamera}
                 title="Flip camera"
+                style={{ touchAction: "manipulation" }}
                 className="p-2 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
               >
                 <RefreshCw className="w-4 h-4 text-muted-foreground" />
@@ -159,6 +161,7 @@ export function PlayerPanel({
                     key={cam.deviceId}
                     onClick={() => switchRearCamera(cam.deviceId)}
                     title={cam.label}
+                    style={{ touchAction: "manipulation" }}
                     className={cn(
                       "flex-1 py-1.5 text-xs font-bold transition-all active:scale-95",
                       cam.deviceId === activeCameraId

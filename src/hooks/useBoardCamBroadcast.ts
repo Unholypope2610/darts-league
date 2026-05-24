@@ -388,29 +388,67 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     vid.play().catch(() => {})
   }, [playerId])
 
+  const stop = useCallback(() => {
+    stopRecorder()
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+    setLocalStream(null)
+    pcsRef.current.forEach((pc) => pc.close())
+    pcsRef.current.clear()
+    channelRef.current?.send({ type: "broadcast", event: "HANGUP", payload: {} })
+    channelRef.current?.unsubscribe()
+    channelRef.current = null
+    setIsStreaming(false)
+    setZoomCapabilities(null)
+    setZoomLevel(1)
+    setRearCameras([])
+    setActiveCameraId(null)
+  }, [stopRecorder])
+
   const switchRearCamera = useCallback(async (deviceId: string) => {
     if (!streamRef.current || isSwitchingRef.current) return
     isSwitchingRef.current = true
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { ideal: deviceId } },
-        audio: false,
-      })
-      pcsRef.current.forEach(async (pc) => {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video")
-        if (sender) await sender.replaceTrack(newStream.getVideoTracks()[0])
-      })
+      // Stop the active camera before opening the new one — Android refuses to
+      // open a second camera while the first stream is still alive.
       streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
       stopRecorder()
+
+      // Try exact deviceId first (forces the correct physical camera).
+      // Fall back to ideal for devices that throw OverconstrainedError on exact.
+      let newStream: MediaStream
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: deviceId } },
+          audio: false,
+        })
+      } catch {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { ideal: deviceId } },
+          audio: false,
+        })
+      }
+
+      const videoTrack = newStream.getVideoTracks()[0]
+      await Promise.all(
+        Array.from(pcsRef.current.values()).map(async (pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video")
+          if (sender) await sender.replaceTrack(videoTrack)
+        })
+      )
       streamRef.current = newStream
       setLocalStream(newStream)
       detectZoom(newStream)
       startRecorder(newStream)
-      setActiveCameraId(deviceId)
       await detectRearCameras(newStream)
-    } catch { /* device unavailable */ }
-    finally { isSwitchingRef.current = false }
-  }, [stopRecorder, detectZoom, startRecorder, detectRearCameras])
+    } catch {
+      stop()
+      setError("Camera switch failed — tap Start Cam to reconnect")
+    } finally {
+      isSwitchingRef.current = false
+    }
+  }, [stop, stopRecorder, detectZoom, startRecorder, detectRearCameras])
 
   const createOffer = useCallback(async (spectatorId: string) => {
     if (!streamRef.current || !channelRef.current) return
@@ -446,23 +484,6 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       creatingOfferRef.current.delete(spectatorId)
     }
   }, [])
-
-  const stop = useCallback(() => {
-    stopRecorder()
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-    setLocalStream(null)
-    pcsRef.current.forEach((pc) => pc.close())
-    pcsRef.current.clear()
-    channelRef.current?.send({ type: "broadcast", event: "HANGUP", payload: {} })
-    channelRef.current?.unsubscribe()
-    channelRef.current = null
-    setIsStreaming(false)
-    setZoomCapabilities(null)
-    setZoomLevel(1)
-    setRearCameras([])
-    setActiveCameraId(null)
-  }, [stopRecorder])
 
   const start = useCallback(async (facing: FacingMode = "environment") => {
     try {
@@ -520,16 +541,26 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   }, [matchId, playerId, createOffer, stop, detectZoom, startRecorder, detectRearCameras])
 
   const flipCamera = useCallback(async () => {
-    if (!streamRef.current) return
+    if (!streamRef.current || isSwitchingRef.current) return
+    isSwitchingRef.current = true
     const newFacing: FacingMode = facingMode === "environment" ? "user" : "environment"
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacing }, audio: false })
-      pcsRef.current.forEach(async (pc) => {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video")
-        if (sender) await sender.replaceTrack(newStream.getVideoTracks()[0])
-      })
       streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
       stopRecorder()
+
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newFacing },
+        audio: false,
+      })
+
+      const videoTrack = newStream.getVideoTracks()[0]
+      await Promise.all(
+        Array.from(pcsRef.current.values()).map(async (pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === "video")
+          if (sender) await sender.replaceTrack(videoTrack)
+        })
+      )
       streamRef.current = newStream
       setLocalStream(newStream)
       setFacingMode(newFacing)
@@ -537,9 +568,12 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       await detectRearCameras(newStream)
       startRecorder(newStream)
     } catch {
-      // Camera flip not supported on this device
+      stop()
+      setError("Camera flip failed — tap Start Cam to reconnect")
+    } finally {
+      isSwitchingRef.current = false
     }
-  }, [facingMode, detectZoom, stopRecorder, startRecorder, detectRearCameras])
+  }, [facingMode, stop, stopRecorder, detectZoom, startRecorder, detectRearCameras])
 
   const setZoom = useCallback((zoom: number) => {
     const track = streamRef.current?.getVideoTracks()[0]

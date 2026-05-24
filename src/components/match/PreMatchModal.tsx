@@ -34,6 +34,10 @@ export function PreMatchModal({
   const [startingScore, setStartingScore] = useState<number>(defaultStartingScore)
   const [finishType, setFinishType] = useState<string>(defaultFinishType)
   const [isLocal, setIsLocal] = useState(false)
+  const [callerEnabled, setCallerEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true
+    return localStorage.getItem("masterCallerEnabled") !== "false"
+  })
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose?.() }}>
@@ -104,8 +108,30 @@ export function PreMatchModal({
             </div>
           </div>
 
+          {/* Master caller */}
+          <div className="flex flex-col gap-2">
+            <Label>Master Caller</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["On", "Off"] as const).map((opt) => {
+                const active = opt === "On" ? callerEnabled : !callerEnabled
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setCallerEnabled(opt === "On")}
+                    className={`py-2 rounded-lg text-sm font-semibold transition-all border ${
+                      active ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <Button
-            onClick={() => { prewarmSpeech(); onStart({ starterId: playerA.id, bestOf, startingScore, finishType, isLocal }) }}
+            onClick={() => { localStorage.setItem("masterCallerEnabled", String(callerEnabled)); prewarmSpeech(); onStart({ starterId: playerA.id, bestOf, startingScore, finishType, isLocal }) }}
             className="w-full"
             size="lg"
           >

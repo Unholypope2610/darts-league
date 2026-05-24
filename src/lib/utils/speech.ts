@@ -1,5 +1,10 @@
 let cachedVoice: SpeechSynthesisVoice | null = null
 
+function isCallerEnabled(): boolean {
+  if (typeof window === "undefined") return true
+  return localStorage.getItem("masterCallerEnabled") !== "false"
+}
+
 function getVoice(): SpeechSynthesisVoice | null {
   if (cachedVoice) return cachedVoice
   const voices = window.speechSynthesis.getVoices()
@@ -50,6 +55,7 @@ export function announceVisit(
   isBust: boolean,
 ) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
   window.speechSynthesis.cancel()
 
   if (isBust) {
@@ -70,6 +76,7 @@ export function announceVisit(
 
 export function announceFirstThrow(name: string, nickname: string | null) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
   window.speechSynthesis.cancel()
   const parts = name.trim().split(/\s+/)
   const firstName = parts[0]
@@ -82,12 +89,14 @@ export function announceFirstThrow(name: string, nickname: string | null) {
 
 export function announceLegWin(winnerName: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
   window.speechSynthesis.cancel()
   speak(`${winnerName.split(" ")[0]} wins the leg!`, 0.85, 1.1)
 }
 
 export function announceMatchWin(winnerName: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
   window.speechSynthesis.cancel()
   speak(`${winnerName.split(" ")[0]} wins the match!`, 0.82, 1.15)
 }

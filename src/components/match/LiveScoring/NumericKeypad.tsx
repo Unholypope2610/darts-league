@@ -56,7 +56,7 @@ export function NumericKeypad() {
           onClick={() => handlePress(submitVisit)}
           disabled={score === null || isSubmitting}
           className={cn(
-            "h-9 w-12 rounded-lg text-lg font-bold transition-all touch-manipulation",
+            "h-11 w-11 shrink-0 rounded-lg text-xl font-bold transition-all touch-manipulation",
             score !== null && !isSubmitting
               ? "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
               : "bg-muted text-muted-foreground/40 cursor-not-allowed",
