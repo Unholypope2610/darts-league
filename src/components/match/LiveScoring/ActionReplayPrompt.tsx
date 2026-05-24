@@ -9,20 +9,63 @@ import { getSupabase } from "@/lib/supabase"
 const COUNTDOWN_SECS = 10
 const BUCKET = "Replays"
 
-// Chrome's MediaRecorder writes Duration as NaN in the WebM EBML header.
-// find-and-replace that float64 in-place so browsers can seek and show correct duration.
-async function patchWebmDuration(blob: Blob, durationMs: number): Promise<Blob> {
+// Inject (or update) the EBML Duration element inside the WebM Info section.
+// Chrome's MediaRecorder never writes Duration, so the browser can't display video length.
+// We parse the EBML structure, find the Info element (0x1549A966), and insert
+// a Duration float64 element (0x4489) with the known recording length.
+async function injectDuration(blob: Blob, durationMs: number): Promise<Blob> {
   const buf = await blob.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  const view = new DataView(buf)
-  for (let i = 0; i < bytes.length - 10; i++) {
-    if (bytes[i] === 0x44 && bytes[i + 1] === 0x89) {
-      const vint = bytes[i + 2]
-      if (vint === 0x84) { view.setFloat32(i + 3, durationMs, false); break }
-      if (vint === 0x88) { view.setFloat64(i + 3, durationMs, false); break }
+  const b = new Uint8Array(buf)
+
+  // Duration element bytes: ID(2) + VINT-size=8(1) + float64 big-endian(8) = 11 bytes
+  const durEl = new Uint8Array(11)
+  durEl[0] = 0x44; durEl[1] = 0x89; durEl[2] = 0x88
+  new DataView(durEl.buffer).setFloat64(3, durationMs, false)
+
+  // Search for Info element ID within first 64 KB (it's always near the start)
+  const limit = Math.min(b.length - 20, 65536)
+  for (let i = 0; i < limit; i++) {
+    if (b[i] !== 0x15 || b[i+1] !== 0x49 || b[i+2] !== 0xA9 || b[i+3] !== 0x66) continue
+
+    // Read VINT-encoded size at i+4
+    const v = b[i + 4]
+    let infoSize: number, vintLen: number
+    if      (v & 0x80) { infoSize = v & 0x7F;                   vintLen = 1 }
+    else if (v & 0x40) { infoSize = ((v & 0x3F) << 8) | b[i+5]; vintLen = 2 }
+    else continue // 3+ byte VINT — very unlikely, skip
+
+    const dataStart = i + 4 + vintLen
+    const dataEnd   = dataStart + infoSize
+
+    // If Duration (0x4489) already present: overwrite its float64 value in-place
+    for (let j = dataStart; j < dataEnd - 10; j++) {
+      if (b[j] === 0x44 && b[j+1] === 0x89 && b[j+2] === 0x88) {
+        const out = new Uint8Array(buf)
+        new DataView(out.buffer).setFloat64(j + 3, durationMs, false)
+        return new Blob([out], { type: blob.type })
+      }
     }
+
+    // Duration absent — append it; update Info's VINT size (same width assumed safe)
+    const newSize = infoSize + 11
+    if (vintLen === 1 && newSize > 0x7E) continue // overflow — skip
+    if (vintLen === 2 && newSize > 0x3FFF) continue
+    const newVint = vintLen === 1
+      ? new Uint8Array([0x80 | newSize])
+      : new Uint8Array([0x40 | (newSize >> 8), newSize & 0xFF])
+
+    const out = new Uint8Array(b.length + 11)
+    let off = 0
+    const cp = (from: number, to: number) => { out.set(b.subarray(from, to), off); off += to - from }
+    cp(0, i + 4)                  // everything up to and including Info ID
+    out.set(newVint, off); off += newVint.length  // updated size VINT
+    cp(dataStart, dataEnd)        // original Info content (skip old VINT)
+    out.set(durEl, off); off += 11  // new Duration element
+    cp(dataEnd, b.length)         // Tracks + Clusters
+    return new Blob([out], { type: blob.type })
   }
-  return new Blob([buf], { type: blob.type })
+
+  return blob // Info not found — return unchanged (shouldn't happen)
 }
 
 export function ActionReplayPrompt() {
@@ -70,9 +113,9 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
-      // Fix WebM duration metadata before uploading — MediaRecorder writes NaN for duration
+      // Inject Duration element into EBML Info section so the browser can display video length
       let blob = result.blob
-      try { blob = await patchWebmDuration(result.blob, result.durationMs) } catch { /* use original */ }
+      try { blob = await injectDuration(result.blob, result.durationMs) } catch { /* use original */ }
 
       // Step 1: get a signed upload URL from the server
       const urlRes = await fetch("/api/replays/upload-url", { method: "POST" })
@@ -100,6 +143,7 @@ export function ActionReplayPrompt() {
           playerLegsWon: pendingReplay.playerLegsWon,
           oppLegsWon: pendingReplay.oppLegsWon,
           startingScore,
+          durationMs: result.durationMs,
         }),
       })
       if (!metaRes.ok) throw new Error("Failed to save metadata")

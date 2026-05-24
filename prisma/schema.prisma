@@ -179,6 +179,7 @@ model Replay {
   startingScore Int
   storageKey    String
   storageUrl    String
+  durationMs    Int      @default(0)
   createdAt     DateTime @default(now())
 }
 

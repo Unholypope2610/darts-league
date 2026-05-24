@@ -338,6 +338,7 @@ interface ReplayRecord {
   oppLegsWon: number
   startingScore: number
   storageUrl: string
+  durationMs: number
   createdAt: string
 }
 
@@ -393,6 +394,11 @@ function ReplaysSection({ playerId }: { playerId: string }) {
                 {r.isCheckout && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
                     Checkout
+                  </span>
+                )}
+                {r.durationMs > 0 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {Math.round(r.durationMs / 1000)}s
                   </span>
                 )}
               </div>

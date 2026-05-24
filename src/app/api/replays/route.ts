@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const playerId = user.playerId
 
   const body = await req.json()
-  const { storageKey, matchId, scoreThrown, isCheckout, remainder, opponentName, playerLegsWon, oppLegsWon, startingScore } = body
+  const { storageKey, matchId, scoreThrown, isCheckout, remainder, opponentName, playerLegsWon, oppLegsWon, startingScore, durationMs } = body
 
   if (!storageKey || !matchId || typeof scoreThrown !== "number") {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
@@ -39,6 +39,7 @@ export async function POST(req: Request) {
       playerLegsWon: Number(playerLegsWon),
       oppLegsWon: Number(oppLegsWon),
       startingScore: Number(startingScore),
+      durationMs: Number(durationMs) || 0,
       storageKey,
       storageUrl: publicUrl,
     },
