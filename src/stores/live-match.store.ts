@@ -309,11 +309,12 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         const qualifies =
           (data.isCheckout && data.visit.scoreThrown >= (scorer?.replayCheckoutThreshold ?? 69)) ||
           (!data.isCheckout && !data.isBust && data.visit.scoreThrown >= (scorer?.replayScoreThreshold ?? 100))
-        // In local play one camera covers both players — fall back to any recording camera
-        const cameraPlayerId = isPlayerCameraRecording(scorer.id)
-          ? scorer.id
-          : (state.isLocal ? getAnyRecordingPlayerId() : null)
-        if (qualifies && scorer && opponent && cameraPlayerId) {
+        if (qualifies && scorer && opponent) {
+          // In local play one camera covers both players — fall back to any recording camera
+          const cameraPlayerId = isPlayerCameraRecording(scorer.id)
+            ? scorer.id
+            : (state.isLocal ? getAnyRecordingPlayerId() : null)
+          if (!cameraPlayerId) return
           const isPlayerA = scorer.id === state.playerA?.id
           set((s) => {
             s.pendingReplay = {
