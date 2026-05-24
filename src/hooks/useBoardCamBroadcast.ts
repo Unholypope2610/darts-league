@@ -374,7 +374,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         const filtered = chunksRef.current.filter(
           (c) => c !== initChunkRef.current && c.time >= cutoff
         )
-        if (filtered.length < 5) return null
+        if (filtered.length < 2) return null
         const durationMs = Date.now() - filtered[0].time
         // Normalize cluster timestamps so the clip always starts at 0:00
         const normalized = normalizeWebMTimestamps(filtered.map(c => c.data))
