@@ -66,5 +66,19 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
   })
 
-  return NextResponse.json(replays)
+  // Generate signed download URLs (1 hour) so the video loads regardless of bucket privacy
+  const supabase = createServerSupabaseClient()
+  const keys = replays.map((r) => r.storageKey)
+  const { data: signed } = keys.length
+    ? await supabase.storage.from(BUCKET).createSignedUrls(keys, 3600)
+    : { data: [] }
+
+  const signedMap = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]))
+
+  const result = replays.map((r) => ({
+    ...r,
+    viewUrl: signedMap.get(r.storageKey) ?? r.storageUrl,
+  }))
+
+  return NextResponse.json(result)
 }
