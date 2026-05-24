@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AreaChart, Area, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Trophy } from "lucide-react"
+import { Trophy, Maximize2, Minimize2 } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import { formatDate } from "@/lib/utils/format"
@@ -321,7 +321,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
         {/* Replays tab — own profile only */}
         {canEdit && (
           <TabsContent value="replays" className="mt-4">
-            <ReplaysSection playerId={playerId} playerName={player.name} />
+            <ReplaysSection playerId={playerId} />
           </TabsContent>
         )}
       </Tabs>
@@ -344,49 +344,96 @@ interface ReplayRecord {
   createdAt: string
 }
 
-function truncateName(s: string, max = 12) {
-  return s.length > max ? s.slice(0, max).toUpperCase() + "…" : s.toUpperCase()
-}
+function ReplayCard({ replay, onDelete, isDeleting }: {
+  replay: ReplayRecord
+  onDelete: () => void
+  isDeleting: boolean
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
-function ReplayVideoOverlay({ replay, playerName }: { replay: ReplayRecord; playerName: string }) {
+  useEffect(() => {
+    const handler = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
+    document.addEventListener("fullscreenchange", handler)
+    return () => document.removeEventListener("fullscreenchange", handler)
+  }, [])
+
   return (
-    <div
-      className="absolute bottom-2 left-2 rounded-lg overflow-hidden select-none pointer-events-none z-10"
-      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(6px)", minWidth: 158 }}
-    >
-      <div className="flex items-center justify-between px-2 py-[3px] border-b border-white/10">
-        <span className="text-[9px] font-bold uppercase tracking-wider text-white/50">
-          {replay.startingScore}
-        </span>
-        <span className="text-[9px] font-bold uppercase tracking-wider text-white/50">Legs</span>
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div
+        ref={containerRef}
+        className={cn(
+          "relative w-full bg-black",
+          isFullscreen && "flex items-center justify-center h-screen",
+        )}
+      >
+        <video
+          src={replay.viewUrl ?? replay.storageUrl}
+          controls
+          playsInline
+          preload="metadata"
+          controlsList="nofullscreen"
+          className={cn("w-full object-contain", isFullscreen ? "h-full" : "max-h-64")}
+          ref={(el) => {
+            if (!el) return
+            el.onloadedmetadata = () => {
+              if (!Number.isFinite(el.duration) || el.duration === 0) {
+                el.currentTime = 1e101
+                el.onseeked = () => { el.onseeked = null; el.currentTime = 0 }
+              }
+            }
+          }}
+        />
+        <button
+          onClick={() => isFullscreen ? document.exitFullscreen() : containerRef.current?.requestFullscreen()}
+          className="absolute bottom-2 right-2 z-20 p-1.5 rounded bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors"
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+        >
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
       </div>
-      <div className="flex items-center gap-2 px-2 py-[5px] bg-white/[0.08]">
-        <span className="flex-1 font-bold text-[11px] tracking-wide text-white">
-          {truncateName(playerName)}
-        </span>
-        <span className="w-[18px] h-[18px] rounded text-[10px] font-black flex items-center justify-center shrink-0 bg-amber-500 text-black">
-          {replay.playerLegsWon}
-        </span>
-        <span className="font-score font-black text-sm tabular-nums w-9 text-right shrink-0 text-white">
-          {replay.remainder}
-        </span>
-      </div>
-      <div className="flex items-center gap-2 px-2 py-[5px]">
-        <span className="flex-1 font-bold text-[11px] tracking-wide text-white/55">
-          {truncateName(replay.opponentName)}
-        </span>
-        <span className="w-[18px] h-[18px] rounded text-[10px] font-black flex items-center justify-center shrink-0 bg-white/10 text-white/50">
-          {replay.oppLegsWon}
-        </span>
-        <span className="font-score font-black text-sm tabular-nums w-9 text-right shrink-0 text-white/50">
-          —
-        </span>
+      <div className="px-4 py-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-score font-bold text-xl text-foreground">{replay.scoreThrown}</span>
+            {replay.isCheckout && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
+                Checkout
+              </span>
+            )}
+            {replay.durationMs > 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                {Math.round(replay.durationMs / 1000)}s
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            vs {replay.opponentName} · {replay.playerLegsWon}–{replay.oppLegsWon} legs
+          </p>
+          <p className="text-xs text-muted-foreground">{formatDate(replay.createdAt)}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={replay.viewUrl ?? replay.storageUrl}
+            download={`replay-${replay.scoreThrown}-${replay.createdAt.slice(0, 10)}.webm`}
+            className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+          >
+            Download
+          </a>
+          <button
+            onClick={onDelete}
+            disabled={isDeleting}
+            className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+          >
+            {isDeleting ? "…" : "Delete"}
+          </button>
+        </div>
       </div>
     </div>
   )
 }
 
-function ReplaysSection({ playerId, playerName }: { playerId: string; playerName: string }) {
+function ReplaysSection({ playerId }: { playerId: string }) {
   const qc = useQueryClient()
   const { data: replays, isLoading } = useQuery<ReplayRecord[]>({
     queryKey: ["replays", playerId],
@@ -414,64 +461,12 @@ function ReplaysSection({ playerId, playerName }: { playerId: string; playerName
   return (
     <div className="flex flex-col gap-3">
       {replays.map((r) => (
-        <div key={r.id} className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="relative w-full bg-black">
-            <video
-              src={r.viewUrl ?? r.storageUrl}
-              controls
-              playsInline
-              preload="metadata"
-              className="w-full max-h-64 object-contain"
-              ref={(el) => {
-                if (!el) return
-                el.onloadedmetadata = () => {
-                  if (!Number.isFinite(el.duration) || el.duration === 0) {
-                    el.currentTime = 1e101
-                    el.onseeked = () => { el.onseeked = null; el.currentTime = 0 }
-                  }
-                }
-              }}
-            />
-            <ReplayVideoOverlay replay={r} playerName={playerName} />
-          </div>
-          <div className="px-4 py-3 flex items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-score font-bold text-xl text-foreground">{r.scoreThrown}</span>
-                {r.isCheckout && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
-                    Checkout
-                  </span>
-                )}
-                {r.durationMs > 0 && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {Math.round(r.durationMs / 1000)}s
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                vs {r.opponentName} · {r.playerLegsWon}–{r.oppLegsWon} legs
-              </p>
-              <p className="text-xs text-muted-foreground">{formatDate(r.createdAt)}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <a
-                href={r.viewUrl ?? r.storageUrl}
-                download={`replay-${r.scoreThrown}-${r.createdAt.slice(0, 10)}.webm`}
-                className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-              >
-                Download
-              </a>
-              <button
-                onClick={() => handleDelete(r.id)}
-                disabled={deletingId === r.id}
-                className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
-              >
-                {deletingId === r.id ? "…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReplayCard
+          key={r.id}
+          replay={r}
+          onDelete={() => handleDelete(r.id)}
+          isDeleting={deletingId === r.id}
+        />
       ))}
     </div>
   )

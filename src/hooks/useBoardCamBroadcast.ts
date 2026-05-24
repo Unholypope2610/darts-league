@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { getSupabase } from "@/lib/supabase"
 import { createPeerConnection } from "@/lib/webrtc"
 import { setReplayCaptureFunc, type CaptureResult } from "@/lib/replay-capture"
+import { useLiveMatchStore } from "@/stores/live-match.store"
 
 type FacingMode = "environment" | "user"
 
@@ -16,6 +17,63 @@ interface ZoomCapabilities {
 interface RearCamera {
   deviceId: string
   label: string
+}
+
+interface OverlayData {
+  playerName: string
+  playerRemainder: number
+  playerLegsWon: number
+  opponentName: string
+  opponentRemainder: number
+  opponentLegsWon: number
+  bestOf: number
+}
+
+function clamp(n: string, max: number) {
+  return n.length > max ? n.slice(0, max - 1) + "…" : n
+}
+
+function drawOverlay(ctx: CanvasRenderingContext2D, data: OverlayData, w: number, h: number) {
+  const barH = Math.max(48, Math.round(h * 0.12))
+  const pad = Math.round(w * 0.035)
+  const mid = w / 2
+
+  ctx.fillStyle = "rgba(0,0,0,0.75)"
+  ctx.fillRect(0, 0, w, barH)
+
+  const nameSize = Math.max(10, Math.round(barH * 0.27))
+  const scoreSize = Math.max(16, Math.round(barH * 0.47))
+  const legSize = Math.max(11, Math.round(barH * 0.30))
+
+  const nameY = barH * 0.36
+  const scoreY = barH * 0.82
+
+  // Player (left, green)
+  ctx.textBaseline = "middle"
+  ctx.font = `600 ${nameSize}px system-ui,sans-serif`
+  ctx.fillStyle = "#10b981"
+  ctx.textAlign = "left"
+  ctx.fillText(clamp(data.playerName, 10).toUpperCase(), pad, nameY)
+
+  ctx.font = `bold ${scoreSize}px monospace`
+  ctx.fillStyle = "#ffffff"
+  ctx.fillText(String(data.playerRemainder), pad, scoreY)
+
+  // Opponent (right, red)
+  ctx.font = `600 ${nameSize}px system-ui,sans-serif`
+  ctx.fillStyle = "#ef4444"
+  ctx.textAlign = "right"
+  ctx.fillText(clamp(data.opponentName, 10).toUpperCase(), w - pad, nameY)
+
+  ctx.font = `bold ${scoreSize}px monospace`
+  ctx.fillStyle = "#ffffff"
+  ctx.fillText(String(data.opponentRemainder), w - pad, scoreY)
+
+  // Legs score (center)
+  ctx.font = `bold ${legSize}px system-ui,sans-serif`
+  ctx.fillStyle = "#ffffff"
+  ctx.textAlign = "center"
+  ctx.fillText(`${data.playerLegsWon} - ${data.opponentLegsWon}`, mid, barH / 2)
 }
 
 function deriveShortLabel(rawLabel: string, indexAmongRear: number): string {
@@ -47,6 +105,38 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const creatingOfferRef = useRef<Set<string>>(new Set())
   const channelRef = useRef<ReturnType<ReturnType<typeof getSupabase>["channel"]> | null>(null)
+
+  // Canvas composition refs for burning overlay into recording
+  const drawIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const offscreenVideoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasStreamRef = useRef<MediaStream | null>(null)
+  const overlayDataRef = useRef<OverlayData | null>(null)
+
+  // Subscribe to store for live overlay data
+  const playerA = useLiveMatchStore((s) => s.playerA)
+  const playerB = useLiveMatchStore((s) => s.playerB)
+  const playerARemainder = useLiveMatchStore((s) => s.playerARemainder)
+  const playerBRemainder = useLiveMatchStore((s) => s.playerBRemainder)
+  const playerALegsWon = useLiveMatchStore((s) => s.playerALegsWon)
+  const playerBLegsWon = useLiveMatchStore((s) => s.playerBLegsWon)
+  const bestOf = useLiveMatchStore((s) => s.bestOf)
+
+  useEffect(() => {
+    if (!playerA || !playerB) {
+      overlayDataRef.current = null
+      return
+    }
+    const isA = playerId === playerA.id
+    overlayDataRef.current = {
+      playerName: isA ? playerA.name : playerB.name,
+      playerRemainder: isA ? playerARemainder : playerBRemainder,
+      playerLegsWon: isA ? playerALegsWon : playerBLegsWon,
+      opponentName: isA ? playerB.name : playerA.name,
+      opponentRemainder: isA ? playerBRemainder : playerARemainder,
+      opponentLegsWon: isA ? playerBLegsWon : playerALegsWon,
+      bestOf,
+    }
+  }, [playerId, playerA, playerB, playerARemainder, playerBRemainder, playerALegsWon, playerBLegsWon, bestOf])
 
   const detectZoom = useCallback((stream: MediaStream) => {
     const track = stream.getVideoTracks()[0]
@@ -84,6 +174,113 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     }
     setRearCameras(cameras)
   }, [])
+
+  const stopRecorder = useCallback(() => {
+    if (drawIntervalRef.current !== null) {
+      clearInterval(drawIntervalRef.current)
+      drawIntervalRef.current = null
+    }
+    canvasStreamRef.current?.getTracks().forEach((t) => t.stop())
+    canvasStreamRef.current = null
+    if (offscreenVideoRef.current) {
+      offscreenVideoRef.current.onloadedmetadata = null
+      offscreenVideoRef.current.srcObject = null
+      offscreenVideoRef.current = null
+    }
+    setReplayCaptureFunc(playerId, null)
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop()
+    }
+    recorderRef.current = null
+    chunksRef.current = []
+    initHeadersRef.current = null
+    initChunkRef.current = null
+  }, [playerId])
+
+  const startRecorder = useCallback((stream: MediaStream) => {
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : "video/webm"
+    if (!MediaRecorder.isTypeSupported(mimeType)) return
+    chunksRef.current = []
+    initHeadersRef.current = null
+    initChunkRef.current = null
+
+    // Feed raw stream into an off-screen video element so we can drawImage it onto canvas
+    const vid = document.createElement("video")
+    vid.srcObject = stream
+    vid.muted = true
+    vid.playsInline = true
+    offscreenVideoRef.current = vid
+
+    vid.onloadedmetadata = () => {
+      const rawW = vid.videoWidth || 640
+      const rawH = vid.videoHeight || 480
+      const scale = Math.min(1, 1280 / Math.max(rawW, rawH))
+      const cW = Math.round(rawW * scale)
+      const cH = Math.round(rawH * scale)
+
+      const canvas = document.createElement("canvas")
+      canvas.width = cW
+      canvas.height = cH
+      const ctx = canvas.getContext("2d")!
+
+      const cs = canvas.captureStream(25)
+      canvasStreamRef.current = cs
+
+      // Draw camera frame + overlay at 25fps; overlay reads from ref so it always reflects
+      // the latest store values without needing to re-create the interval on every score change
+      drawIntervalRef.current = setInterval(() => {
+        if (vid.readyState >= 2) ctx.drawImage(vid, 0, 0, cW, cH)
+        const data = overlayDataRef.current
+        if (data) drawOverlay(ctx, data, cW, cH)
+      }, 40)
+
+      const recorder = new MediaRecorder(cs, { mimeType })
+      recorderRef.current = recorder
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          const chunk = { data: e.data, time: Date.now() }
+          chunksRef.current.push(chunk)
+
+          if (!initChunkRef.current) {
+            initChunkRef.current = chunk
+            e.data.arrayBuffer().then(buf => {
+              const b = new Uint8Array(buf)
+              for (let i = 0; i < b.length - 4; i++) {
+                if (b[i] === 0x1F && b[i+1] === 0x43 && b[i+2] === 0xB6 && b[i+3] === 0x75) {
+                  initHeadersRef.current = new Blob([buf.slice(0, i)], { type: mimeType })
+                  return
+                }
+              }
+              initHeadersRef.current = e.data
+            })
+          }
+
+          const cutoff = Date.now() - 30_000
+          while (chunksRef.current.length > 0 && chunksRef.current[0].time < cutoff) {
+            chunksRef.current.shift()
+          }
+        }
+      }
+      recorder.start(1000)
+      setReplayCaptureFunc(playerId, (): CaptureResult | null => {
+        if (!initHeadersRef.current) return null
+        const cutoff = Date.now() - 25_000
+        const filtered = chunksRef.current.filter(
+          (c) => c !== initChunkRef.current && c.time >= cutoff
+        )
+        if (filtered.length < 5) return null
+        const durationMs = Date.now() - filtered[0].time
+        return {
+          blob: new Blob([initHeadersRef.current!, ...filtered.map((c) => c.data)], { type: mimeType }),
+          durationMs,
+        }
+      })
+    }
+
+    vid.play().catch(() => {})
+  }, [playerId])
 
   const switchRearCamera = useCallback(async (deviceId: string) => {
     if (!streamRef.current || isSwitchingRef.current) return
@@ -143,74 +340,6 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       creatingOfferRef.current.delete(spectatorId)
     }
   }, [])
-
-  const startRecorder = useCallback((stream: MediaStream) => {
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : "video/webm"
-    if (!MediaRecorder.isTypeSupported(mimeType)) return
-    chunksRef.current = []
-    initHeadersRef.current = null
-    initChunkRef.current = null
-    const recorder = new MediaRecorder(stream, { mimeType })
-    recorderRef.current = recorder
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        const chunk = { data: e.data, time: Date.now() }
-        chunksRef.current.push(chunk)
-
-        // First chunk: async-extract just the header bytes (EBML/Info/Tracks, before the
-        // first Cluster 0x1F43B675). These are needed for a valid WebM regardless of how
-        // old the init chunk is — the rolling trim would otherwise discard them.
-        if (!initChunkRef.current) {
-          initChunkRef.current = chunk
-          e.data.arrayBuffer().then(buf => {
-            const b = new Uint8Array(buf)
-            for (let i = 0; i < b.length - 4; i++) {
-              if (b[i] === 0x1F && b[i+1] === 0x43 && b[i+2] === 0xB6 && b[i+3] === 0x75) {
-                initHeadersRef.current = new Blob([buf.slice(0, i)], { type: mimeType })
-                return
-              }
-            }
-            initHeadersRef.current = e.data // fallback: no Cluster found in first chunk
-          })
-        }
-
-        const cutoff = Date.now() - 30_000
-        while (chunksRef.current.length > 0 && chunksRef.current[0].time < cutoff) {
-          chunksRef.current.shift()
-        }
-      }
-    }
-    recorder.start(1000)
-    setReplayCaptureFunc(playerId, (): CaptureResult | null => {
-      if (!initHeadersRef.current) return null // headers still being extracted
-      const cutoff = Date.now() - 25_000
-      // Exclude the init chunk — its headers are already in initHeadersRef, and including
-      // the chunk itself would either duplicate headers (if recent) or add a timestamp gap
-      // (if old). Data-only chunks following it are all we need.
-      const filtered = chunksRef.current.filter(
-        (c) => c !== initChunkRef.current && c.time >= cutoff
-      )
-      if (filtered.length < 5) return null
-      const durationMs = Date.now() - filtered[0].time
-      return {
-        blob: new Blob([initHeadersRef.current!, ...filtered.map((c) => c.data)], { type: mimeType }),
-        durationMs,
-      }
-    })
-  }, [playerId])
-
-  const stopRecorder = useCallback(() => {
-    setReplayCaptureFunc(playerId, null)
-    if (recorderRef.current && recorderRef.current.state !== "inactive") {
-      recorderRef.current.stop()
-    }
-    recorderRef.current = null
-    chunksRef.current = []
-    initHeadersRef.current = null
-    initChunkRef.current = null
-  }, [playerId])
 
   const stop = useCallback(() => {
     stopRecorder()
