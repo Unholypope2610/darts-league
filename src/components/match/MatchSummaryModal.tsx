@@ -18,7 +18,9 @@ interface Props {
   onClose: () => void
 }
 
-function calcStats(m: MatchWithLegs, playerId: string) {
+type StatRow = { label: string; a: string | number; b: string | number; muted?: boolean }
+
+function calcMatchStats(m: MatchWithLegs, playerId: string) {
   const allVisits = m.legs.flatMap((l) => l.visits)
   const pVisits = allVisits.filter((v) => v.playerId === playerId)
   const pLegs = m.legs.filter((l) => l.winnerId === playerId)
@@ -41,13 +43,46 @@ function calcStats(m: MatchWithLegs, playerId: string) {
 
 function calcLegStats(leg: LegWithVisits, playerId: string) {
   const visits = leg.visits.filter((v) => v.playerId === playerId)
+  const checkoutVisits = visits.filter((v) => v.isCheckout)
+  const totalDartsAtDouble = visits.reduce((sum, v) => sum + v.doublesAttempted, 0)
+
   return {
     dartsThrown: visits.reduce((s, v) => s + v.dartsUsed, 0),
     avg: formatAverage(calculateAverage(visits)),
-    checkout: leg.winnerId === playerId
-      ? (visits.find((v) => v.isCheckout)?.scoreThrown ?? "—")
-      : "—",
+    first9: formatAverage(calculateFirst9Average(visits)),
+    dblPct: doublesPercentage(visits) > 0 ? `${doublesPercentage(visits).toFixed(1)}%` : "—",
+    checkoutsStr: totalDartsAtDouble > 0 ? `${checkoutVisits.length}/${totalDartsAtDouble}` : "—",
+    c180s: count180s(visits),
+    hiCO: highestCheckout(visits) > 0 ? String(highestCheckout(visits)) : "—",
+    hiScore: visits.filter((v) => !v.isBust).reduce((max, v) => Math.max(max, v.scoreThrown), 0) || "—",
   }
+}
+
+function StatsTable({ playerAName, playerBName, rows }: {
+  playerAName: string
+  playerBName: string
+  rows: StatRow[]
+}) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-muted/50">
+          <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs truncate max-w-0">{playerAName}</th>
+          <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs w-28">Stat</th>
+          <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs truncate max-w-0">{playerBName}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label} className="border-b border-border/50 last:border-0">
+            <td className={cn("px-3 py-2 text-right font-bold", row.muted ? "text-muted-foreground text-xs" : "font-score")}>{row.a}</td>
+            <td className="px-3 py-2 text-center text-xs text-muted-foreground">{row.label}</td>
+            <td className={cn("px-3 py-2 text-left font-bold", row.muted ? "text-muted-foreground text-xs" : "font-score")}>{row.b}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
 }
 
 export function MatchSummaryModal({ matchId, onClose }: Props) {
@@ -60,10 +95,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
     enabled: !!matchId,
   })
 
-  // Reset to overview whenever the modal opens for a different match
-  useEffect(() => {
-    setCurrentPage(0)
-  }, [matchId])
+  useEffect(() => { setCurrentPage(0) }, [matchId])
 
   const open = !!matchId
   const totalPages = match ? 1 + match.legs.length : 1
@@ -71,9 +103,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
   function goNext() { setCurrentPage((p) => Math.min(p + 1, totalPages - 1)) }
   function goPrev() { setCurrentPage((p) => Math.max(p - 1, 0)) }
 
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX
-  }
+  function handleTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX }
   function handleTouchEnd(e: React.TouchEvent) {
     if (touchStartX.current === null) return
     const delta = touchStartX.current - e.changedTouches[0].clientX
@@ -84,7 +114,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden max-h-[90dvh] flex flex-col">
         <DialogTitle className="sr-only">Match Summary</DialogTitle>
 
         {isLoading || !match ? (
@@ -94,28 +124,28 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
           </div>
         ) : (
           <>
-            {/* Score header */}
-            <div className="p-5 flex items-center justify-center gap-6 border-b border-border">
-              <div className="flex flex-col items-center gap-1.5 flex-1">
-                <PlayerAvatar name={match.playerA.name} avatarUrl={match.playerA.avatarUrl} size="lg" />
-                <span className="font-bold text-sm text-center">{match.playerA.name}</span>
-                {match.winnerId === match.playerAId && <span className="text-xs text-amber-400">🏆 Winner</span>}
+            {/* Score header — fixed, does not scroll */}
+            <div className="flex-shrink-0 px-4 py-3 flex items-center justify-center gap-4 border-b border-border">
+              <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+                <PlayerAvatar name={match.playerA.name} avatarUrl={match.playerA.avatarUrl} size="md" />
+                <span className="font-bold text-xs text-center truncate w-full">{match.playerA.name}</span>
+                {match.winnerId === match.playerAId && <span className="text-[10px] text-amber-400">🏆 Winner</span>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="font-score text-4xl font-black text-emerald-400">{match.playerAScore}</span>
-                <span className="text-xl text-muted-foreground">–</span>
-                <span className="font-score text-4xl font-black text-emerald-400">{match.playerBScore}</span>
+                <span className="font-score text-3xl font-black text-emerald-400">{match.playerAScore}</span>
+                <span className="text-lg text-muted-foreground">–</span>
+                <span className="font-score text-3xl font-black text-emerald-400">{match.playerBScore}</span>
               </div>
-              <div className="flex flex-col items-center gap-1.5 flex-1">
-                <PlayerAvatar name={match.playerB.name} avatarUrl={match.playerB.avatarUrl} size="lg" />
-                <span className="font-bold text-sm text-center">{match.playerB.name}</span>
-                {match.winnerId === match.playerBId && <span className="text-xs text-amber-400">🏆 Winner</span>}
+              <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+                <PlayerAvatar name={match.playerB.name} avatarUrl={match.playerB.avatarUrl} size="md" />
+                <span className="font-bold text-xs text-center truncate w-full">{match.playerB.name}</span>
+                {match.winnerId === match.playerBId && <span className="text-[10px] text-amber-400">🏆 Winner</span>}
               </div>
             </div>
 
-            {/* Navigation — only show if there are legs to view */}
+            {/* Navigation tabs — fixed, does not scroll */}
             {match.legs.length > 0 && (
-              <div className="flex items-center gap-1 border-b border-border px-2 py-2 bg-muted/30">
+              <div className="flex-shrink-0 flex items-center gap-1 border-b border-border px-2 py-1.5 bg-muted/30">
                 <button
                   onClick={goPrev}
                   disabled={currentPage === 0}
@@ -149,69 +179,54 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
               </div>
             )}
 
-            {/* Content */}
+            {/* Scrollable content */}
             <div
+              className="flex-1 min-h-0 overflow-y-auto"
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
-              className="overflow-y-auto max-h-[60vh]"
             >
               {currentPage === 0 ? (
-                // Overview stats
+                // Overview
                 (() => {
-                  const aStats = calcStats(match, match.playerAId)
-                  const bStats = calcStats(match, match.playerBId)
+                  const a = calcMatchStats(match, match.playerAId)
+                  const b = calcMatchStats(match, match.playerBId)
                   const totalPollVotes = (match.pollVotesA ?? 0) + (match.pollVotesB ?? 0)
-                  const rows: { label: string; a: string | number; b: string | number }[] = [
-                    { label: "Legs Won",        a: aStats.legsWon,      b: bStats.legsWon },
-                    { label: "3-dart Average",  a: aStats.avg,           b: bStats.avg },
-                    { label: "First 9 Avg",     a: aStats.first9,        b: bStats.first9 },
-                    { label: "Doubles %",       a: aStats.dblPct,        b: bStats.dblPct },
-                    { label: "Checkouts",       a: aStats.checkoutsStr,  b: bStats.checkoutsStr },
-                    { label: "180s",            a: aStats.c180s,         b: bStats.c180s },
-                    { label: "Highest Finish",  a: aStats.hiCO,          b: bStats.hiCO },
-                    { label: "Highest Score",   a: aStats.hiScore,       b: bStats.hiScore },
-                    { label: "Best Leg",        a: aStats.bestLeg,       b: bStats.bestLeg },
-                    { label: "Worst Leg",       a: aStats.worstLeg,      b: bStats.worstLeg },
+                  const rows: StatRow[] = [
+                    { label: "Legs Won",       a: a.legsWon,      b: b.legsWon },
+                    { label: "3-dart Average", a: a.avg,           b: b.avg },
+                    { label: "First 9 Avg",    a: a.first9,        b: b.first9 },
+                    { label: "Doubles %",      a: a.dblPct,        b: b.dblPct },
+                    { label: "Checkouts",      a: a.checkoutsStr,  b: b.checkoutsStr },
+                    { label: "180s",           a: a.c180s,         b: b.c180s },
+                    { label: "Highest Finish", a: a.hiCO,          b: b.hiCO },
+                    { label: "Highest Score",  a: a.hiScore,       b: b.hiScore },
+                    { label: "Best Leg",       a: a.bestLeg,       b: b.bestLeg },
+                    { label: "Worst Leg",      a: a.worstLeg,      b: b.worstLeg },
                     ...(totalPollVotes > 0
-                      ? [{ label: "Spectator Poll", a: match.pollVotesA ?? 0, b: match.pollVotesB ?? 0 }]
+                      ? [{ label: "Spectator Poll", a: match.pollVotesA ?? 0, b: match.pollVotesB ?? 0, muted: true }]
                       : []),
                   ]
-                  return (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/50">
-                          <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs truncate max-w-0">{match.playerA.name}</th>
-                          <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs w-28">Stat</th>
-                          <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs truncate max-w-0">{match.playerB.name}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row) => (
-                          <tr key={row.label} className="border-b border-border/50 last:border-0">
-                            <td className={cn("px-3 py-2 text-right font-bold", row.label === "Spectator Poll" ? "text-muted-foreground text-xs" : "font-score")}>{row.a}</td>
-                            <td className="px-3 py-2 text-center text-xs text-muted-foreground">{row.label}</td>
-                            <td className={cn("px-3 py-2 text-left font-bold", row.label === "Spectator Poll" ? "text-muted-foreground text-xs" : "font-score")}>{row.b}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )
+                  return <StatsTable playerAName={match.playerA.name} playerBName={match.playerB.name} rows={rows} />
                 })()
               ) : (
                 // Per-leg view
                 (() => {
                   const leg = match.legs[currentPage - 1]
-                  const aLeg = calcLegStats(leg, match.playerAId)
-                  const bLeg = calcLegStats(leg, match.playerBId)
+                  const a = calcLegStats(leg, match.playerAId)
+                  const b = calcLegStats(leg, match.playerBId)
                   const starterName = leg.starterId === match.playerAId ? match.playerA.name : match.playerB.name
-                  const rows = [
-                    { label: "Darts Thrown", a: aLeg.dartsThrown || "—", b: bLeg.dartsThrown || "—" },
-                    { label: "Leg Average",  a: aLeg.avg,               b: bLeg.avg },
-                    { label: "Checkout",     a: aLeg.checkout,           b: bLeg.checkout },
+                  const rows: StatRow[] = [
+                    { label: "Darts Thrown",   a: a.dartsThrown || "—", b: b.dartsThrown || "—" },
+                    { label: "Leg Average",    a: a.avg,                 b: b.avg },
+                    { label: "First 9 Avg",    a: a.first9,              b: b.first9 },
+                    { label: "Doubles %",      a: a.dblPct,              b: b.dblPct },
+                    { label: "Checkouts",      a: a.checkoutsStr,        b: b.checkoutsStr },
+                    { label: "180s",           a: a.c180s,               b: b.c180s },
+                    { label: "Highest Finish", a: a.hiCO,                b: b.hiCO },
+                    { label: "Highest Score",  a: a.hiScore,             b: b.hiScore },
                   ]
                   return (
-                    <div className="flex flex-col gap-4 p-4">
-                      {/* Winner + first throw */}
+                    <div className="flex flex-col gap-3 p-3">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>🎯 {starterName} threw first</span>
                         {leg.winnerId && (
@@ -220,28 +235,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
                           </span>
                         )}
                       </div>
-
-                      {/* Leg stats */}
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/50">
-                            <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs truncate max-w-0">{match.playerA.name}</th>
-                            <th className="px-3 py-2 text-center font-medium text-muted-foreground text-xs w-28">Stat</th>
-                            <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs truncate max-w-0">{match.playerB.name}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((row) => (
-                            <tr key={row.label} className="border-b border-border/50 last:border-0">
-                              <td className="px-3 py-2 text-right font-score font-bold">{row.a}</td>
-                              <td className="px-3 py-2 text-center text-xs text-muted-foreground">{row.label}</td>
-                              <td className="px-3 py-2 text-left font-score font-bold">{row.b}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-
-                      {/* Score log */}
+                      <StatsTable playerAName={match.playerA.name} playerBName={match.playerB.name} rows={rows} />
                       <LegHistory
                         visits={leg.visits}
                         playerAId={match.playerAId}
@@ -255,9 +249,9 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
               )}
             </div>
 
-            {/* Resume link for live matches */}
+            {/* Resume link — fixed at bottom */}
             {!match.completedAt && (
-              <div className="p-4 border-t border-border">
+              <div className="flex-shrink-0 p-4 border-t border-border">
                 <Link
                   href={`/matches/${match.id}/live`}
                   className="block text-center text-sm font-bold px-4 py-2 rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 transition-colors"
