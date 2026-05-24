@@ -73,6 +73,8 @@ export default function LiveMatchPage({ params }: PageProps) {
     }
   }, [isLoading, isMatchWon, matchId, router])
 
+  const hasSavedPollRef = useRef(false)
+
   const [isChatOpen, setIsChatOpen] = useState(false)
   const dragBoundsRef = useRef<HTMLDivElement>(null)
 
@@ -114,6 +116,20 @@ export default function LiveMatchPage({ params }: PageProps) {
     userName,
     isOpen: isChatOpen,
   })
+
+  // Snapshot poll votes once when the match ends during this session
+  useEffect(() => {
+    if (!isMatchWon || hasSavedPollRef.current || wasAlreadyCompleteRef.current !== false) return
+    hasSavedPollRef.current = true
+    const votesA = chat.presenceUsers.filter((u) => u.vote === "A").length
+    const votesB = chat.presenceUsers.filter((u) => u.vote === "B").length
+    if (votesA + votesB === 0) return
+    fetch(`/api/matches/${matchId}/poll`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ votesA, votesB }),
+    })
+  }, [isMatchWon, chat.presenceUsers, matchId])
 
   if (isLoading) {
     return (

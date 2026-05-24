@@ -113,6 +113,8 @@ export interface MatchWithLegs {
   playerAScore: number
   playerBScore: number
   winnerId: string | null
+  pollVotesA: number | null
+  pollVotesB: number | null
   startedAt: string
   completedAt: string | null
   legs: LegWithVisits[]

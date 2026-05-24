@@ -148,3 +148,11 @@
 .score-flash {
   animation: score-flash 0.2s ease-in-out;
 }
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
