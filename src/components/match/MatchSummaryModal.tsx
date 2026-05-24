@@ -28,7 +28,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
     const pVisits = allVisits.filter((v) => v.playerId === playerId)
     const pLegs = m.legs.filter((l) => l.winnerId === playerId)
     const checkoutVisits = pVisits.filter((v) => v.isCheckout)
-    const totalDartsAtDouble = checkoutVisits.reduce((sum, v) => sum + v.doublesAttempted, 0)
+    const totalDartsAtDouble = pVisits.reduce((sum, v) => sum + v.doublesAttempted, 0)
 
     return {
       legsWon: m.playerAId === playerId ? m.playerAScore : m.playerBScore,
