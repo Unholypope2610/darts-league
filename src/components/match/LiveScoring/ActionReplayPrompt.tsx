@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { captureReplayForPlayer } from "@/lib/replay-capture"
+import fixWebmDuration from "fix-webm-duration"
 
 const COUNTDOWN_SECS = 10
 
@@ -40,8 +41,8 @@ export function ActionReplayPrompt() {
 
   async function handleSave() {
     if (!pendingReplay || !matchId) return
-    const blob = captureReplayForPlayer(pendingReplay.playerId)
-    if (!blob) {
+    const result = captureReplayForPlayer(pendingReplay.playerId)
+    if (!result) {
       setStatus("error")
       setTimeout(() => clearPendingReplay(), 1800)
       return
@@ -51,8 +52,11 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
+      const fixedBlob = await new Promise<Blob>((resolve) =>
+        fixWebmDuration(result.blob, result.durationMs, resolve)
+      )
       const form = new FormData()
-      form.append("video", blob, "replay.webm")
+      form.append("video", fixedBlob, "replay.webm")
       form.append("matchId", matchId)
       form.append("scoreThrown", String(pendingReplay.scoreThrown))
       form.append("isCheckout", String(pendingReplay.isCheckout))
