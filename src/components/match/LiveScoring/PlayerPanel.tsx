@@ -96,44 +96,50 @@ export function PlayerPanel({
 
         {/* Cam controls — only shown when this viewer owns this panel */}
         {canControl && (
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={isStreaming ? stop : () => start()}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all active:scale-95",
-                isStreaming
-                  ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
-                  : "bg-muted text-foreground border-border hover:bg-muted/60",
-              )}
-            >
-              <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
-              {isStreaming ? "Stop Cam" : "Start Cam"}
-            </button>
-            {isStreaming && (
-              <>
+          <div className="flex flex-col items-center gap-1.5 w-full">
+            {/* Row 1: Start/Stop + Flip */}
+            <div className="flex items-center gap-2 w-full">
+              <button
+                onClick={isStreaming ? stop : () => start()}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95",
+                  isStreaming
+                    ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
+                    : "bg-muted text-foreground border-border hover:bg-muted/60",
+                )}
+              >
+                <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
+                {isStreaming ? "Stop Cam" : "Start Cam"}
+              </button>
+              {isStreaming && (
                 <button
                   onClick={flipCamera}
                   title="Flip camera"
-                  className="p-1.5 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
+                  className="p-2 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
                 >
-                  <RefreshCw className="w-3 h-3 text-muted-foreground" />
+                  <RefreshCw className="w-4 h-4 text-muted-foreground" />
                 </button>
-                {rearCameras.length > 1 && rearCameras.map((cam) => (
+              )}
+            </div>
+            {/* Row 2: Camera selector — segmented control, only when multiple rear cameras */}
+            {isStreaming && rearCameras.length > 1 && (
+              <div className="flex w-full rounded-lg overflow-hidden border border-border">
+                {rearCameras.map((cam) => (
                   <button
                     key={cam.deviceId}
                     onClick={() => switchRearCamera(cam.deviceId)}
                     title={cam.label}
                     className={cn(
-                      "w-[22px] h-[22px] rounded-md text-[10px] font-bold border transition-all active:scale-95 shrink-0",
+                      "flex-1 py-1.5 text-xs font-bold transition-all active:scale-95",
                       cam.deviceId === activeCameraId
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted text-muted-foreground border-border hover:bg-muted/60",
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/60",
                     )}
                   >
                     {cam.label}
                   </button>
                 ))}
-              </>
+              </div>
             )}
           </div>
         )}
