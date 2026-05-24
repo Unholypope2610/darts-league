@@ -38,12 +38,6 @@ export default function LiveMatchPage({ params }: PageProps) {
   const playerBLegsWon = useLiveMatchStore((s) => s.playerBLegsWon)
   const currentTurnPlayerId = useLiveMatchStore((s) => s.currentTurnPlayerId)
 
-  // Spectators always hear the caller regardless of the per-device localStorage setting
-  useEffect(() => {
-    setSpectatorCallerOverride(myRole === "spectator")
-    return () => setSpectatorCallerOverride(false)
-  }, [myRole])
-
   // Announce "First Name, Nickname, Surname to throw first" once when the first leg loads
   const hasAnnouncedRef = useRef(false)
   useEffect(() => {
@@ -93,6 +87,12 @@ export default function LiveMatchPage({ params }: PageProps) {
   // Online: role comes entirely from the viewer's linked account — no prompts, no choice.
   // Local: prompt once so the scorer can be distinguished from remote spectators.
   const myRole: Role = isLocal ? (sessionRole ?? "spectator") : derivedRole
+
+  // Spectators always hear the caller regardless of the per-device localStorage setting
+  useEffect(() => {
+    setSpectatorCallerOverride(myRole === "spectator")
+    return () => setSpectatorCallerOverride(false)
+  }, [myRole])
 
   async function handleToggleLocal(newIsLocal: boolean) {
     await fetch(`/api/matches/${matchId}`, {
