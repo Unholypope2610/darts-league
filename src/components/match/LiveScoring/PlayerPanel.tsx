@@ -89,40 +89,70 @@ export function PlayerPanel({
         </div>
       )}
 
-      {/* Avatar + name + cam toggle */}
+      {/* Avatar + name */}
       <div className="flex flex-col items-center gap-1 w-full">
         <PlayerAvatar name={name} avatarUrl={avatarUrl} size="lg" />
         <span className="font-bold text-base truncate max-w-[120px] text-center">{name}</span>
 
-        {/* Cam controls — only shown when this viewer owns this panel */}
-        {canControl && (
-          <div className="flex flex-col items-center gap-1.5 w-full">
-            {/* Row 1: Start/Stop + Flip */}
+        {/* Start Cam button — only shown when not yet streaming (always visible to canControl) */}
+        {canControl && !isStreaming && (
+          <button
+            onClick={() => start()}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 bg-muted text-foreground border-border hover:bg-muted/60"
+          >
+            <span className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground" />
+            Start Cam
+          </button>
+        )}
+        {camError && <p className="text-[10px] text-red-400 text-center">{camError}</p>}
+      </div>
+
+      {/* Legs won pips */}
+      <div className="flex gap-1.5">
+        {Array.from({ length: legsNeeded }).map((_, i) => (
+          <span
+            key={i}
+            className={cn(
+              "w-5 h-5 rounded-full border-2",
+              i < legsWon
+                ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-500/50"
+                : "bg-muted border-muted-foreground/50",
+            )}
+          />
+        ))}
+      </div>
+
+      {/* Cam section — always in DOM when active+streaming so srcObject is never lost.
+          Toggle button is always visible; controls + preview collapse when minimised. */}
+      <div className={cn("w-full flex flex-col gap-1.5", !(isActive && isStreaming) && "hidden")}>
+        <button
+          onClick={() => setCamMinimized((v) => !v)}
+          className="w-full flex items-center justify-center gap-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {camMinimized ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+          {camMinimized ? "Show cam" : "Hide cam"}
+        </button>
+
+        {/* Stop Cam + Flip + camera selector — hidden when minimised */}
+        {canControl && !camMinimized && (
+          <div className="flex flex-col gap-1.5 w-full">
             <div className="flex items-center gap-2 w-full">
               <button
-                onClick={isStreaming ? stop : () => start()}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95",
-                  isStreaming
-                    ? "bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
-                    : "bg-muted text-foreground border-border hover:bg-muted/60",
-                )}
+                onClick={stop}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30"
               >
-                <span className={cn("w-2 h-2 rounded-full shrink-0", isStreaming ? "bg-red-500 animate-pulse" : "bg-muted-foreground")} />
-                {isStreaming ? "Stop Cam" : "Start Cam"}
+                <span className="w-2 h-2 rounded-full shrink-0 bg-red-500 animate-pulse" />
+                Stop Cam
               </button>
-              {isStreaming && (
-                <button
-                  onClick={flipCamera}
-                  title="Flip camera"
-                  className="p-2 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
-                >
-                  <RefreshCw className="w-4 h-4 text-muted-foreground" />
-                </button>
-              )}
+              <button
+                onClick={flipCamera}
+                title="Flip camera"
+                className="p-2 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
+              >
+                <RefreshCw className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
-            {/* Row 2: Camera selector — segmented control, only when multiple rear cameras */}
-            {isStreaming && rearCameras.length > 1 && (
+            {rearCameras.length > 1 && (
               <div className="flex w-full rounded-lg overflow-hidden border border-border">
                 {rearCameras.map((cam) => (
                   <button
@@ -143,33 +173,7 @@ export function PlayerPanel({
             )}
           </div>
         )}
-        {camError && <p className="text-[10px] text-red-400 text-center">{camError}</p>}
-      </div>
 
-      {/* Legs won pips */}
-      <div className="flex gap-1.5">
-        {Array.from({ length: legsNeeded }).map((_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "w-5 h-5 rounded-full border-2",
-              i < legsWon
-                ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-500/50"
-                : "bg-muted border-muted-foreground/50",
-            )}
-          />
-        ))}
-      </div>
-
-      {/* Local cam preview — always in DOM so srcObject is never lost on toggle */}
-      <div className={cn("w-full", !(isActive && isStreaming) && "hidden")}>
-        <button
-          onClick={() => setCamMinimized((v) => !v)}
-          className="w-full flex items-center justify-center gap-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {camMinimized ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
-          {camMinimized ? "Show preview" : "Hide preview"}
-        </button>
         <video
           ref={localVideoRef}
           autoPlay

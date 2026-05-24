@@ -393,7 +393,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     isSwitchingRef.current = true
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId } },
+        video: { deviceId: { ideal: deviceId } },
         audio: false,
       })
       pcsRef.current.forEach(async (pc) => {
