@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { prewarmSpeech } from "@/lib/utils/speech"
 
 type ModalPlayer = { id: string; name: string; avatarUrl: string | null }
 
@@ -81,7 +82,7 @@ export function PreMatchModal({
           </div>
 
           <Button
-            onClick={() => onStart({ starterId: playerA.id, bestOf, startingScore, finishType })}
+            onClick={() => { prewarmSpeech(); onStart({ starterId: playerA.id, bestOf, startingScore, finishType }) }}
             className="w-full"
             size="lg"
           >

@@ -3,7 +3,7 @@ import { immer } from "zustand/middleware/immer"
 import type { FinishType } from "@/lib/utils/darts"
 import { getNewRemainder, isMatchOver, matchWinner } from "@/lib/utils/darts"
 import type { MatchWithLegs, PlayerMeta, VisitRecord, RecordVisitResponse } from "@/types/api"
-import { announceVisit, announceMatchWin, announceFirstThrow } from "@/lib/utils/speech"
+import { announceVisit, announceMatchWin } from "@/lib/utils/speech"
 import { toast } from "sonner"
 
 interface LiveMatchStore {
@@ -457,9 +457,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       const state = get()
       if (!state.matchId) return
 
-      // Only announce on the very first leg of the match
-      const isFirstLeg = state.currentLegId === null && state.playerALegsWon === 0 && state.playerBLegsWon === 0
-
       set((s) => { s.isSubmitting = true })
 
       try {
@@ -490,10 +487,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
         get()._broadcast?.("LEG_STARTED", { legId: leg.id, starterId })
 
-        if (isFirstLeg) {
-          const starter = starterId === state.playerA?.id ? state.playerA : state.playerB
-          if (starter) announceFirstThrow(starter.name, starter.nickname ?? null)
-        }
       } catch {
         set((s) => { s.isSubmitting = false })
       }

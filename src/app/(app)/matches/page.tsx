@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { formatDistanceToNow } from "date-fns"
 import { Swords, Trophy, Clock, RotateCcw, XCircle, Shuffle } from "lucide-react"
+import { prewarmSpeech } from "@/lib/utils/speech"
 import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import type { Player } from "@/types/api"
 
@@ -204,7 +205,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
           </div>
 
           <button
-            onClick={() => createMatch()}
+            onClick={() => { prewarmSpeech(); createMatch() }}
             disabled={!canStart || isPending}
             className="w-full py-3 rounded-xl font-black text-black text-sm uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02]"
             style={{ background: canStart ? "linear-gradient(135deg, #10b981, #059669)" : "#333", boxShadow: canStart ? "0 0 20px rgba(16,185,129,0.3)" : "none" }}

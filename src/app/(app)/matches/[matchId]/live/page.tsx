@@ -11,7 +11,7 @@ import { useMatchChat } from "@/hooks/useMatchChat"
 import { LiveScoringLayout } from "@/components/match/LiveScoring/LiveScoringLayout"
 import { MatchChatPanel } from "@/components/match/LiveChat/MatchChatPanel"
 import { Skeleton } from "@/components/ui/skeleton"
-import { prewarmSpeech } from "@/lib/utils/speech"
+import { prewarmSpeech, announceFirstThrow } from "@/lib/utils/speech"
 
 type Role = "playerA" | "playerB" | "spectator" | "local"
 
@@ -33,6 +33,23 @@ export default function LiveMatchPage({ params }: PageProps) {
   })
 
   const isLocal = useLiveMatchStore((s) => s.isLocal)
+  const visits = useLiveMatchStore((s) => s.visits)
+  const playerALegsWon = useLiveMatchStore((s) => s.playerALegsWon)
+  const playerBLegsWon = useLiveMatchStore((s) => s.playerBLegsWon)
+  const currentTurnPlayerId = useLiveMatchStore((s) => s.currentTurnPlayerId)
+
+  // Announce "First Name, Nickname, Surname to throw first" once when the first leg loads
+  const hasAnnouncedRef = useRef(false)
+  useEffect(() => {
+    if (
+      hasAnnouncedRef.current || isLoading ||
+      !playerA || !playerB || !currentTurnPlayerId ||
+      playerALegsWon !== 0 || playerBLegsWon !== 0 || visits.length !== 0
+    ) return
+    hasAnnouncedRef.current = true
+    const starter = currentTurnPlayerId === playerA.id ? playerA : playerB
+    announceFirstThrow(starter.name, starter.nickname ?? null)
+  }, [isLoading, playerA, playerB, currentTurnPlayerId, playerALegsWon, playerBLegsWon, visits.length])
 
   // For local matches only: prompt once to distinguish the scorer from remote spectators.
   // Online matches derive the role purely from the viewer's linked player account.
