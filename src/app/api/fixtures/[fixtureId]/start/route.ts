@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { createServerSupabaseClient } from "@/lib/supabase-server"
 import { startMatchSchema } from "@/lib/validations/visit.schema"
+import { sendMatchStartPush } from "@/lib/push"
 
 export async function POST(
   req: Request,
@@ -84,6 +85,20 @@ export async function POST(
     })
   )
   await Promise.allSettled(notifications)
+
+  // Native push to players who have subscriptions
+  const [playerAUser, playerBUser] = await Promise.all([
+    prisma.user.findFirst({ where: { playerId: match.playerAId }, select: { id: true } }),
+    prisma.user.findFirst({ where: { playerId: match.playerBId }, select: { id: true } }),
+  ])
+  const pushPromises: Promise<void>[] = []
+  if (playerAUser && match.playerAId !== creatorPlayerId) {
+    pushPromises.push(sendMatchStartPush(playerAUser.id, match.playerB.name, match.id))
+  }
+  if (playerBUser && match.playerBId !== creatorPlayerId) {
+    pushPromises.push(sendMatchStartPush(playerBUser.id, match.playerA.name, match.id))
+  }
+  await Promise.allSettled(pushPromises)
 
   return NextResponse.json(match, { status: 201 })
 }

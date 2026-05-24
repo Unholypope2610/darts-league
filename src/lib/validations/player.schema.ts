@@ -5,6 +5,8 @@ export const createPlayerSchema = z.object({
   nickname: z.string().max(30).optional().nullable(),
   avatarUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
   hand: z.enum(["LEFT", "RIGHT"]).default("RIGHT"),
+  replayScoreThreshold: z.coerce.number().int().min(60).max(180).default(100),
+  replayCheckoutThreshold: z.coerce.number().int().min(40).max(170).default(69),
 })
 
 export const updatePlayerSchema = createPlayerSchema.partial()

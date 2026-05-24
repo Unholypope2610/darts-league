@@ -159,6 +159,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
         <TabsList className="w-full">
           <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
           <TabsTrigger value="h2h" className="flex-1">Head to Head</TabsTrigger>
+          {canEdit && <TabsTrigger value="replays" className="flex-1">Replays</TabsTrigger>}
         </TabsList>
 
         {/* Overview tab */}
@@ -316,7 +317,82 @@ export default function PlayerProfilePage({ params }: PageProps) {
             </div>
           )}
         </TabsContent>
+        {/* Replays tab — own profile only */}
+        {canEdit && (
+          <TabsContent value="replays" className="mt-4">
+            <ReplaysSection playerId={playerId} />
+          </TabsContent>
+        )}
       </Tabs>
+    </div>
+  )
+}
+
+interface ReplayRecord {
+  id: string
+  scoreThrown: number
+  isCheckout: boolean
+  remainder: number
+  opponentName: string
+  playerLegsWon: number
+  oppLegsWon: number
+  startingScore: number
+  storageUrl: string
+  createdAt: string
+}
+
+function ReplaysSection({ playerId }: { playerId: string }) {
+  const { data: replays, isLoading } = useQuery<ReplayRecord[]>({
+    queryKey: ["replays", playerId],
+    queryFn: () => fetch(`/api/replays?playerId=${playerId}`).then((r) => r.json()),
+  })
+
+  if (isLoading) return <Skeleton className="h-32 rounded-xl" />
+
+  if (!replays || replays.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+        No replays saved yet — start your camera during a match and save notable moments.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {replays.map((r) => (
+        <div key={r.id} className="rounded-xl border border-border bg-card overflow-hidden">
+          <video
+            src={r.storageUrl}
+            controls
+            playsInline
+            preload="metadata"
+            className="w-full max-h-64 bg-black object-contain"
+          />
+          <div className="px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-score font-bold text-xl text-foreground">{r.scoreThrown}</span>
+                {r.isCheckout && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
+                    Checkout
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                vs {r.opponentName} · {r.playerLegsWon}–{r.oppLegsWon} legs
+              </p>
+              <p className="text-xs text-muted-foreground">{formatDate(r.createdAt)}</p>
+            </div>
+            <a
+              href={r.storageUrl}
+              download={`replay-${r.scoreThrown}-${r.createdAt.slice(0, 10)}.webm`}
+              className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
+            >
+              Download
+            </a>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

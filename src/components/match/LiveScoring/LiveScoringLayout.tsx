@@ -10,6 +10,7 @@ import { LegHistory } from "./LegHistory"
 import { LegWinAnimation } from "./LegWinAnimation"
 import { MatchWinReveal } from "./MatchWinReveal"
 import { DoublesPrompt } from "./DoublesPrompt"
+import { ActionReplayPrompt } from "./ActionReplayPrompt"
 
 type Role = "playerA" | "playerB" | "spectator" | "local"
 
@@ -252,6 +253,7 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
       <LegWinAnimation />
       {!pendingDoublesPrompt && !awaitingMatchWinReveal && <MatchWinReveal />}
       <DoublesPrompt />
+      <ActionReplayPrompt />
     </>
   )
 }

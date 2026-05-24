@@ -7,13 +7,17 @@ import { ChevronDown, ChevronUp } from "lucide-react"
 import { NavBar } from "./NavBar"
 import { getSupabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils/cn"
+import { usePushSubscription } from "@/hooks/usePushSubscription"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const playerIdRef = useRef<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const isLivePage = pathname.includes("/live")
   const [navVisible, setNavVisible] = useState(false)
+
+  usePushSubscription(userId)
 
   // Keep screen awake while the app is open
   useEffect(() => {
@@ -121,6 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     fetch("/api/auth/sync", { method: "POST" })
       .then((r) => r.json())
       .then((me) => {
+        if (me?.id) setUserId(me.id)
         const playerId: string | null = me?.playerId ?? null
         if (!playerId) return
 

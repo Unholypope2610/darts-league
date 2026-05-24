@@ -5,6 +5,7 @@ import { getNewRemainder, isMatchOver, matchWinner } from "@/lib/utils/darts"
 import type { MatchWithLegs, PlayerMeta, VisitRecord, RecordVisitResponse } from "@/types/api"
 import { announceVisit, announceMatchWin } from "@/lib/utils/speech"
 import { toast } from "sonner"
+import { isPlayerCameraRecording } from "@/lib/replay-capture"
 
 interface LiveMatchStore {
   // Match metadata
@@ -47,6 +48,17 @@ interface LiveMatchStore {
   pendingCheckoutVisitId: string | null
   awaitingMatchWinReveal: boolean  // suppresses reveal on remote devices until doubles confirmed
 
+  // Action replay prompt
+  pendingReplay: {
+    scoreThrown: number
+    isCheckout: boolean
+    remainder: number
+    playerId: string
+    opponentName: string
+    playerLegsWon: number
+    oppLegsWon: number
+  } | null
+
   // Realtime broadcast injected by useLiveMatch hook
   _broadcast: ((event: string, payload: unknown) => void) | null
 
@@ -67,6 +79,7 @@ interface LiveMatchStore {
   applyRemoteLeg: (legId: string, starterId: string) => void
   applyRemoteEdit: (updatedVisits: VisitRecord[]) => void
   editVisit: (visitId: string, newScore: number) => Promise<void>
+  clearPendingReplay: () => void
   reset: () => void
 }
 
@@ -101,6 +114,7 @@ const initialState = {
   pendingDoublesPrompt: null,
   pendingCheckoutVisitId: null,
   awaitingMatchWinReveal: false,
+  pendingReplay: null,
   _broadcast: null,
 }
 
@@ -287,6 +301,27 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           if (needsDoublesPrompt) {
             set((s) => { s.pendingDoublesPrompt = { visitId: data.visit.id, type: "doubles" } })
           }
+        }
+
+        // Trigger action replay prompt if camera is recording and score qualifies
+        const scorer = state.currentTurnPlayerId === state.playerA?.id ? state.playerA : state.playerB
+        const opponent = state.currentTurnPlayerId === state.playerA?.id ? state.playerB : state.playerA
+        const qualifies =
+          (data.isCheckout && data.visit.scoreThrown >= (scorer?.replayCheckoutThreshold ?? 69)) ||
+          (!data.isCheckout && !data.isBust && data.visit.scoreThrown >= (scorer?.replayScoreThreshold ?? 100))
+        if (qualifies && scorer && opponent && isPlayerCameraRecording(scorer.id)) {
+          const isPlayerA = scorer.id === state.playerA?.id
+          set((s) => {
+            s.pendingReplay = {
+              scoreThrown: data.visit.scoreThrown,
+              isCheckout: data.isCheckout,
+              remainder: data.visit.runningRemainder,
+              playerId: scorer.id,
+              opponentName: opponent.name,
+              playerLegsWon: isPlayerA ? state.playerALegsWon : state.playerBLegsWon,
+              oppLegsWon: isPlayerA ? state.playerBLegsWon : state.playerALegsWon,
+            }
+          })
         }
 
         get()._broadcast?.("VISIT_RECORDED", data)
@@ -589,6 +624,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.legWinnerId = null
       })
     },
+
+    clearPendingReplay: () => set((s) => { s.pendingReplay = null }),
 
     reset: () => set(() => ({ ...initialState })),
   }))

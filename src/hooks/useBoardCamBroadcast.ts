@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { getSupabase } from "@/lib/supabase"
 import { createPeerConnection } from "@/lib/webrtc"
+import { setReplayCaptureFunc } from "@/lib/replay-capture"
 
 type FacingMode = "environment" | "user"
 
@@ -20,6 +21,8 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const [zoomCapabilities, setZoomCapabilities] = useState<ZoomCapabilities | null>(null)
   const [zoomLevel, setZoomLevel] = useState(1)
   const streamRef = useRef<MediaStream | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<{ data: Blob; time: number }[]>([])
   // One peer connection per spectator so viewers don't kill each other's feeds
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const creatingOfferRef = useRef<Set<string>>(new Set())
@@ -81,7 +84,42 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     }
   }, [])
 
+  const startRecorder = useCallback((stream: MediaStream) => {
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : "video/webm"
+    if (!MediaRecorder.isTypeSupported(mimeType)) return
+    chunksRef.current = []
+    const recorder = new MediaRecorder(stream, { mimeType })
+    recorderRef.current = recorder
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunksRef.current.push({ data: e.data, time: Date.now() })
+        const cutoff = Date.now() - 30_000
+        while (chunksRef.current.length > 0 && chunksRef.current[0].time < cutoff) {
+          chunksRef.current.shift()
+        }
+      }
+    }
+    recorder.start(1000)
+    setReplayCaptureFunc(playerId, () => {
+      const cutoff = Date.now() - 25_000
+      const chunks = chunksRef.current.filter((c) => c.time >= cutoff).map((c) => c.data)
+      return chunks.length >= 5 ? new Blob(chunks, { type: mimeType }) : null
+    })
+  }, [playerId])
+
+  const stopRecorder = useCallback(() => {
+    setReplayCaptureFunc(playerId, null)
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop()
+    }
+    recorderRef.current = null
+    chunksRef.current = []
+  }, [playerId])
+
   const stop = useCallback(() => {
+    stopRecorder()
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     setLocalStream(null)
@@ -93,7 +131,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     setIsStreaming(false)
     setZoomCapabilities(null)
     setZoomLevel(1)
-  }, [])
+  }, [stopRecorder])
 
   const start = useCallback(async (facing: FacingMode = "environment") => {
     try {
@@ -110,6 +148,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       setError(null)
 
       detectZoom(stream)
+      startRecorder(stream)
 
       const supabase = getSupabase()
       const channel = supabase.channel(`boardcam:${matchId}:${playerId}`)
@@ -146,7 +185,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       setError("Camera access denied or unavailable")
       stop()
     }
-  }, [matchId, playerId, createOffer, stop, detectZoom])
+  }, [matchId, playerId, createOffer, stop, detectZoom, startRecorder])
 
   const flipCamera = useCallback(async () => {
     if (!streamRef.current) return
@@ -158,14 +197,16 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         if (sender) await sender.replaceTrack(newStream.getVideoTracks()[0])
       })
       streamRef.current.getTracks().forEach((t) => t.stop())
+      stopRecorder()
       streamRef.current = newStream
       setLocalStream(newStream)
       setFacingMode(newFacing)
       detectZoom(newStream)
+      startRecorder(newStream)
     } catch {
       // Camera flip not supported on this device
     }
-  }, [facingMode, detectZoom])
+  }, [facingMode, detectZoom, stopRecorder, startRecorder])
 
   const setZoom = useCallback((zoom: number) => {
     const track = streamRef.current?.getVideoTracks()[0]

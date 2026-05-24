@@ -40,6 +40,8 @@ export interface Player {
   titles: number
   first9Average: number
   bestLeg: number | null
+  replayScoreThreshold: number
+  replayCheckoutThreshold: number
 }
 
 export interface CareerStats {
@@ -95,6 +97,8 @@ export interface PlayerMeta {
   nickname: string | null
   avatarUrl: string | null
   hand: string
+  replayScoreThreshold?: number
+  replayCheckoutThreshold?: number
 }
 
 export interface MatchWithLegs {

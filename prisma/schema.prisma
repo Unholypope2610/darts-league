@@ -7,12 +7,13 @@ datasource db {
 }
 
 model User {
-  id        String   @id
-  email     String   @unique
-  role      String   @default("PLAYER")
-  createdAt DateTime @default(now())
-  playerId  String?  @unique
-  player    Player?  @relation(fields: [playerId], references: [id])
+  id                String             @id
+  email             String             @unique
+  role              String             @default("PLAYER")
+  createdAt         DateTime           @default(now())
+  playerId          String?            @unique
+  player            Player?            @relation(fields: [playerId], references: [id])
+  pushSubscriptions PushSubscription[]
 }
 
 model Player {
@@ -20,11 +21,14 @@ model Player {
   name      String
   nickname  String?
   avatarUrl String?
-  hand      String   @default("RIGHT")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  hand                    String   @default("RIGHT")
+  replayScoreThreshold    Int      @default(100)
+  replayCheckoutThreshold Int      @default(69)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   user            User?
+  replays         Replay[]
   divisionPlayers DivisionPlayer[]
   fixturesAsA     Fixture[]        @relation("PlayerA")
   fixturesAsB     Fixture[]        @relation("PlayerB")
@@ -159,6 +163,33 @@ model Visit {
   isBust           Boolean  @default(false)
   isCheckout       Boolean  @default(false)
   createdAt        DateTime @default(now())
+}
+
+model Replay {
+  id            String   @id @default(cuid())
+  playerId      String
+  player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  matchId       String
+  scoreThrown   Int
+  isCheckout    Boolean  @default(false)
+  remainder     Int
+  opponentName  String
+  playerLegsWon Int
+  oppLegsWon    Int
+  startingScore Int
+  storageKey    String
+  storageUrl    String
+  createdAt     DateTime @default(now())
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 }
 
 model BracketNode {

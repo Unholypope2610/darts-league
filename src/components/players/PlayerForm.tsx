@@ -33,6 +33,8 @@ export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel 
       nickname: defaultValues?.nickname ?? "",
       hand: (defaultValues?.hand as "LEFT" | "RIGHT") ?? "RIGHT",
       avatarUrl: defaultValues?.avatarUrl ?? "",
+      replayScoreThreshold: defaultValues?.replayScoreThreshold ?? 100,
+      replayCheckoutThreshold: defaultValues?.replayCheckoutThreshold ?? 69,
     },
   })
 
@@ -75,6 +77,35 @@ export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel 
           <Input id="avatarUrl" {...register("avatarUrl")} placeholder="https://..." />
         </div>
       )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Action Replay Thresholds</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">Score ≥</p>
+            <Input
+              type="number"
+              min={60}
+              max={180}
+              step={1}
+              {...register("replayScoreThreshold")}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">Checkout ≥</p>
+            <Input
+              type="number"
+              min={40}
+              max={170}
+              step={1}
+              {...register("replayCheckoutThreshold")}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          A replay prompt appears when your camera is on and you hit these thresholds during a match.
+        </p>
+      </div>
 
       <Button type="submit" disabled={isSubmitting} className="mt-2">
         {isSubmitting ? "Saving…" : submitLabel}
