@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { getSupabase } from "@/lib/supabase"
 import { createPeerConnection } from "@/lib/webrtc"
-import { setReplayCaptureFunc } from "@/lib/replay-capture"
+import { setReplayCaptureFunc, type CaptureResult } from "@/lib/replay-capture"
 
 type FacingMode = "environment" | "user"
 
@@ -102,10 +102,12 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       }
     }
     recorder.start(1000)
-    setReplayCaptureFunc(playerId, () => {
+    setReplayCaptureFunc(playerId, (): CaptureResult | null => {
       const cutoff = Date.now() - 25_000
-      const chunks = chunksRef.current.filter((c) => c.time >= cutoff).map((c) => c.data)
-      return chunks.length >= 5 ? new Blob(chunks, { type: mimeType }) : null
+      const filtered = chunksRef.current.filter((c) => c.time >= cutoff)
+      if (filtered.length < 5) return null
+      const durationMs = Date.now() - filtered[0].time
+      return { blob: new Blob(filtered.map((c) => c.data), { type: mimeType }), durationMs }
     })
   }, [playerId])
 

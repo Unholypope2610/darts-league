@@ -43,8 +43,8 @@ export function ActionReplayPrompt() {
   async function handleSave() {
     if (!pendingReplay || !matchId) return
 
-    const blob = captureReplayForPlayer(pendingReplay.playerId)
-    if (!blob) {
+    const result = captureReplayForPlayer(pendingReplay.playerId)
+    if (!result) {
       setStatus("noVideo")
       setTimeout(() => clearPendingReplay(), 2000)
       return
@@ -54,6 +54,14 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
+      // Fix WebM duration metadata before uploading (MediaRecorder omits it)
+      let blob = result.blob
+      try {
+        const mod = await import("fix-webm-duration")
+        const fix: (blob: Blob, duration: number) => Promise<Blob> = mod.default ?? mod
+        blob = await fix(blob, result.durationMs)
+      } catch { /* upload original if fix fails */ }
+
       // Step 1: get a signed upload URL from the server
       const urlRes = await fetch("/api/replays/upload-url", { method: "POST" })
       if (!urlRes.ok) throw new Error("Failed to get upload URL")
