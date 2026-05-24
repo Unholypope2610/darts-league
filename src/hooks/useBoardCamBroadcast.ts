@@ -13,6 +13,18 @@ interface ZoomCapabilities {
   step: number
 }
 
+interface RearCamera {
+  deviceId: string
+  label: string
+}
+
+function deriveShortLabel(rawLabel: string, indexAmongRear: number): string {
+  const l = rawLabel.toLowerCase()
+  if (l.includes("ultra") || l.includes("wide")) return "W"
+  if (l.includes("tele")) return "T"
+  return String(indexAmongRear + 1)
+}
+
 export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
@@ -20,6 +32,9 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const [facingMode, setFacingMode] = useState<FacingMode>("environment")
   const [zoomCapabilities, setZoomCapabilities] = useState<ZoomCapabilities | null>(null)
   const [zoomLevel, setZoomLevel] = useState(1)
+  const [rearCameras, setRearCameras] = useState<RearCamera[]>([])
+  const [activeCameraId, setActiveCameraId] = useState<string | null>(null)
+  const isSwitchingRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<{ data: Blob; time: number }[]>([])
@@ -53,6 +68,46 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     setZoomCapabilities({ min, max, step })
     setZoomLevel(min)
   }, [])
+
+  const detectRearCameras = useCallback(async (stream: MediaStream) => {
+    const activeDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? null
+    setActiveCameraId(activeDeviceId)
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    const videoInputs = devices.filter((d) => d.kind === "videoinput")
+    let rearInputs = videoInputs.filter((d) => /back|rear|environment/i.test(d.label))
+    if (rearInputs.length < 2) rearInputs = videoInputs
+    const cameras: RearCamera[] = []
+    let idx = 0
+    for (const device of rearInputs) {
+      cameras.push({ deviceId: device.deviceId, label: deriveShortLabel(device.label, idx) })
+      idx++
+    }
+    setRearCameras(cameras)
+  }, [])
+
+  const switchRearCamera = useCallback(async (deviceId: string) => {
+    if (!streamRef.current || isSwitchingRef.current) return
+    isSwitchingRef.current = true
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
+        audio: false,
+      })
+      pcsRef.current.forEach(async (pc) => {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video")
+        if (sender) await sender.replaceTrack(newStream.getVideoTracks()[0])
+      })
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      stopRecorder()
+      streamRef.current = newStream
+      setLocalStream(newStream)
+      detectZoom(newStream)
+      startRecorder(newStream)
+      setActiveCameraId(deviceId)
+      await detectRearCameras(newStream)
+    } catch { /* device unavailable */ }
+    finally { isSwitchingRef.current = false }
+  }, [stopRecorder, detectZoom, startRecorder, detectRearCameras])
 
   const createOffer = useCallback(async (spectatorId: string) => {
     if (!streamRef.current || !channelRef.current) return
@@ -170,6 +225,8 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     setIsStreaming(false)
     setZoomCapabilities(null)
     setZoomLevel(1)
+    setRearCameras([])
+    setActiveCameraId(null)
   }, [stopRecorder])
 
   const start = useCallback(async (facing: FacingMode = "environment") => {
@@ -187,6 +244,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       setError(null)
 
       detectZoom(stream)
+      await detectRearCameras(stream)
       startRecorder(stream)
 
       const supabase = getSupabase()
@@ -224,7 +282,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       setError("Camera access denied or unavailable")
       stop()
     }
-  }, [matchId, playerId, createOffer, stop, detectZoom, startRecorder])
+  }, [matchId, playerId, createOffer, stop, detectZoom, startRecorder, detectRearCameras])
 
   const flipCamera = useCallback(async () => {
     if (!streamRef.current) return
@@ -241,11 +299,12 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       setLocalStream(newStream)
       setFacingMode(newFacing)
       detectZoom(newStream)
+      await detectRearCameras(newStream)
       startRecorder(newStream)
     } catch {
       // Camera flip not supported on this device
     }
-  }, [facingMode, detectZoom, stopRecorder, startRecorder])
+  }, [facingMode, detectZoom, stopRecorder, startRecorder, detectRearCameras])
 
   const setZoom = useCallback((zoom: number) => {
     const track = streamRef.current?.getVideoTracks()[0]
@@ -258,5 +317,5 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     return () => stop()
   }, [stop])
 
-  return { isStreaming, error, localStream, facingMode, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera }
+  return { isStreaming, error, localStream, facingMode, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera, rearCameras, activeCameraId, switchRearCamera }
 }

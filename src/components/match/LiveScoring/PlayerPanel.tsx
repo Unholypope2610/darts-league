@@ -59,7 +59,7 @@ export function PlayerPanel({
   const avg = runningAverage(allVisits, playerId)
   const recent = lastThreeVisits(visits, playerId)
 
-  const { isStreaming, error: camError, localStream, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera } =
+  const { isStreaming, error: camError, localStream, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera, rearCameras, activeCameraId, switchRearCamera } =
     useBoardCamBroadcast(matchId, playerId)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const [camMinimized, setCamMinimized] = useState(false)
@@ -110,13 +110,30 @@ export function PlayerPanel({
               {isStreaming ? "Stop Cam" : "Start Cam"}
             </button>
             {isStreaming && (
-              <button
-                onClick={flipCamera}
-                title="Flip camera"
-                className="p-1.5 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
-              >
-                <RefreshCw className="w-3 h-3 text-muted-foreground" />
-              </button>
+              <>
+                <button
+                  onClick={flipCamera}
+                  title="Flip camera"
+                  className="p-1.5 rounded-lg bg-muted border border-border hover:bg-muted/60 active:scale-95 transition-all"
+                >
+                  <RefreshCw className="w-3 h-3 text-muted-foreground" />
+                </button>
+                {rearCameras.length > 1 && rearCameras.map((cam) => (
+                  <button
+                    key={cam.deviceId}
+                    onClick={() => switchRearCamera(cam.deviceId)}
+                    title={cam.label}
+                    className={cn(
+                      "w-[22px] h-[22px] rounded-md text-[10px] font-bold border transition-all active:scale-95 shrink-0",
+                      cam.deviceId === activeCameraId
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-border hover:bg-muted/60",
+                    )}
+                  >
+                    {cam.label}
+                  </button>
+                ))}
+              </>
             )}
           </div>
         )}
