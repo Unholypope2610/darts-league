@@ -20,3 +20,8 @@ export function captureReplayForPlayer(playerId: string): CaptureResult | null {
 export function isPlayerCameraRecording(playerId: string): boolean {
   return _fns.has(playerId)
 }
+
+// Returns the first recording player ID — used in local play where one camera covers both players
+export function getAnyRecordingPlayerId(): string | null {
+  return _fns.keys().next().value ?? null
+}

@@ -5,7 +5,7 @@ import { getNewRemainder, isMatchOver, matchWinner } from "@/lib/utils/darts"
 import type { MatchWithLegs, PlayerMeta, VisitRecord, RecordVisitResponse } from "@/types/api"
 import { announceVisit, announceMatchWin } from "@/lib/utils/speech"
 import { toast } from "sonner"
-import { isPlayerCameraRecording } from "@/lib/replay-capture"
+import { isPlayerCameraRecording, getAnyRecordingPlayerId } from "@/lib/replay-capture"
 
 interface LiveMatchStore {
   // Match metadata
@@ -309,14 +309,18 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         const qualifies =
           (data.isCheckout && data.visit.scoreThrown >= (scorer?.replayCheckoutThreshold ?? 69)) ||
           (!data.isCheckout && !data.isBust && data.visit.scoreThrown >= (scorer?.replayScoreThreshold ?? 100))
-        if (qualifies && scorer && opponent && isPlayerCameraRecording(scorer.id)) {
+        // In local play one camera covers both players — fall back to any recording camera
+        const cameraPlayerId = isPlayerCameraRecording(scorer.id)
+          ? scorer.id
+          : (state.isLocal ? getAnyRecordingPlayerId() : null)
+        if (qualifies && scorer && opponent && cameraPlayerId) {
           const isPlayerA = scorer.id === state.playerA?.id
           set((s) => {
             s.pendingReplay = {
               scoreThrown: data.visit.scoreThrown,
               isCheckout: data.isCheckout,
               remainder: data.visit.runningRemainder,
-              playerId: scorer.id,
+              playerId: cameraPlayerId,
               opponentName: opponent.name,
               playerLegsWon: isPlayerA ? state.playerALegsWon : state.playerBLegsWon,
               oppLegsWon: isPlayerA ? state.playerBLegsWon : state.playerALegsWon,
