@@ -2,7 +2,7 @@
 
 import { use, useState } from "react"
 import Link from "next/link"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { AreaChart, Area, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 import { usePlayer } from "@/hooks/usePlayers"
 import { PageHeader } from "@/components/shared/PageHeader"
@@ -342,10 +342,19 @@ interface ReplayRecord {
 }
 
 function ReplaysSection({ playerId }: { playerId: string }) {
+  const qc = useQueryClient()
   const { data: replays, isLoading } = useQuery<ReplayRecord[]>({
     queryKey: ["replays", playerId],
     queryFn: () => fetch(`/api/replays?playerId=${playerId}`).then((r) => r.json()),
   })
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  async function handleDelete(replayId: string) {
+    setDeletingId(replayId)
+    await fetch(`/api/replays/${replayId}`, { method: "DELETE" })
+    qc.setQueryData<ReplayRecord[]>(["replays", playerId], (old) => old?.filter((r) => r.id !== replayId) ?? [])
+    setDeletingId(null)
+  }
 
   if (isLoading) return <Skeleton className="h-32 rounded-xl" />
 
@@ -383,13 +392,22 @@ function ReplaysSection({ playerId }: { playerId: string }) {
               </p>
               <p className="text-xs text-muted-foreground">{formatDate(r.createdAt)}</p>
             </div>
-            <a
-              href={r.storageUrl}
-              download={`replay-${r.scoreThrown}-${r.createdAt.slice(0, 10)}.webm`}
-              className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors shrink-0"
-            >
-              Download
-            </a>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={r.storageUrl}
+                download={`replay-${r.scoreThrown}-${r.createdAt.slice(0, 10)}.webm`}
+                className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              >
+                Download
+              </a>
+              <button
+                onClick={() => handleDelete(r.id)}
+                disabled={deletingId === r.id}
+                className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+              >
+                {deletingId === r.id ? "…" : "Delete"}
+              </button>
+            </div>
           </div>
         </div>
       ))}
