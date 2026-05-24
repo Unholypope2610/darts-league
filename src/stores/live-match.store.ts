@@ -436,26 +436,21 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
     },
 
     dismissLegWin: () => {
-      const { pendingNextStarter, isMatchWon, pendingCheckoutVisitId } = get()
+      const { pendingCheckoutVisitId } = get()
       set((state) => {
         state.isLegWinAnimating = false
         state.legWinnerId = null
-        if (!pendingCheckoutVisitId) {
-          state.pendingNextStarter = null
-        }
       })
 
       if (pendingCheckoutVisitId) {
+        // Scoring device: show doubles prompt; startNewLeg fires from confirmDoubles
+        // pendingNextStarter is intentionally kept — confirmDoubles reads it
         set((s) => {
           s.pendingDoublesPrompt = { visitId: pendingCheckoutVisitId, type: "checkout" }
           s.pendingCheckoutVisitId = null
         })
-        return
       }
-
-      if (!isMatchWon && pendingNextStarter) {
-        get().startNewLeg(pendingNextStarter)
-      }
+      // Remote devices: do nothing — they receive LEG_STARTED broadcast → applyRemoteLeg
     },
 
     startNewLeg: async (starterId: string) => {

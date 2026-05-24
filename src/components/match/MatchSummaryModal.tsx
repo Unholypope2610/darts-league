@@ -98,7 +98,10 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
   useEffect(() => { setCurrentPage(0) }, [matchId])
 
   const open = !!matchId
-  const totalPages = match ? 1 + match.legs.length : 1
+  // Filter out empty legs — can exist from a now-fixed bug where remote devices
+  // created a duplicate leg in the DB on every checkout
+  const legs = match?.legs.filter((l) => l.visits.length > 0) ?? []
+  const totalPages = 1 + legs.length
 
   function goNext() { setCurrentPage((p) => Math.min(p + 1, totalPages - 1)) }
   function goPrev() { setCurrentPage((p) => Math.max(p - 1, 0)) }
@@ -144,7 +147,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
             </div>
 
             {/* Navigation tabs — fixed, does not scroll */}
-            {match.legs.length > 0 && (
+            {legs.length > 0 && (
               <div className="flex-shrink-0 flex items-center gap-1 border-b border-border px-2 py-1.5 bg-muted/30">
                 <button
                   onClick={goPrev}
@@ -154,7 +157,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
                   <ChevronLeft className="size-4" />
                 </button>
                 <div className="flex-1 overflow-x-auto flex gap-1 no-scrollbar">
-                  {["Overview", ...match.legs.map((_, i) => `Leg ${i + 1}`)].map((label, i) => (
+                  {["Overview", ...legs.map((_, i) => `Leg ${i + 1}`)].map((label, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i)}
@@ -211,7 +214,7 @@ export function MatchSummaryModal({ matchId, onClose }: Props) {
               ) : (
                 // Per-leg view
                 (() => {
-                  const leg = match.legs[currentPage - 1]
+                  const leg = legs[currentPage - 1]
                   const a = calcLegStats(leg, match.playerAId)
                   const b = calcLegStats(leg, match.playerBId)
                   const starterName = leg.starterId === match.playerAId ? match.playerA.name : match.playerB.name
