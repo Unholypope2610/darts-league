@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils/cn"
 import { formatAverage } from "@/lib/utils/format"
 import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react"
 import type { VisitRecord } from "@/types/api"
+import { ScoreOverlay } from "./ScoreOverlay"
 
 interface PlayerPanelProps {
   matchId: string
@@ -147,13 +148,16 @@ export function PlayerPanel({
           {camMinimized ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
           {camMinimized ? "Show preview" : "Hide preview"}
         </button>
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className={cn("w-full aspect-square object-cover rounded-xl bg-black", camMinimized && "hidden")}
-        />
+        <div className={cn("relative w-full", camMinimized && "hidden")}>
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full aspect-square object-cover rounded-xl bg-black"
+          />
+          <ScoreOverlay />
+        </div>
       </div>
 
       {/* Score always visible */}
