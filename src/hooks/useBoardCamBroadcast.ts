@@ -104,10 +104,8 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     recorder.start(1000)
     setReplayCaptureFunc(playerId, () => {
       const cutoff = Date.now() - 25_000
-      const filtered = chunksRef.current.filter((c) => c.time >= cutoff)
-      if (filtered.length < 5) return null
-      const durationMs = filtered[filtered.length - 1].time - filtered[0].time + 1000
-      return { blob: new Blob(filtered.map((c) => c.data), { type: mimeType }), durationMs }
+      const chunks = chunksRef.current.filter((c) => c.time >= cutoff).map((c) => c.data)
+      return chunks.length >= 5 ? new Blob(chunks, { type: mimeType }) : null
     })
   }, [playerId])
 

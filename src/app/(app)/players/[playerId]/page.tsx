@@ -376,6 +376,20 @@ function ReplaysSection({ playerId }: { playerId: string }) {
             playsInline
             preload="metadata"
             className="w-full max-h-64 bg-black object-contain"
+            ref={(el) => {
+              if (!el) return
+              el.onloadedmetadata = () => {
+                if (el.duration === Infinity || isNaN(el.duration)) {
+                  el.currentTime = 1e101
+                }
+              }
+              el.ontimeupdate = () => {
+                if (el.currentTime > 0) {
+                  el.ontimeupdate = null
+                  el.currentTime = 0
+                }
+              }
+            }}
           />
           <div className="px-4 py-3 flex items-center justify-between gap-3">
             <div>

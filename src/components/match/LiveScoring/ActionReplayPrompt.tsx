@@ -7,16 +7,6 @@ import { captureReplayForPlayer } from "@/lib/replay-capture"
 
 const COUNTDOWN_SECS = 10
 
-async function applyDurationFix(blob: Blob, durationMs: number): Promise<Blob> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fix = require("fix-webm-duration") as (b: Blob, d: number, cb: (fixed: Blob) => void) => void
-    return await new Promise<Blob>((resolve) => fix(blob, durationMs, resolve))
-  } catch {
-    return blob
-  }
-}
-
 export function ActionReplayPrompt() {
   const { pendingReplay, matchId, startingScore, clearPendingReplay } = useLiveMatchStore()
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECS)
@@ -51,8 +41,8 @@ export function ActionReplayPrompt() {
   async function handleSave() {
     if (!pendingReplay || !matchId) return
 
-    const result = captureReplayForPlayer(pendingReplay.playerId)
-    if (!result) {
+    const blob = captureReplayForPlayer(pendingReplay.playerId)
+    if (!blob) {
       setStatus("noVideo")
       setTimeout(() => clearPendingReplay(), 2000)
       return
@@ -62,10 +52,8 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
-      const videoBlob = await applyDurationFix(result.blob, result.durationMs)
-
       const form = new FormData()
-      form.append("video", videoBlob, "replay.webm")
+      form.append("video", blob, "replay.webm")
       form.append("matchId", matchId)
       form.append("scoreThrown", String(pendingReplay.scoreThrown))
       form.append("isCheckout", String(pendingReplay.isCheckout))
@@ -99,7 +87,6 @@ export function ActionReplayPrompt() {
           transition={{ type: "spring", stiffness: 380, damping: 36 }}
           className="fixed bottom-24 right-3 z-40 w-[220px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
         >
-          {/* Header */}
           <div className="flex items-center justify-between px-3 pt-3 pb-1">
             <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
               Action Replay
@@ -113,7 +100,6 @@ export function ActionReplayPrompt() {
             </button>
           </div>
 
-          {/* Score */}
           <div className="px-3 pb-1 text-center">
             <div className="text-4xl font-black tabular-nums leading-none">
               {pendingReplay.scoreThrown}
@@ -125,7 +111,6 @@ export function ActionReplayPrompt() {
             )}
           </div>
 
-          {/* Context */}
           <div className="px-3 pb-2 text-center">
             <p className="text-[11px] text-muted-foreground leading-snug">
               vs {pendingReplay.opponentName}
@@ -135,7 +120,6 @@ export function ActionReplayPrompt() {
             </p>
           </div>
 
-          {/* Countdown bar */}
           <div className="mx-3 mb-2 h-1 rounded-full bg-muted overflow-hidden">
             <motion.div
               className="h-full bg-primary rounded-full"
@@ -145,7 +129,6 @@ export function ActionReplayPrompt() {
             />
           </div>
 
-          {/* Save button */}
           <div className="px-3 pb-3">
             <button
               onClick={handleSave}
