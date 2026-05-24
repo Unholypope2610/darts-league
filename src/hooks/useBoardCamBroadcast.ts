@@ -23,6 +23,11 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<{ data: Blob; time: number }[]>([])
+  // EBML header bytes extracted from the first MediaRecorder chunk (before first Cluster).
+  // Always prepended when building the replay blob so the file is valid even after the
+  // init chunk has been trimmed from the rolling buffer.
+  const initHeadersRef = useRef<Blob | null>(null)
+  const initChunkRef = useRef<{ data: Blob; time: number } | null>(null)
   // One peer connection per spectator so viewers don't kill each other's feeds
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map())
   const creatingOfferRef = useRef<Set<string>>(new Set())
@@ -90,11 +95,32 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       : "video/webm"
     if (!MediaRecorder.isTypeSupported(mimeType)) return
     chunksRef.current = []
+    initHeadersRef.current = null
+    initChunkRef.current = null
     const recorder = new MediaRecorder(stream, { mimeType })
     recorderRef.current = recorder
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) {
-        chunksRef.current.push({ data: e.data, time: Date.now() })
+        const chunk = { data: e.data, time: Date.now() }
+        chunksRef.current.push(chunk)
+
+        // First chunk: async-extract just the header bytes (EBML/Info/Tracks, before the
+        // first Cluster 0x1F43B675). These are needed for a valid WebM regardless of how
+        // old the init chunk is — the rolling trim would otherwise discard them.
+        if (!initChunkRef.current) {
+          initChunkRef.current = chunk
+          e.data.arrayBuffer().then(buf => {
+            const b = new Uint8Array(buf)
+            for (let i = 0; i < b.length - 4; i++) {
+              if (b[i] === 0x1F && b[i+1] === 0x43 && b[i+2] === 0xB6 && b[i+3] === 0x75) {
+                initHeadersRef.current = new Blob([buf.slice(0, i)], { type: mimeType })
+                return
+              }
+            }
+            initHeadersRef.current = e.data // fallback: no Cluster found in first chunk
+          })
+        }
+
         const cutoff = Date.now() - 30_000
         while (chunksRef.current.length > 0 && chunksRef.current[0].time < cutoff) {
           chunksRef.current.shift()
@@ -103,11 +129,20 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     }
     recorder.start(1000)
     setReplayCaptureFunc(playerId, (): CaptureResult | null => {
+      if (!initHeadersRef.current) return null // headers still being extracted
       const cutoff = Date.now() - 25_000
-      const filtered = chunksRef.current.filter((c) => c.time >= cutoff)
+      // Exclude the init chunk — its headers are already in initHeadersRef, and including
+      // the chunk itself would either duplicate headers (if recent) or add a timestamp gap
+      // (if old). Data-only chunks following it are all we need.
+      const filtered = chunksRef.current.filter(
+        (c) => c !== initChunkRef.current && c.time >= cutoff
+      )
       if (filtered.length < 5) return null
       const durationMs = Date.now() - filtered[0].time
-      return { blob: new Blob(filtered.map((c) => c.data), { type: mimeType }), durationMs }
+      return {
+        blob: new Blob([initHeadersRef.current!, ...filtered.map((c) => c.data)], { type: mimeType }),
+        durationMs,
+      }
     })
   }, [playerId])
 
@@ -118,6 +153,8 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     }
     recorderRef.current = null
     chunksRef.current = []
+    initHeadersRef.current = null
+    initChunkRef.current = null
   }, [playerId])
 
   const stop = useCallback(() => {
