@@ -334,6 +334,11 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
         const data: RecordVisitResponse = await res.json()
 
+        const isCurrentPlayerA = state.currentTurnPlayerId === state.playerA?.id
+        const otherRemainder = isCurrentPlayerA ? state.playerBRemainder : state.playerARemainder
+        const otherPlayerName = isCurrentPlayerA ? (state.playerB?.name ?? "") : (state.playerA?.name ?? "")
+        announceVisit(scoreThrown, otherRemainder, otherPlayerName, false, true)
+
         set((s) => {
           s.dartInput = ""
           s.isSubmitting = false
