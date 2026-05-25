@@ -159,7 +159,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
         <TabsList className="w-full">
           <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
           <TabsTrigger value="h2h" className="flex-1">Head to Head</TabsTrigger>
-          {canEdit && <TabsTrigger value="replays" className="flex-1">Replays</TabsTrigger>}
+          <TabsTrigger value="replays" className="flex-1">Replays</TabsTrigger>
 
         </TabsList>
 
@@ -319,11 +319,9 @@ export default function PlayerProfilePage({ params }: PageProps) {
           )}
         </TabsContent>
         {/* Replays tab — own profile only */}
-        {canEdit && (
-          <TabsContent value="replays" className="mt-4">
-            <ReplaysSection playerId={playerId} />
-          </TabsContent>
-        )}
+        <TabsContent value="replays" className="mt-4">
+          <ReplaysSection playerId={playerId} canDelete={!!canEdit} />
+        </TabsContent>
       </Tabs>
     </div>
   )
@@ -344,10 +342,11 @@ interface ReplayRecord {
   createdAt: string
 }
 
-function ReplayCard({ replay, onDelete, isDeleting }: {
+function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
   replay: ReplayRecord
   onDelete: () => void
   isDeleting: boolean
+  canDelete: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -420,20 +419,22 @@ function ReplayCard({ replay, onDelete, isDeleting }: {
           >
             Download
           </a>
-          <button
-            onClick={onDelete}
-            disabled={isDeleting}
-            className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
-          >
-            {isDeleting ? "…" : "Delete"}
-          </button>
+          {canDelete && (
+            <button
+              onClick={onDelete}
+              disabled={isDeleting}
+              className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? "…" : "Delete"}
+            </button>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-function ReplaysSection({ playerId }: { playerId: string }) {
+function ReplaysSection({ playerId, canDelete }: { playerId: string; canDelete: boolean }) {
   const qc = useQueryClient()
   const { data: replays, isLoading } = useQuery<ReplayRecord[]>({
     queryKey: ["replays", playerId],
@@ -466,6 +467,7 @@ function ReplaysSection({ playerId }: { playerId: string }) {
           replay={r}
           onDelete={() => handleDelete(r.id)}
           isDeleting={deletingId === r.id}
+          canDelete={canDelete}
         />
       ))}
     </div>

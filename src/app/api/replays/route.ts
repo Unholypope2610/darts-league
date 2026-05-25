@@ -73,11 +73,6 @@ export async function GET(req: Request) {
   const playerId = searchParams.get("playerId")
   if (!playerId) return NextResponse.json({ error: "playerId required" }, { status: 400 })
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { playerId: true, role: true } })
-  if (user?.role !== "ADMIN" && user?.playerId !== playerId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
   const replays = await prisma.replay.findMany({
     where: { playerId },
     orderBy: { createdAt: "desc" },
