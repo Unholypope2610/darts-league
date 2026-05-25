@@ -15,6 +15,7 @@ interface PlayerCardProps {
 
 export function PlayerCard({ player }: PlayerCardProps) {
   const played = player.won + player.lost + player.drawn
+  const winPct = played >= 5 ? ((player.won / played) * 100).toFixed(1) : null
   const { onlinePlayerIds, myPlayerId } = usePresence()
   const [challenging, setChallenging] = useState(false)
   const isOnline = onlinePlayerIds.has(player.id) && player.id !== myPlayerId
@@ -52,7 +53,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-4 gap-1 text-center">
+        <div className="grid grid-cols-5 gap-1 text-center">
           <div className="flex flex-col">
             <span className="text-xs text-muted-foreground">Avg</span>
             <span className="font-score font-bold text-sm text-primary">
@@ -70,6 +71,12 @@ export function PlayerCard({ player }: PlayerCardProps) {
           <div className="flex flex-col">
             <span className="text-xs text-muted-foreground">L</span>
             <span className="font-score font-bold text-sm text-red-400">{player.lost}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs text-muted-foreground">Win%</span>
+            <span className="font-score font-bold text-sm text-amber-400">
+              {winPct !== null ? `${winPct}%` : "—"}
+            </span>
           </div>
         </div>
 

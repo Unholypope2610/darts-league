@@ -24,6 +24,7 @@ interface PlayerPanelProps {
   allVisits: VisitRecord[]
   /** Whether this viewer can control cam for this panel */
   canControl?: boolean
+  isLegStarter?: boolean
   className?: string
 }
 
@@ -53,11 +54,13 @@ export function PlayerPanel({
   visits,
   allVisits,
   canControl = false,
+  isLegStarter = false,
   className,
 }: PlayerPanelProps) {
   const legsNeeded = Math.ceil(bestOf / 2)
   const avg = runningAverage(allVisits, playerId)
   const recent = lastThreeVisits(visits, playerId)
+  const legDarts = visits.filter((v) => v.playerId === playerId).reduce((acc, v) => acc + v.dartsUsed, 0)
 
   const { isStreaming, error: camError, localStream, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera, rearCameras, activeCameraId, switchRearCamera } =
     useBoardCamBroadcast(matchId, playerId)
@@ -91,7 +94,12 @@ export function PlayerPanel({
 
       {/* Avatar + name */}
       <div className="flex flex-col items-center gap-1 w-full">
-        <PlayerAvatar name={name} avatarUrl={avatarUrl} size="lg" />
+        <div className="relative inline-block">
+          <PlayerAvatar name={name} avatarUrl={avatarUrl} size="lg" />
+          {isLegStarter && (
+            <span className="absolute -top-1 -right-1 text-base leading-none" title="Leg starter">🎯</span>
+          )}
+        </div>
         <span className="font-bold text-base truncate max-w-[120px] text-center">{name}</span>
 
         {/* Start Cam button — only shown when not yet streaming (always visible to canControl) */}
@@ -228,9 +236,12 @@ export function PlayerPanel({
         </div>
       )}
 
-      {/* Running avg */}
+      {/* Running avg + current-leg dart count */}
       <div className="text-xs text-muted-foreground">
         Avg <span className="font-score font-bold text-foreground">{avg}</span>
+        {legDarts > 0 && (
+          <span className="ml-1.5 text-muted-foreground/70">{legDarts}d</span>
+        )}
       </div>
     </div>
   )

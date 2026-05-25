@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Trophy } from "lucide-react"
 import { PageHeader } from "@/components/shared/PageHeader"
@@ -9,6 +9,7 @@ import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatAverage } from "@/lib/utils/format"
+import { usePlayers } from "@/hooks/usePlayers"
 
 interface RecordData {
   highestCheckout: { player: { name: string; avatarUrl?: string | null }; score: number; competition?: { name: string } | null } | null
@@ -47,6 +48,17 @@ export default function RecordsPage() {
     queryKey: ["records"],
     queryFn: () => fetch("/api/records").then((r) => r.json()),
   })
+  const { data: players } = usePlayers()
+  const winRateLeader = useMemo(() => {
+    if (!players) return null
+    return players
+      .map((p) => {
+        const played = p.won + p.lost + p.drawn
+        return { ...p, played, winPct: played > 0 ? (p.won / played) * 100 : 0 }
+      })
+      .filter((p) => p.played >= 30)
+      .sort((a, b) => b.winPct - a.winPct)[0] ?? null
+  }, [players])
   const [titlesModal, setTitlesModal] = useState<{ name: string; competitions: { id: string; name: string; season: string; type: string }[] } | null>(null)
 
   if (isLoading) {
@@ -73,6 +85,19 @@ export default function RecordsPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <RecordCard title="Best Win Rate">
+          {winRateLeader ? (
+            <PlayerRow
+              name={winRateLeader.name}
+              avatarUrl={winRateLeader.avatarUrl}
+              stat={`${winRateLeader.winPct.toFixed(1)}%`}
+              label={`${winRateLeader.won}W from ${winRateLeader.played} games`}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">No player has 30+ games yet</p>
+          )}
+        </RecordCard>
+
         {data?.highestCheckout && (
           <RecordCard title="Highest Checkout">
             <PlayerRow

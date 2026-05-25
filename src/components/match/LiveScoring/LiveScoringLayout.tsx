@@ -194,34 +194,43 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
       <div className="flex flex-col gap-4 w-full max-w-2xl mx-auto px-4 pb-8">
         {/* Player panels side by side */}
         <div className="grid grid-cols-2 gap-3">
-          <PlayerPanel
-            matchId={matchId ?? ""}
-            playerId={playerA.id}
-            name={playerA.name}
-            avatarUrl={playerA.avatarUrl}
-            remainder={playerARemainder}
-            legsWon={playerALegsWon}
-            bestOf={bestOf}
-            isActive={isAActive}
-            isBust={false}
-            visits={visits}
-            allVisits={allVisits}
-            canControl={canControlA}
-          />
-          <PlayerPanel
-            matchId={matchId ?? ""}
-            playerId={playerB.id}
-            name={playerB.name}
-            avatarUrl={playerB.avatarUrl}
-            remainder={playerBRemainder}
-            legsWon={playerBLegsWon}
-            bestOf={bestOf}
-            isActive={!isAActive}
-            isBust={false}
-            visits={visits}
-            allVisits={allVisits}
-            canControl={canControlB}
-          />
+          {(() => {
+            const legStarterId = visits.length > 0 ? visits[0].playerId : currentTurnPlayerId
+            return (
+              <>
+                <PlayerPanel
+                  matchId={matchId ?? ""}
+                  playerId={playerA.id}
+                  name={playerA.name}
+                  avatarUrl={playerA.avatarUrl}
+                  remainder={playerARemainder}
+                  legsWon={playerALegsWon}
+                  bestOf={bestOf}
+                  isActive={isAActive}
+                  isBust={false}
+                  visits={visits}
+                  allVisits={allVisits}
+                  canControl={canControlA}
+                  isLegStarter={legStarterId === playerA.id}
+                />
+                <PlayerPanel
+                  matchId={matchId ?? ""}
+                  playerId={playerB.id}
+                  name={playerB.name}
+                  avatarUrl={playerB.avatarUrl}
+                  remainder={playerBRemainder}
+                  legsWon={playerBLegsWon}
+                  bestOf={bestOf}
+                  isActive={!isAActive}
+                  isBust={false}
+                  visits={visits}
+                  allVisits={allVisits}
+                  canControl={canControlB}
+                  isLegStarter={legStarterId === playerB.id}
+                />
+              </>
+            )
+          })()}
         </div>
 
         {/* Turn indicator — only shown in local (one-device) mode */}
