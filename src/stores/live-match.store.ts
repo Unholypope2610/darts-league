@@ -78,7 +78,7 @@ interface LiveMatchStore {
   dismissLegWin: () => void
   startNewLeg: (starterId: string) => Promise<void>
   applyRemoteVisit: (data: RecordVisitResponse) => void
-  applyRemoteLeg: (legId: string, starterId: string) => void
+  applyRemoteLeg: (legId: string, starterId: string, playerALegsWon?: number, playerBLegsWon?: number) => void
   applyRemoteEdit: (updatedVisits: VisitRecord[], legWinnerId?: string | null, matchWinnerId?: string | null, isMatchDraw?: boolean) => void
   editVisit: (visitId: string, newScore: number) => Promise<void>
   clearPendingReplay: () => void
@@ -541,7 +541,12 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           s.legWinnerId = null
         })
 
-        get()._broadcast?.("LEG_STARTED", { legId: leg.id, starterId })
+        get()._broadcast?.("LEG_STARTED", {
+          legId: leg.id,
+          starterId,
+          playerALegsWon: get().playerALegsWon,
+          playerBLegsWon: get().playerBLegsWon,
+        })
 
       } catch {
         set((s) => { s.isSubmitting = false })
@@ -681,7 +686,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       })
     },
 
-    applyRemoteLeg: (legId: string, starterId: string) => {
+    applyRemoteLeg: (legId: string, starterId: string, playerALegsWon?: number, playerBLegsWon?: number) => {
       set((state) => {
         if (state.currentLegId === legId) return
         state.currentLegId = legId
@@ -692,6 +697,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.undoStack = []
         state.isLegWinAnimating = false
         state.legWinnerId = null
+        // Apply authoritative counts from the throwing device — heals any missed VISIT_RECORDED broadcasts
+        if (playerALegsWon !== undefined) state.playerALegsWon = playerALegsWon
+        if (playerBLegsWon !== undefined) state.playerBLegsWon = playerBLegsWon
       })
     },
 

@@ -38,7 +38,12 @@ export function useLiveMatch(matchId: string) {
         applyRemoteVisit(payload as RecordVisitResponse)
       })
       .on("broadcast", { event: "LEG_STARTED" }, ({ payload }) => {
-        applyRemoteLeg(payload.legId as string, payload.starterId as string)
+        applyRemoteLeg(
+          payload.legId as string,
+          payload.starterId as string,
+          payload.playerALegsWon as number | undefined,
+          payload.playerBLegsWon as number | undefined,
+        )
       })
       .on("broadcast", { event: "SCORE_EDITED" }, ({ payload }) => {
         const p = payload as { updatedVisits: VisitRecord[]; legWinnerId?: string | null; matchWinnerId?: string | null; isMatchDraw?: boolean }

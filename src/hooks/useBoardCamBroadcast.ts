@@ -175,6 +175,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   // Canvas composition refs for burning overlay into recording
   const drawIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const requestDataIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const recorderGenRef = useRef(0)
   const offscreenVideoRef = useRef<HTMLVideoElement | null>(null)
   const canvasStreamRef = useRef<MediaStream | null>(null)
 
@@ -266,6 +267,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       clearInterval(requestDataIntervalRef.current)
       requestDataIntervalRef.current = null
     }
+    recorderGenRef.current++ // invalidate any in-flight onloadedmetadata callbacks
     canvasStreamRef.current?.getTracks().forEach((t) => t.stop())
     canvasStreamRef.current = null
     if (offscreenVideoRef.current) {
@@ -294,6 +296,10 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     initHeadersRef.current = null
     initChunkRef.current = null
 
+    // Capture the generation so we can bail if stopRecorder is called before
+    // onloadedmetadata fires (otherwise the stale callback creates a zombie recorder).
+    const gen = ++recorderGenRef.current
+
     // Feed raw stream into an off-screen video element so we can drawImage it onto canvas
     const vid = document.createElement("video")
     vid.srcObject = stream
@@ -302,6 +308,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     offscreenVideoRef.current = vid
 
     vid.onloadedmetadata = () => {
+      if (recorderGenRef.current !== gen) return // stopRecorder was called before metadata arrived
       const rawW = vid.videoWidth || 640
       const rawH = vid.videoHeight || 480
       const scale = Math.min(1, 1280 / Math.max(rawW, rawH))
