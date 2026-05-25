@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
-import { getNewRemainder } from "@/lib/utils/darts"
+import { getNewRemainder, isMatchOver, isMatchDraw as checkMatchDraw, matchWinner } from "@/lib/utils/darts"
 import type { FinishType } from "@/lib/utils/darts"
 
 export async function PATCH(
@@ -110,12 +110,8 @@ export async function PATCH(
     const isCheckout = !isBust && newRem === 0
     const actualRem = isBust ? remainder : newRem!
     updates.push({ id: v.id, scoreThrown: score, runningRemainder: actualRem, isBust, isCheckout })
+    if (isCheckout) break  // stop — visits after a checkout are invalid
     if (!isBust) remainder = newRem!
-  }
-
-  // Prevent a corrected bust from accidentally completing the leg
-  if (updates.some((u) => u.isCheckout)) {
-    return NextResponse.json({ error: "Corrected score would finish the leg — use undo and re-enter instead" }, { status: 400 })
   }
 
   await prisma.$transaction(
@@ -132,5 +128,48 @@ export async function PATCH(
     ),
   )
 
-  return NextResponse.json({ updatedVisits: updates })
+  // If the corrected score results in a checkout, complete the leg (and potentially match)
+  const checkoutUpdate = updates.find((u) => u.isCheckout)
+  let legWinnerId: string | null = null
+  let matchWinnerId: string | null = null
+  let isMatchDrawResult = false
+
+  if (checkoutUpdate) {
+    const checkoutPlayerId = targetVisit.playerId
+    const checkoutIdx = samePlayerVisits.findIndex((v) => v.id === checkoutUpdate.id)
+    const totalDartsThrown = samePlayerVisits
+      .slice(0, checkoutIdx + 1)
+      .reduce((sum, v) => sum + v.dartsUsed, 0)
+
+    await prisma.leg.update({
+      where: { id: targetVisit.legId },
+      data: { winnerId: checkoutPlayerId, dartsThrown: totalDartsThrown, completedAt: new Date() },
+    })
+    legWinnerId = checkoutPlayerId
+
+    const isPlayerA = checkoutPlayerId === match.playerAId
+    const updatedMatch = await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        playerAScore: isPlayerA ? { increment: 1 } : undefined,
+        playerBScore: !isPlayerA ? { increment: 1 } : undefined,
+      },
+    })
+
+    if (isMatchOver(updatedMatch.playerAScore, updatedMatch.playerBScore, match.bestOf)) {
+      const winner = matchWinner(updatedMatch.playerAScore, updatedMatch.playerBScore, match.bestOf, match.playerAId, match.playerBId)
+      matchWinnerId = winner
+      isMatchDrawResult = checkMatchDraw(updatedMatch.playerAScore, updatedMatch.playerBScore, match.bestOf)
+      await prisma.match.update({
+        where: { id: matchId },
+        data: { winnerId: winner, completedAt: new Date() },
+      })
+      const fixture = await prisma.fixture.findFirst({ where: { matchId } })
+      if (fixture) {
+        await prisma.fixture.update({ where: { id: fixture.id }, data: { status: "COMPLETED" } })
+      }
+    }
+  }
+
+  return NextResponse.json({ updatedVisits: updates, legWinnerId, matchWinnerId, isMatchDraw: isMatchDrawResult })
 }

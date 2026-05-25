@@ -78,7 +78,7 @@ interface LiveMatchStore {
   startNewLeg: (starterId: string) => Promise<void>
   applyRemoteVisit: (data: RecordVisitResponse) => void
   applyRemoteLeg: (legId: string, starterId: string) => void
-  applyRemoteEdit: (updatedVisits: VisitRecord[]) => void
+  applyRemoteEdit: (updatedVisits: VisitRecord[], legWinnerId?: string | null, matchWinnerId?: string | null, isMatchDraw?: boolean) => void
   editVisit: (visitId: string, newScore: number) => Promise<void>
   clearPendingReplay: () => void
   reset: () => void
@@ -601,12 +601,27 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         body: JSON.stringify({ scoreThrown: newScore }),
       })
       if (!res.ok) return
-      const { updatedVisits }: { updatedVisits: VisitRecord[] } = await res.json()
-      get().applyRemoteEdit(updatedVisits)
-      get()._broadcast?.("SCORE_EDITED", { updatedVisits })
+      const data: {
+        updatedVisits: VisitRecord[]
+        legWinnerId: string | null
+        matchWinnerId: string | null
+        isMatchDraw: boolean
+      } = await res.json()
+      get().applyRemoteEdit(data.updatedVisits, data.legWinnerId, data.matchWinnerId, data.isMatchDraw)
+      get()._broadcast?.("SCORE_EDITED", {
+        updatedVisits: data.updatedVisits,
+        legWinnerId: data.legWinnerId,
+        matchWinnerId: data.matchWinnerId,
+        isMatchDraw: data.isMatchDraw,
+      })
     },
 
-    applyRemoteEdit: (updatedVisits: VisitRecord[]) => {
+    applyRemoteEdit: (
+      updatedVisits: VisitRecord[],
+      legWinnerId?: string | null,
+      matchWinnerId?: string | null,
+      isMatchDraw?: boolean,
+    ) => {
       const updatedMap = new Map(updatedVisits.map((v) => [v.id, v]))
       set((s) => {
         s.visits = s.visits.map((v) => { const u = updatedMap.get(v.id); return u ? { ...v, ...u } : v })
@@ -615,6 +630,21 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         const bLast = [...s.visits].reverse().find((v) => v.playerId === s.playerB?.id && !v.isBust)
         if (aLast) s.playerARemainder = aLast.runningRemainder
         if (bLast) s.playerBRemainder = bLast.runningRemainder
+
+        if (legWinnerId) {
+          s.legWinnerId = legWinnerId
+          s.isLegWinAnimating = true
+          if (legWinnerId === s.playerA?.id) s.playerALegsWon += 1
+          else s.playerBLegsWon += 1
+          s.pendingNextStarter = legWinnerId === s.playerA?.id
+            ? (s.playerB?.id ?? null)
+            : (s.playerA?.id ?? null)
+        }
+        if (matchWinnerId !== undefined || isMatchDraw) {
+          s.winnerId = matchWinnerId ?? null
+          s.isMatchWon = true
+          s.isMatchDraw = isMatchDraw ?? false
+        }
       })
     },
 

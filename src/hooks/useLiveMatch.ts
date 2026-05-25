@@ -41,7 +41,8 @@ export function useLiveMatch(matchId: string) {
         applyRemoteLeg(payload.legId as string, payload.starterId as string)
       })
       .on("broadcast", { event: "SCORE_EDITED" }, ({ payload }) => {
-        applyRemoteEdit((payload as { updatedVisits: VisitRecord[] }).updatedVisits)
+        const p = payload as { updatedVisits: VisitRecord[]; legWinnerId?: string | null; matchWinnerId?: string | null; isMatchDraw?: boolean }
+        applyRemoteEdit(p.updatedVisits, p.legWinnerId, p.matchWinnerId, p.isMatchDraw)
       })
       .on("broadcast", { event: "DOUBLES_CONFIRMED" }, ({ payload }) => {
         const p = payload as { visitId: string; doublesAttempted: number; dartsUsed: number | null }
