@@ -177,7 +177,7 @@ export function ActionReplayPrompt() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 380, damping: 36 }}
-          className="fixed bottom-24 right-3 z-40 w-[220px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+          className="fixed bottom-24 right-3 z-[60] w-[220px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
         >
           <div className="flex items-center justify-between px-3 pt-3 pb-1">
             <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
