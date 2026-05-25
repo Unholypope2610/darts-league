@@ -12,6 +12,9 @@ import { formatDistanceToNow } from "date-fns"
 import { Swords, Trophy, Clock, RotateCcw, XCircle, Shuffle } from "lucide-react"
 import { prewarmSpeech } from "@/lib/utils/speech"
 import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
+import { ChallengeModal } from "@/components/match/ChallengeModal"
+import { usePresence } from "@/contexts/PlayerPresenceContext"
+import { usePlayers } from "@/hooks/usePlayers"
 import type { Player } from "@/types/api"
 
 interface CasualMatch {
@@ -369,6 +372,9 @@ function MatchCard({ match, myUserId, myPlayerId, isAdmin, onSelect }: { match: 
 export default function CasualMatchesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
+  const [challengeTarget, setChallengeTarget] = useState<{ id: string; name: string; avatarUrl: string | null } | null>(null)
+  const { onlinePlayerIds } = usePresence()
+  const { data: players } = usePlayers()
   const { data: matches, isLoading } = useQuery<CasualMatch[]>({
     queryKey: ["casual-matches"],
     queryFn: () => fetch("/api/matches").then((r) => r.json()),
@@ -383,6 +389,7 @@ export default function CasualMatchesPage() {
   const myPlayerId: string | undefined = meData?.playerId
   const isAdmin: boolean = meData?.role === "ADMIN"
 
+  const onlinePlayers = players?.filter((p) => onlinePlayerIds.has(p.id) && p.id !== myPlayerId) ?? []
   const live = matches?.filter((m) => !m.completedAt) ?? []
   const recent = matches?.filter((m) => m.completedAt) ?? []
 
@@ -403,6 +410,33 @@ export default function CasualMatchesPage() {
           New Match
         </button>
       </div>
+
+      {/* Online players */}
+      {onlinePlayers.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h2 className="font-black text-white uppercase tracking-wider text-sm">Online Now</h2>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            {onlinePlayers.map((player) => (
+              <div key={player.id} className="flex flex-col items-center gap-2 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 min-w-[80px]">
+                <div className="relative">
+                  <PlayerAvatar name={player.name} avatarUrl={player.avatarUrl} size="md" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-card" />
+                </div>
+                <span className="text-xs font-semibold text-white text-center leading-tight">{player.name}</span>
+                <button
+                  onClick={() => setChallengeTarget({ id: player.id, name: player.name, avatarUrl: player.avatarUrl ?? null })}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 hover:bg-emerald-500/30 transition-all active:scale-95"
+                >
+                  Challenge
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -449,6 +483,12 @@ export default function CasualMatchesPage() {
 
       <NewMatchModal open={modalOpen} onClose={() => setModalOpen(false)} />
       <MatchSummaryModal matchId={selectedMatchId} onClose={() => setSelectedMatchId(null)} />
+      <ChallengeModal
+        open={!!challengeTarget}
+        opponent={challengeTarget ?? { id: "", name: "", avatarUrl: null }}
+        myPlayerId={myPlayerId ?? null}
+        onClose={() => setChallengeTarget(null)}
+      />
     </div>
   )
 }
