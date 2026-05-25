@@ -113,15 +113,20 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
-      // Inject Duration element into EBML Info section so the browser can display video length
+      const contentType = result.blob.type || "video/webm"
+      const isWebm = contentType.includes("webm")
+
+      // Inject Duration element only for WebM (EBML-specific — not applicable to MP4)
       let blob = result.blob
-      try { blob = await injectDuration(result.blob, result.durationMs) } catch { /* use original */ }
+      if (isWebm) {
+        try { blob = await injectDuration(result.blob, result.durationMs) } catch { /* use original */ }
+      }
 
       // Step 1: get a signed upload URL from the server
       const urlRes = await fetch("/api/replays/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scorerPlayerId: pendingReplay.scorerPlayerId, matchId }),
+        body: JSON.stringify({ scorerPlayerId: pendingReplay.scorerPlayerId, matchId, mimeType: contentType }),
       })
       if (!urlRes.ok) throw new Error("Failed to get upload URL")
       const { token, path } = await urlRes.json() as { signedUrl: string; token: string; path: string }
@@ -130,7 +135,7 @@ export function ActionReplayPrompt() {
       const supabase = getSupabase()
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
-        .uploadToSignedUrl(path, token, blob, { contentType: "video/webm" })
+        .uploadToSignedUrl(path, token, blob, { contentType })
       if (uploadError) throw new Error(uploadError.message)
 
       // Step 3: save metadata via API (no blob, no size limit issue)

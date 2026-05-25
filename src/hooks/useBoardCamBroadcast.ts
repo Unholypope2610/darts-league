@@ -279,10 +279,12 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   }, [playerId])
 
   const startRecorder = useCallback((stream: MediaStream) => {
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : "video/webm"
-    if (!MediaRecorder.isTypeSupported(mimeType)) return
+    // Prefer MP4/H.264 — plays on iOS Safari; fall back to WebM for Chrome/Android
+    const mimeType =
+      MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" :
+      MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
+      MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : null
+    if (!mimeType) return
     chunksRef.current = []
     initHeadersRef.current = null
     initChunkRef.current = null

@@ -14,8 +14,10 @@ export async function POST(req: Request) {
 
   let targetPlayerId = user.playerId
 
+  let mimeType = "video/webm"
   try {
-    const body = await req.json() as { scorerPlayerId?: string; matchId?: string }
+    const body = await req.json() as { scorerPlayerId?: string; matchId?: string; mimeType?: string }
+    if (body.mimeType) mimeType = body.mimeType
     if (body.scorerPlayerId && body.scorerPlayerId !== user.playerId && body.matchId) {
       const match = await prisma.match.findFirst({
         where: {
@@ -31,7 +33,8 @@ export async function POST(req: Request) {
     }
   } catch { /* no body — use auth user's player */ }
 
-  const path = `${targetPlayerId}/${Date.now()}.webm`
+  const ext = mimeType.includes("mp4") ? "mp4" : "webm"
+  const path = `${targetPlayerId}/${Date.now()}.${ext}`
   const supabase = createServerSupabaseClient()
 
   const { data, error } = await supabase.storage

@@ -414,7 +414,7 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
         <div className="flex items-center gap-2 shrink-0">
           <a
             href={replay.viewUrl ?? replay.storageUrl}
-            download={`replay-${replay.scoreThrown}-${replay.createdAt.slice(0, 10)}.webm`}
+            download={`replay-${replay.scoreThrown}-${replay.createdAt.slice(0, 10)}.${replay.storageKey.endsWith(".mp4") ? "mp4" : "webm"}`}
             className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
           >
             Download
