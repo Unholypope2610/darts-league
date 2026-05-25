@@ -6,7 +6,7 @@ import { useLiveMatchStore } from "@/stores/live-match.store"
 import { captureReplayForPlayer } from "@/lib/replay-capture"
 import { getSupabase } from "@/lib/supabase"
 
-const COUNTDOWN_SECS = 10
+const COUNTDOWN_SECS = 15
 const BUCKET = "Replays"
 
 // Inject (or update) the EBML Duration element inside the WebM Info section.
