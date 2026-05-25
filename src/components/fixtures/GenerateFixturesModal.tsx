@@ -42,6 +42,16 @@ export function GenerateFixturesModal({ competitionId, open, onClose }: Generate
     8: "8× each",
     9: "9× each",
     10: "10× each",
+    11: "11× each",
+    12: "12× each",
+    13: "13× each",
+    14: "14× each",
+    15: "15× each",
+    16: "16× each",
+    17: "17× each",
+    18: "18× each",
+    19: "19× each",
+    20: "20× each",
   }
 
   return (
@@ -58,7 +68,7 @@ export function GenerateFixturesModal({ competitionId, open, onClose }: Generate
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="min-w-[320px]">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                   <SelectItem key={n} value={String(n)}>{roundLabels[n]}</SelectItem>
                 ))}
               </SelectContent>
