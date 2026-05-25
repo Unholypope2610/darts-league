@@ -34,6 +34,9 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
   const [isRestarting, setIsRestarting] = useState(false)
+  const [confirmPause, setConfirmPause] = useState(false)
+  const [isPausing, setIsPausing] = useState(false)
+  const [isResuming, setIsResuming] = useState(false)
 
   const { data: me } = useQuery({
     queryKey: ["auth", "me"],
@@ -53,6 +56,33 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to restart")
       setIsRestarting(false)
+    }
+  }
+
+  async function handlePause() {
+    setIsPausing(true)
+    try {
+      const r = await fetch(`/api/fixtures/${fixture.id}/pause`, { method: "POST" })
+      if (!r.ok) throw new Error("Failed to pause")
+      setConfirmPause(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to pause match")
+    } finally {
+      setIsPausing(false)
+    }
+  }
+
+  async function handleResume() {
+    setIsResuming(true)
+    try {
+      const r = await fetch(`/api/fixtures/${fixture.id}/resume`, { method: "POST" })
+      const json = await r.json()
+      if (!r.ok) throw new Error(json?.error ?? "Failed to resume")
+      router.push(`/matches/${fixture.matchId}/live`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to resume match")
+      setIsResuming(false)
     }
   }
 
@@ -80,6 +110,9 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
 
   const isCompleted = fixture.status === "COMPLETED"
   const isLive = fixture.status === "LIVE"
+  const isPaused = fixture.status === "PAUSED"
+  const isAdmin = me?.role === "ADMIN"
+  const isMatchAdmin = isParticipant || isAdmin
 
   return (
     <>
@@ -87,8 +120,9 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
         <div
           className={cn(
             "rounded-xl border bg-card p-4 flex items-center gap-3 transition-all",
-            isLive && "border-emerald-500/50 bg-emerald-500/5",
-            !isLive && "border-border",
+            isLive   && "border-emerald-500/50 bg-emerald-500/5",
+            isPaused && "border-amber-500/40 bg-amber-500/5",
+            !isLive && !isPaused && "border-border",
           )}
         >
           {/* Player A */}
@@ -111,12 +145,60 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
                 </div>
               </button>
             ) : isLive ? (
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center gap-0.5">
                 <span className="text-xs font-bold text-emerald-400 animate-pulse">LIVE</span>
                 {fixture.matchId && (
                   <Link href={`/matches/${fixture.matchId}/live`} className="text-xs text-emerald-400 hover:underline">
                     Watch
                   </Link>
+                )}
+                {isMatchAdmin && !confirmPause && (
+                  <button
+                    onClick={() => setConfirmPause(true)}
+                    className="text-[10px] text-amber-400/70 hover:text-amber-400 transition-colors mt-0.5"
+                  >
+                    Pause
+                  </button>
+                )}
+                {isMatchAdmin && confirmPause && (
+                  <div className="flex flex-col items-center gap-1 mt-1">
+                    <span className="text-[9px] text-muted-foreground">Pause this match?</span>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={handlePause}
+                        disabled={isPausing}
+                        className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold hover:bg-amber-500/30 disabled:opacity-50"
+                      >
+                        {isPausing ? "…" : "Yes, pause"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmPause(false)}
+                        className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted/70"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : isPaused ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Paused</span>
+                {fixture.match && (
+                  <div className="flex items-center gap-1.5 font-score font-bold text-sm">
+                    <span>{fixture.match.playerAScore}</span>
+                    <span className="text-muted-foreground text-xs">–</span>
+                    <span>{fixture.match.playerBScore}</span>
+                  </div>
+                )}
+                {isMatchAdmin && (
+                  <button
+                    onClick={handleResume}
+                    disabled={isResuming}
+                    className="text-xs text-amber-400 hover:text-amber-300 transition-colors font-semibold"
+                  >
+                    {isResuming ? "…" : "Resume →"}
+                  </button>
                 )}
               </div>
             ) : (
@@ -142,7 +224,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
           </div>
         </div>
 
-        {isParticipant && !competitionCompleted && fixture.matchId && (isLive || isCompleted) && (
+        {isParticipant && !competitionCompleted && fixture.matchId && (isLive || isPaused || isCompleted) && (
           <div className="px-2 pt-1.5 flex items-center gap-2">
             {confirmRestart ? (
               <>
