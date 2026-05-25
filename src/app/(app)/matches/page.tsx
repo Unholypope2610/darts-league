@@ -373,7 +373,7 @@ export default function CasualMatchesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
   const [challengeTarget, setChallengeTarget] = useState<{ id: string; name: string; avatarUrl: string | null } | null>(null)
-  const { onlinePlayerIds } = usePresence()
+  const { onlinePlayerIds, myPlayerId: myPlayerIdFromContext } = usePresence()
   const { data: players } = usePlayers()
   const { data: matches, isLoading } = useQuery<CasualMatch[]>({
     queryKey: ["casual-matches"],
@@ -389,7 +389,8 @@ export default function CasualMatchesPage() {
   const myPlayerId: string | undefined = meData?.playerId
   const isAdmin: boolean = meData?.role === "ADMIN"
 
-  const onlinePlayers = players?.filter((p) => onlinePlayerIds.has(p.id) && p.id !== myPlayerId) ?? []
+  const effectiveMyPlayerId = myPlayerIdFromContext ?? myPlayerId
+  const onlinePlayers = players?.filter((p) => onlinePlayerIds.has(p.id) && p.id !== effectiveMyPlayerId) ?? []
   const live = matches?.filter((m) => !m.completedAt) ?? []
   const recent = matches?.filter((m) => m.completedAt) ?? []
 
