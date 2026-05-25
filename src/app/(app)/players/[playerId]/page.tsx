@@ -336,6 +336,7 @@ interface ReplayRecord {
   playerLegsWon: number
   oppLegsWon: number
   startingScore: number
+  storageKey: string
   storageUrl: string
   viewUrl?: string
   durationMs: number
