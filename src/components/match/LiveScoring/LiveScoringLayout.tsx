@@ -75,6 +75,7 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
     visits,
     allVisits,
     pendingDoublesPrompt,
+    pendingCheckoutVisitId,
     awaitingMatchWinReveal,
     isMatchWon,
     startNewLeg,
@@ -251,7 +252,7 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
       </div>
 
       <LegWinAnimation />
-      {!pendingDoublesPrompt && !awaitingMatchWinReveal && <MatchWinReveal />}
+      {!pendingDoublesPrompt && !pendingCheckoutVisitId && !awaitingMatchWinReveal && <MatchWinReveal />}
       <DoublesPrompt />
       <ActionReplayPrompt />
     </>
