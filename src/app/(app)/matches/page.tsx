@@ -218,7 +218,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
   )
 }
 
-function MatchCard({ match, myUserId, isAdmin, onSelect }: { match: CasualMatch; myUserId?: string; isAdmin?: boolean; onSelect?: (id: string) => void }) {
+function MatchCard({ match, myUserId, myPlayerId, isAdmin, onSelect }: { match: CasualMatch; myUserId?: string; myPlayerId?: string; isAdmin?: boolean; onSelect?: (id: string) => void }) {
   const router = useRouter()
   const qc = useQueryClient()
   const isLive = !match.completedAt
@@ -343,7 +343,7 @@ function MatchCard({ match, myUserId, isAdmin, onSelect }: { match: CasualMatch;
       )}
 
       {/* Abandon / Restart actions — live matches, admin or creator only */}
-      {isLive && !confirm && (myUserId === match.createdByUserId || isAdmin) && (
+      {isLive && !confirm && (myUserId === match.createdByUserId || isAdmin || myPlayerId === match.playerA.id || myPlayerId === match.playerB.id) && (
         <div className="flex border-t border-white/5">
           <button
             onClick={() => setConfirm("abandon")}
@@ -380,6 +380,7 @@ export default function CasualMatchesPage() {
     staleTime: Infinity,
   })
   const myUserId: string | undefined = meData?.id
+  const myPlayerId: string | undefined = meData?.playerId
   const isAdmin: boolean = meData?.role === "ADMIN"
 
   const live = matches?.filter((m) => !m.completedAt) ?? []
@@ -417,7 +418,7 @@ export default function CasualMatchesPage() {
             <h2 className="font-black text-white uppercase tracking-wider text-sm">In Progress</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {live.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} isAdmin={isAdmin} onSelect={setSelectedMatchId} />)}
+            {live.map((m) => <MatchCard key={m.id} match={m} myUserId={myUserId} myPlayerId={myPlayerId} isAdmin={isAdmin} onSelect={setSelectedMatchId} />)}
           </div>
         </section>
       )}
