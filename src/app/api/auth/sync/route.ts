@@ -16,7 +16,14 @@ export async function POST() {
     where: { id: userId },
     update: { email, role },
     create: { id: userId, email, role },
+    include: { player: { select: { name: true } } },
   })
 
-  return NextResponse.json({ id: user.id, email: user.email, role: user.role, playerId: user.playerId ?? null })
+  return NextResponse.json({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    playerId: user.playerId ?? null,
+    playerName: user.player?.name ?? null,
+  })
 }
