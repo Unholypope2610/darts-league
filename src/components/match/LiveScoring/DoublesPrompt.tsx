@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { motion } from "framer-motion"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 
 export function DoublesPrompt() {
@@ -20,9 +21,18 @@ export function DoublesPrompt() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/60" />
-      <div className="relative w-full max-w-sm mx-auto bg-card rounded-t-2xl border-t border-border shadow-2xl px-5 pt-5 pb-[max(20px,env(safe-area-inset-bottom))] flex flex-col gap-4">
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 380, damping: 28 }}
+        className="relative w-full max-w-sm bg-card rounded-2xl border border-border shadow-2xl px-6 py-6 flex flex-col gap-5"
+      >
+        <div className="text-center">
+          <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Before you continue</p>
+          <p className="text-lg font-black">Darts at the Double</p>
+        </div>
 
         {isCheckout && (
           <div>
@@ -73,7 +83,7 @@ export function DoublesPrompt() {
         >
           Confirm
         </button>
-      </div>
+      </motion.div>
     </div>
   )
 }

@@ -47,6 +47,7 @@ interface LiveMatchStore {
   pendingDoublesPrompt: { visitId: string; type: "checkout" | "doubles" } | null
   pendingCheckoutVisitId: string | null
   awaitingMatchWinReveal: boolean  // suppresses reveal on remote devices until doubles confirmed
+  pendingTurnPlayerId: string | null  // holds next turn while doubles prompt is active (non-checkout)
 
   // Action replay prompt
   pendingReplay: {
@@ -115,6 +116,7 @@ const initialState = {
   pendingDoublesPrompt: null,
   pendingCheckoutVisitId: null,
   awaitingMatchWinReveal: false,
+  pendingTurnPlayerId: null,
   pendingReplay: null,
   _broadcast: null,
 }
@@ -245,6 +247,14 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
         const data: RecordVisitResponse = await res.json()
 
+        const needsDoublesPrompt =
+          !data.isCheckout && (
+            data.isBust ||
+            (previousRemainder <= 50 && previousRemainder % 2 === 0) ||
+            (previousRemainder < 40 && previousRemainder % 2 !== 0) ||
+            (!data.isBust && previousRemainder > 50 && data.newRemainder > 0 && data.newRemainder <= 50)
+          )
+
         // Announce the visit
         const otherRemainder = isCurrentPlayerA ? state.playerBRemainder : state.playerARemainder
         const otherPlayerName = isCurrentPlayerA
@@ -264,11 +274,16 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             else s.playerBRemainder = data.newRemainder
           }
 
-          // Swap turn (on both bust and non-bust)
-          s.currentTurnPlayerId =
+          // Swap turn — hold if doubles prompt is needed (non-checkout)
+          const nextPlayerId =
             state.currentTurnPlayerId === state.playerA?.id
               ? state.playerB?.id ?? null
               : state.playerA?.id ?? null
+          if (needsDoublesPrompt) {
+            s.pendingTurnPlayerId = nextPlayerId
+          } else {
+            s.currentTurnPlayerId = nextPlayerId
+          }
 
           if (data.legWinnerId) {
             s.legWinnerId = data.legWinnerId
@@ -292,16 +307,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         // Queue doubles prompt
         if (data.isCheckout) {
           set((s) => { s.pendingCheckoutVisitId = data.visit.id })
-        } else {
-          const needsDoublesPrompt =
-            data.isBust ||
-            (previousRemainder <= 50 && previousRemainder % 2 === 0) ||
-            (previousRemainder < 40 && previousRemainder % 2 !== 0) ||
-            (!data.isBust && previousRemainder > 50 && data.newRemainder > 0 && data.newRemainder <= 50)
-
-          if (needsDoublesPrompt) {
-            set((s) => { s.pendingDoublesPrompt = { visitId: data.visit.id, type: "doubles" } })
-          }
+        } else if (needsDoublesPrompt) {
+          set((s) => { s.pendingDoublesPrompt = { visitId: data.visit.id, type: "doubles" } })
         }
 
         // Trigger action replay prompt if camera is recording and score qualifies
@@ -388,8 +395,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           s.allVisits.push(data.visit)
           s.undoStack.push(data.visit.id)
 
-          // Swap turn on bust
-          s.currentTurnPlayerId =
+          // Hold turn — bust always triggers doubles prompt; turn advances on confirm
+          s.pendingTurnPlayerId =
             state.currentTurnPlayerId === state.playerA?.id
               ? state.playerB?.id ?? null
               : state.playerA?.id ?? null
@@ -429,6 +436,10 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           return { ...v, doublesAttempted, ...(dartsUsed !== null ? { dartsUsed } : {}) }
         })
         s.pendingDoublesPrompt = null
+        if (type === "doubles" && s.pendingTurnPlayerId) {
+          s.currentTurnPlayerId = s.pendingTurnPlayerId
+          s.pendingTurnPlayerId = null
+        }
       })
 
       if (type === "checkout") {
@@ -440,6 +451,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           set((s) => { s.pendingNextStarter = null })
           get().startNewLeg(pendingNextStarter)
         }
+      } else if (type === "doubles") {
+        // Broadcast so remote devices can also advance their held turn
+        get()._broadcast?.("DOUBLES_CONFIRMED", { visitId: id, doublesAttempted, dartsUsed: null })
       }
     },
 
@@ -539,8 +553,17 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       if (preState.visits.some((v) => v.id === data.visit.id)) return
 
       const isPlayerA = data.visit.playerId === preState.playerA?.id
+      const previousRemainder = isPlayerA ? preState.playerARemainder : preState.playerBRemainder
       const otherRemainder = isPlayerA ? preState.playerBRemainder : preState.playerARemainder
       const otherPlayerName = isPlayerA ? (preState.playerB?.name ?? "") : (preState.playerA?.name ?? "")
+
+      const needsDoublesPrompt =
+        !data.isCheckout && (
+          data.isBust ||
+          (previousRemainder <= 50 && previousRemainder % 2 === 0) ||
+          (previousRemainder < 40 && previousRemainder % 2 !== 0) ||
+          (!data.isBust && previousRemainder > 50 && data.newRemainder > 0 && data.newRemainder <= 50)
+        )
 
       set((state) => {
         state.visits.push(data.visit)
@@ -551,10 +574,16 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           else state.playerBRemainder = data.newRemainder
         }
 
-        state.currentTurnPlayerId =
+        const nextPlayerId =
           data.visit.playerId === state.playerA?.id
             ? state.playerB?.id ?? null
             : state.playerA?.id ?? null
+
+        if (needsDoublesPrompt) {
+          state.pendingTurnPlayerId = nextPlayerId
+        } else {
+          state.currentTurnPlayerId = nextPlayerId
+        }
 
         if (data.legWinnerId) {
           state.legWinnerId = data.legWinnerId
@@ -589,6 +618,10 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         s.visits = s.visits.map(update)
         s.allVisits = s.allVisits.map(update)
         s.awaitingMatchWinReveal = false
+        if (s.pendingTurnPlayerId) {
+          s.currentTurnPlayerId = s.pendingTurnPlayerId
+          s.pendingTurnPlayerId = null
+        }
       })
     },
 
