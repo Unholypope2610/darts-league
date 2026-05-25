@@ -174,6 +174,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
 
   // Canvas composition refs for burning overlay into recording
   const drawIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const requestDataIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const offscreenVideoRef = useRef<HTMLVideoElement | null>(null)
   const canvasStreamRef = useRef<MediaStream | null>(null)
 
@@ -261,6 +262,10 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       clearInterval(drawIntervalRef.current)
       drawIntervalRef.current = null
     }
+    if (requestDataIntervalRef.current !== null) {
+      clearInterval(requestDataIntervalRef.current)
+      requestDataIntervalRef.current = null
+    }
     canvasStreamRef.current?.getTracks().forEach((t) => t.stop())
     canvasStreamRef.current = null
     if (offscreenVideoRef.current) {
@@ -339,6 +344,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         }
       }, 40)
 
+      const isWebm = mimeType.includes("webm")
       const recorder = new MediaRecorder(cs, { mimeType })
       recorderRef.current = recorder
       // Eagerly convert each MediaRecorder chunk to ArrayBuffer so timestamps can
@@ -352,15 +358,17 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
 
           if (!initChunkRef.current) {
             initChunkRef.current = chunk
-            // Extract the EBML header bytes that precede the first Cluster
-            const d = new Uint8Array(buf)
-            for (let i = 0; i < d.length - 4; i++) {
-              if (d[i] === 0x1F && d[i+1] === 0x43 && d[i+2] === 0xB6 && d[i+3] === 0x75) {
-                initHeadersRef.current = buf.slice(0, i)
-                return
+            if (isWebm) {
+              // Extract the EBML header bytes that precede the first Cluster
+              const d = new Uint8Array(buf)
+              for (let i = 0; i < d.length - 4; i++) {
+                if (d[i] === 0x1F && d[i+1] === 0x43 && d[i+2] === 0xB6 && d[i+3] === 0x75) {
+                  initHeadersRef.current = buf.slice(0, i)
+                  return
+                }
               }
             }
-            initHeadersRef.current = buf // fallback: no Cluster found in first chunk
+            initHeadersRef.current = buf // MP4 init segment, or WebM fallback
           }
 
           const cutoff = wallTime - 30_000
@@ -369,7 +377,14 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
           }
         })
       }
-      recorder.start(1000)
+      // Use recorder.start() without timeslice + explicit requestData() every 1 s.
+      // iOS Safari ignores the timeslice argument on MP4 recordings and only fires
+      // ondataavailable when stop() is called, producing one giant chunk that makes
+      // the rolling buffer useless. requestData() IS honoured on iOS.
+      recorder.start()
+      requestDataIntervalRef.current = setInterval(() => {
+        if (recorderRef.current?.state === "recording") recorderRef.current.requestData()
+      }, 1000)
       setReplayCaptureFunc(playerId, (): CaptureResult | null => {
         if (!initHeadersRef.current) return null
         const cutoff = Date.now() - 25_000
@@ -378,10 +393,9 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         )
         if (filtered.length < 2) return null
         const durationMs = Date.now() - filtered[0].time
-        // Normalize cluster timestamps so the clip always starts at 0:00
-        const normalized = normalizeWebMTimestamps(filtered.map(c => c.data))
+        const parts = isWebm ? normalizeWebMTimestamps(filtered.map(c => c.data)) : filtered.map(c => c.data)
         return {
-          blob: new Blob([initHeadersRef.current, ...normalized], { type: mimeType }),
+          blob: new Blob([initHeadersRef.current, ...parts], { type: mimeType }),
           durationMs,
         }
       })
