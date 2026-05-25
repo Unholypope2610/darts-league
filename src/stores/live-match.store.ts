@@ -640,7 +640,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             ? (s.playerB?.id ?? null)
             : (s.playerA?.id ?? null)
         }
-        if (matchWinnerId !== undefined || isMatchDraw) {
+        if (matchWinnerId || isMatchDraw) {
           s.winnerId = matchWinnerId ?? null
           s.isMatchWon = true
           s.isMatchDraw = isMatchDraw ?? false
