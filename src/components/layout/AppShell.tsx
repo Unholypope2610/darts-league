@@ -26,6 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   usePushSubscription(userId)
 
   const { onlinePlayerIds } = usePlayerPresence(playerId, playerName, (pid, name) => {
+    if (pid === playerId) return
     if (pathname.includes("/live")) return
     toast.custom(
       (toastId) => (
