@@ -43,17 +43,6 @@ export function PlayerCard({ player, rank }: PlayerCardProps) {
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {rank !== undefined && (
-              <span className={cn(
-                "text-[10px] font-black px-1.5 py-0.5 rounded-full border",
-                rank === 1 ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
-                rank === 2 ? "bg-zinc-400/15 text-zinc-300 border-zinc-400/30" :
-                rank === 3 ? "bg-orange-700/15 text-orange-600 border-orange-700/30" :
-                "bg-violet-500/10 text-violet-400 border-violet-500/20"
-              )}>
-                #{rank}
-              </span>
-            )}
             {player.rankedTitles > 0 && (
               <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
                 <Trophy className="size-2.5" />
@@ -67,6 +56,17 @@ export function PlayerCard({ player, rank }: PlayerCardProps) {
               </span>
             )}
             <span className="text-xs text-muted-foreground">{player.hand === "LEFT" ? "L" : "R"}</span>
+            {rank !== undefined && (
+              <span className={cn(
+                "text-[10px] font-black px-1.5 py-0.5 rounded-full border",
+                rank === 1 ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                rank === 2 ? "bg-zinc-400/15 text-zinc-300 border-zinc-400/30" :
+                rank === 3 ? "bg-orange-700/15 text-orange-600 border-orange-700/30" :
+                "bg-violet-500/10 text-violet-400 border-violet-500/20"
+              )}>
+                #{rank}
+              </span>
+            )}
           </div>
         </div>
 
