@@ -351,7 +351,7 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "copied">("idle")
+  const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "downloaded">("idle")
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "loading">("idle")
 
   useEffect(() => {
@@ -369,11 +369,12 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
       const scoreLabel = `${replay.scoreThrown}${replay.isCheckout ? " checkout" : ""}`
       const videoUrl = replay.viewUrl ?? replay.storageUrl
 
+      const res = await fetch(videoUrl)
+      const blob = await res.blob()
+
       // Store in a plain boolean so TS doesn't narrow navigator to 'never' in else
       const hasNativeShare = "share" in navigator
       if (hasNativeShare) {
-        const res = await fetch(videoUrl)
-        const blob = await res.blob()
         const file = new File([blob], filename, { type: mimeType })
         const shareData = {
           files: [file],
@@ -387,9 +388,14 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
         }
         setShareStatus("idle")
       } else {
-        // Desktop without Web Share API — copy URL to clipboard
-        await navigator.clipboard.writeText(videoUrl)
-        setShareStatus("copied")
+        // Desktop without Web Share API — download the file so it can be attached
+        const objectUrl = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = objectUrl
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(objectUrl)
+        setShareStatus("downloaded")
         setTimeout(() => setShareStatus("idle"), 2000)
       }
     } catch {
@@ -478,7 +484,7 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
             {shareStatus === "loading"
               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
               : <Share2 className="w-3.5 h-3.5" />}
-            {shareStatus === "copied" ? "Copied!" : "Share"}
+            {shareStatus === "downloaded" ? "Downloaded!" : "Share"}
           </button>
           <button
             onClick={handleDownload}
