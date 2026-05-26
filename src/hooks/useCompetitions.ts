@@ -35,7 +35,11 @@ export function useUpdateCompetition(competitionId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<Competition>) =>
-      fetch(`/api/competitions/${competitionId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
+      fetch(`/api/competitions/${competitionId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(async (r) => {
+        const json = await r.json()
+        if (!r.ok) throw new Error(json?.error ?? "Failed to update competition")
+        return json
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["competitions"] }),
   })
 }

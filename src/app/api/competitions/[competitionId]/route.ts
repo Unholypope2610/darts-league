@@ -74,8 +74,12 @@ export async function PATCH(
     data: { ...parsed.data, ...(winnerId ? { winnerId } : {}) },
   })
 
-  if (parsed.data.status === "COMPLETED") {
-    await awardRankingPoints(competitionId)
+  if (parsed.data.status === "COMPLETED" && competition.isRanked) {
+    try {
+      await awardRankingPoints(competitionId)
+    } catch (err) {
+      console.error("[auto-award-ranking-points]", err)
+    }
   }
 
   return NextResponse.json(competition)

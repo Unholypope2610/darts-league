@@ -47,14 +47,16 @@ export async function awardRankingPoints(competitionId: string): Promise<void> {
     },
   })
 
-  if (!competition || !competition.isRanked) return
+  if (!competition) { console.error("[award-ranking-points] competition not found:", competitionId); return }
+  if (!competition.isRanked) { console.log("[award-ranking-points] skipping — isRanked=false for", competitionId); return }
 
   // Count total entrants across all divisions
   const allPlayerIds: string[] = [
     ...new Set<string>(competition.divisions.flatMap((d) => d.players.map((p) => String(p.playerId)))),
   ]
   const entrantCount = allPlayerIds.length
-  if (entrantCount < 4) return
+  console.log(`[award-ranking-points] competitionId=${competitionId} isRanked=${competition.isRanked} entrantCount=${entrantCount} hasBracket=${competition.bracketNodes.length > 0}`)
+  if (entrantCount < 4) { console.log("[award-ranking-points] skipping — entrantCount", entrantCount, "< 4"); return }
 
   // Snapshot entrantCount
   await prisma.competition.update({ where: { id: competitionId }, data: { entrantCount } })
@@ -141,8 +143,9 @@ export async function awardRankingPoints(competitionId: string): Promise<void> {
       .forEach((id) => entries.push({ playerId: id, points: calcPoints(championPts, 0.06), placementLabel: "Participant" }))
   }
 
-  if (entries.length === 0) return
+  if (entries.length === 0) { console.log("[award-ranking-points] skipping — no entries generated for", competitionId); return }
 
+  console.log(`[award-ranking-points] awarding ${entries.length} entries for competition ${competitionId}`)
   // Upsert guard: delete any existing points for this competition first (idempotent)
   await prisma.rankingPoint.deleteMany({ where: { competitionId } })
   await prisma.rankingPoint.createMany({
