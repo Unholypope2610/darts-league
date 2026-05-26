@@ -1,15 +1,22 @@
 "use client"
 
 import Link from "next/link"
+import { useQuery } from "@tanstack/react-query"
 import { usePlayers } from "@/hooks/usePlayers"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PlayerCard } from "@/components/players/PlayerCard"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Users } from "lucide-react"
+import type { RankingEntry } from "@/types/api"
 
 export default function PlayersPage() {
   const { data: players, isLoading } = usePlayers()
+  const { data: rankings } = useQuery<RankingEntry[]>({
+    queryKey: ["rankings"],
+    queryFn: () => fetch("/api/rankings").then((r) => r.json()),
+  })
+  const rankMap = new Map(rankings?.map((r, i) => [r.playerId, i + 1]) ?? [])
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,7 +39,7 @@ export default function PlayersPage() {
         </div>
       ) : players?.length ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {players.map((p) => <PlayerCard key={p.id} player={p} />)}
+          {players.map((p) => <PlayerCard key={p.id} player={p} rank={rankMap.get(p.id)} />)}
         </div>
       ) : (
         <EmptyState
