@@ -12,9 +12,18 @@ export const createCompetitionSchema = z.object({
   isRanked: z.boolean().default(false),
 })
 
-export const updateCompetitionSchema = createCompetitionSchema.partial().extend({
-  status: z.enum(["DRAFT", "ACTIVE", "COMPLETED"]).optional(),
-})
+export const updateCompetitionSchema = z.object({
+  name: z.string().min(1).max(80),
+  type: z.enum(["SINGLE_LEAGUE", "DIVISIONS", "KNOCKOUT"]),
+  season: z.string().min(1).max(20),
+  startingScore: z.number().int().positive(),
+  bestOf: z.number().int().min(1).max(21),
+  finishType: z.enum(["DOUBLE_OUT", "MASTER_OUT", "STRAIGHT_OUT"]),
+  isSets: z.boolean(),
+  legSize: z.number().int().min(1).optional().nullable(),
+  isRanked: z.boolean(),
+  status: z.enum(["DRAFT", "ACTIVE", "COMPLETED"]),
+}).partial()
 
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>
 export type UpdateCompetitionInput = z.infer<typeof updateCompetitionSchema>
