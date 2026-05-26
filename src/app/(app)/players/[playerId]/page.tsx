@@ -351,8 +351,7 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [shareStatus, setShareStatus] = useState<"idle" | "loading">("idle")
-  const canWebShare = typeof navigator !== "undefined" && "share" in navigator
+  const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "copied">("idle")
 
   useEffect(() => {
     const handler = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
@@ -367,25 +366,30 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
       const mimeType = ext === "mp4" ? "video/mp4" : "video/webm"
       const filename = `replay-${replay.scoreThrown}-${replay.createdAt.slice(0, 10)}.${ext}`
       const scoreLabel = `${replay.scoreThrown}${replay.isCheckout ? " checkout" : ""}`
+      const videoUrl = replay.viewUrl ?? replay.storageUrl
 
-      const res = await fetch(replay.viewUrl ?? replay.storageUrl)
-      const blob = await res.blob()
-      const file = new File([blob], filename, { type: mimeType })
-      const shareData = {
-        files: [file],
-        title: scoreLabel,
-        text: `${scoreLabel} vs ${replay.opponentName} · ${replay.playerLegsWon}–${replay.oppLegsWon} legs`,
-      }
-
-      if (navigator.canShare?.(shareData)) {
-        await navigator.share(shareData)
+      if ("share" in navigator) {
+        const res = await fetch(videoUrl)
+        const blob = await res.blob()
+        const file = new File([blob], filename, { type: mimeType })
+        const shareData = {
+          files: [file],
+          title: scoreLabel,
+          text: `${scoreLabel} vs ${replay.opponentName} · ${replay.playerLegsWon}–${replay.oppLegsWon} legs`,
+        }
+        if (navigator.canShare?.(shareData)) {
+          await navigator.share(shareData)
+        } else {
+          await navigator.share({ title: scoreLabel, url: videoUrl })
+        }
+        setShareStatus("idle")
       } else {
-        // Device doesn't support file sharing — share the URL instead
-        await navigator.share({ title: scoreLabel, url: replay.viewUrl ?? replay.storageUrl })
+        // Desktop without Web Share API — copy URL to clipboard
+        await navigator.clipboard.writeText(videoUrl)
+        setShareStatus("copied")
+        setTimeout(() => setShareStatus("idle"), 2000)
       }
     } catch {
-      // User cancelled or unsupported — silently ignore
-    } finally {
       setShareStatus("idle")
     }
   }
@@ -445,18 +449,16 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
           <p className="text-xs text-muted-foreground">{formatDate(replay.createdAt)}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {canWebShare && (
-            <button
-              onClick={handleShare}
-              disabled={shareStatus === "loading"}
-              className="px-3 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {shareStatus === "loading"
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Share2 className="w-3.5 h-3.5" />}
-              Share
-            </button>
-          )}
+          <button
+            onClick={handleShare}
+            disabled={shareStatus === "loading"}
+            className="px-3 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {shareStatus === "loading"
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Share2 className="w-3.5 h-3.5" />}
+            {shareStatus === "copied" ? "Copied!" : "Share"}
+          </button>
           <a
             href={replay.viewUrl ?? replay.storageUrl}
             download={`replay-${replay.scoreThrown}-${replay.createdAt.slice(0, 10)}.${replay.storageKey.endsWith(".mp4") ? "mp4" : "webm"}`}
