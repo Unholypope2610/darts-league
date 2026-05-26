@@ -79,7 +79,7 @@ export default function CompetitionOverviewPage({ params }: PageProps) {
       </div>
 
       {/* Quick actions */}
-      {competition.status === "DRAFT" && (
+      {(competition.status === "DRAFT" || (competition.status === "ACTIVE" && total === 0)) && (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-center justify-between gap-3">
           {competition.type === "KNOCKOUT" ? (
             <>

@@ -24,7 +24,7 @@ export default function FixturesPage({ params }: PageProps) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Fixtures</h2>
-        {!hasFixtures && competition?.status === "DRAFT" && (
+        {!hasFixtures && (competition?.status === "DRAFT" || competition?.status === "ACTIVE") && (
           <Button onClick={() => setShowGenerate(true)} size="sm">
             Generate Fixtures
           </Button>
