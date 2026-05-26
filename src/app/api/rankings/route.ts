@@ -14,7 +14,7 @@ export async function GET() {
       player: { select: { id: true, name: true, avatarUrl: true } },
       competition: { select: { name: true, season: true } },
     },
-    orderBy: { awardedAt: "asc" },
+    orderBy: { awardedAt: "desc" },
   })
 
   // Group by player
