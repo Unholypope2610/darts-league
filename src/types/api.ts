@@ -21,6 +21,11 @@ export interface Competition {
   entrantCount: number | null
   createdAt: string
   updatedAt: string
+  divisions?: {
+    id: string
+    tier: number
+    players: { playerId: string; player: { id: string; name: string } }[]
+  }[]
 }
 
 export interface RankingEntry {
