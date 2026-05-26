@@ -159,16 +159,6 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
               >
                 🔄 Run Again
               </Button>
-              {competition.isRanked && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => awardPoints()}
-                  disabled={isAwardingPoints}
-                >
-                  {isAwardingPoints ? "Awarding…" : "Re-award Ranking Points"}
-                </Button>
-              )}
             </>
           )}
         </div>
@@ -195,6 +185,16 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
             >
               Simulate Bracket
             </Button>
+            {competition.status === "COMPLETED" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => awardPoints()}
+                disabled={isAwardingPoints}
+              >
+                {isAwardingPoints ? "Awarding…" : "Award Ranking Points"}
+              </Button>
+            )}
           </div>
         </div>
       )}

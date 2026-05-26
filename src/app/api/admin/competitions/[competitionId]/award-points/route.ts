@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { awardRankingPoints } from "@/lib/utils/award-ranking-points"
 
 export async function POST(
@@ -14,6 +15,11 @@ export async function POST(
 
   const { competitionId } = await params
   try {
+    // Ensure isRanked is true so awardRankingPoints doesn't bail out early
+    await prisma.competition.update({
+      where: { id: competitionId },
+      data: { isRanked: true },
+    })
     await awardRankingPoints(competitionId)
     return NextResponse.json({ ok: true })
   } catch (err) {
