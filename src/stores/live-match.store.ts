@@ -224,6 +224,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         s.error = null
       })
 
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000)
+
       try {
         const res = await fetch(`/api/matches/${state.matchId}/visits`, {
           method: "POST",
@@ -235,9 +238,12 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             dartsUsed: 3,
             doublesAttempted: 0,
           }),
+          signal: controller.signal,
         })
+        clearTimeout(timeoutId)
 
         if (!res.ok) {
+          clearTimeout(timeoutId)
           const err = await res.json()
           const msg = err.error ?? "Failed to record visit"
           set((s) => { s.error = msg; s.isSubmitting = false })
@@ -348,7 +354,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           if (winnerName) setTimeout(() => announceMatchWin(winnerName), 2400)
         }
       } catch {
+        clearTimeout(timeoutId)
         set((s) => { s.error = "Network error"; s.isSubmitting = false })
+        toast.error("Failed to submit — please try again")
       }
     },
 
@@ -360,6 +368,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       const scoreThrown = state.dartInput ? (parseInt(state.dartInput, 10) || 0) : 0
 
       set((s) => { s.isSubmitting = true; s.error = null })
+
+      const bustController = new AbortController()
+      const bustTimeoutId = setTimeout(() => bustController.abort(), 8000)
 
       try {
         const res = await fetch(`/api/matches/${state.matchId}/visits`, {
@@ -373,7 +384,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             doublesAttempted: 0,
             forceBust: true,
           }),
+          signal: bustController.signal,
         })
+        clearTimeout(bustTimeoutId)
 
         if (!res.ok) {
           const err = await res.json()
@@ -409,7 +422,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
 
         get()._broadcast?.("VISIT_RECORDED", data)
       } catch {
+        clearTimeout(bustTimeoutId)
         set((s) => { s.error = "Network error"; s.isSubmitting = false })
+        toast.error("Failed to submit — please try again")
       }
     },
 

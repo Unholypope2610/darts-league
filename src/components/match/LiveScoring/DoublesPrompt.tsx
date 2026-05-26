@@ -83,6 +83,17 @@ export function DoublesPrompt() {
         >
           Confirm
         </button>
+
+        <button
+          onClick={() => {
+            confirmDoublesPrompt(isCheckout ? dartsUsed : null, 0)
+            setDartsUsed(3)
+            setDoublesAttempted(null)
+          }}
+          className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Skip (don&apos;t record doubles)
+        </button>
       </motion.div>
     </div>
   )
