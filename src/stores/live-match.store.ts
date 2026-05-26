@@ -324,6 +324,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             : (state.isLocal ? getAnyRecordingPlayerId() : null)
           if (!cameraPlayerId) return
           const isPlayerA = scorer.id === state.playerA?.id
+          // Read fresh state so leg counts reflect the just-completed checkout
+          const fresh = get()
           set((s) => {
             s.pendingReplay = {
               scoreThrown: data.visit.scoreThrown,
@@ -332,8 +334,8 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
               playerId: cameraPlayerId,
               scorerPlayerId: scorer.id,
               opponentName: opponent.name,
-              playerLegsWon: isPlayerA ? state.playerALegsWon : state.playerBLegsWon,
-              oppLegsWon: isPlayerA ? state.playerBLegsWon : state.playerALegsWon,
+              playerLegsWon: isPlayerA ? fresh.playerALegsWon : fresh.playerBLegsWon,
+              oppLegsWon: isPlayerA ? fresh.playerBLegsWon : fresh.playerALegsWon,
             }
           })
         }
