@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Trophy, ChevronDown, ChevronUp } from "lucide-react"
+import { Trophy, ChevronDown, ChevronUp, RotateCcw } from "lucide-react"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -149,11 +149,22 @@ function ChampionsTab() {
           {/* Header */}
           <div className="p-4 flex items-center justify-between gap-2">
             <p className="font-semibold text-sm truncate">{entry.competitionName}</p>
-            {entry.current?.isRanked && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30 shrink-0">
-                Ranked
-              </span>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {entry.current?.isRanked && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
+                  Ranked
+                </span>
+              )}
+              {entry.current && (
+                <Link
+                  href={`/competitions/${entry.current.competitionId}/settings`}
+                  className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors border border-border rounded-full px-2 py-0.5"
+                >
+                  <RotateCcw className="size-2.5" />
+                  Run Again
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Current champion */}

@@ -24,6 +24,22 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
   const [confirmSimulate, setConfirmSimulate] = useState(false)
   const [confirmSimulateBracket, setConfirmSimulateBracket] = useState(false)
 
+  const { mutate: awardPoints, isPending: isAwardingPoints } = useMutation({
+    mutationFn: () =>
+      fetch(`/api/admin/competitions/${competitionId}/award-points`, { method: "POST" }).then(async (r) => {
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}))
+          throw new Error((j as Record<string, string>).error ?? "Failed to award points")
+        }
+        return r.json()
+      }),
+    onSuccess: () => {
+      toast.success("Ranking points awarded!")
+      qc.invalidateQueries({ queryKey: ["rankings"] })
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to award points"),
+  })
+
   const { data: meData } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
@@ -143,6 +159,16 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
               >
                 🔄 Run Again
               </Button>
+              {competition.isRanked && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => awardPoints()}
+                  disabled={isAwardingPoints}
+                >
+                  {isAwardingPoints ? "Awarding…" : "Re-award Ranking Points"}
+                </Button>
+              )}
             </>
           )}
         </div>
