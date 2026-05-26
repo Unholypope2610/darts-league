@@ -50,7 +50,7 @@ export async function awardRankingPoints(competitionId: string): Promise<void> {
   if (!competition || !competition.isRanked) return
 
   // Count total entrants across all divisions
-  const allPlayerIds = [
+  const allPlayerIds: string[] = [
     ...new Set(competition.divisions.flatMap((d) => d.players.map((p) => p.playerId))),
   ]
   const entrantCount = allPlayerIds.length
