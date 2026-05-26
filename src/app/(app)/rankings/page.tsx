@@ -83,7 +83,10 @@ function StandingsTab() {
                     style={{ width: `${(entry.points / maxPts) * 100}%` }}
                   />
                 </div>
-                <span className="font-score font-black text-lg w-12 text-right">{entry.points}</span>
+                <span className={cn("font-score font-black text-xl w-16 text-right", isFirst ? "text-amber-400" : "text-primary")}>
+                  {entry.points}
+                </span>
+                <span className="text-xs text-muted-foreground -ml-2">pts</span>
                 {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </div>
             </button>
