@@ -22,7 +22,7 @@ export async function GET() {
     playerId: string
     name: string
     avatarUrl: string | null
-    totalPoints: number
+    points: number
     eventsEntered: number
     breakdown: {
       competitionId: string
@@ -41,11 +41,11 @@ export async function GET() {
       playerId: rp.playerId,
       name: rp.player.name,
       avatarUrl: rp.player.avatarUrl,
-      totalPoints: 0,
+      points: 0,
       eventsEntered: 0,
       breakdown: [] as { competitionId: string; competitionName: string; season: string; points: number; placementLabel: string; entrantCount: number; awardedAt: string; expiresAt: string }[],
     }
-    existing.totalPoints += rp.points
+    existing.points += rp.points
     existing.eventsEntered += 1
     const expiry = new Date(rp.awardedAt)
     expiry.setFullYear(expiry.getFullYear() + 1)
@@ -72,7 +72,7 @@ export async function GET() {
 
   const leaderboard = [...playerMap.values()]
     .map((p) => ({ ...p, rankedTitles: titleMap.get(p.playerId) ?? 0 }))
-    .sort((a, b) => b.totalPoints - a.totalPoints)
+    .sort((a, b) => b.points - a.points)
 
   return NextResponse.json(leaderboard)
 }
