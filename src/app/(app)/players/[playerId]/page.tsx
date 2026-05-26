@@ -352,6 +352,7 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "copied">("idle")
+  const [downloadStatus, setDownloadStatus] = useState<"idle" | "loading">("idle")
 
   useEffect(() => {
     const handler = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
@@ -368,7 +369,9 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
       const scoreLabel = `${replay.scoreThrown}${replay.isCheckout ? " checkout" : ""}`
       const videoUrl = replay.viewUrl ?? replay.storageUrl
 
-      if ("share" in navigator) {
+      // Store in a plain boolean so TS doesn't narrow navigator to 'never' in else
+      const hasNativeShare = "share" in navigator
+      if (hasNativeShare) {
         const res = await fetch(videoUrl)
         const blob = await res.blob()
         const file = new File([blob], filename, { type: mimeType })
@@ -394,6 +397,24 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
     }
   }
 
+  async function handleDownload() {
+    setDownloadStatus("loading")
+    try {
+      const ext = replay.storageKey.endsWith(".mp4") ? "mp4" : "webm"
+      const filename = `replay-${replay.scoreThrown}-${replay.createdAt.slice(0, 10)}.${ext}`
+      const res = await fetch(replay.viewUrl ?? replay.storageUrl)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch { /* silently ignore */ } finally {
+      setDownloadStatus("idle")
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <div
@@ -408,7 +429,7 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
           controls
           playsInline
           preload="metadata"
-          controlsList="nofullscreen"
+          controlsList="nofullscreen nodownload"
           className={cn("w-full object-contain", isFullscreen ? "h-full" : "max-h-64")}
           ref={(el) => {
             if (!el) return
@@ -459,13 +480,14 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
               : <Share2 className="w-3.5 h-3.5" />}
             {shareStatus === "copied" ? "Copied!" : "Share"}
           </button>
-          <a
-            href={replay.viewUrl ?? replay.storageUrl}
-            download={`replay-${replay.scoreThrown}-${replay.createdAt.slice(0, 10)}.${replay.storageKey.endsWith(".mp4") ? "mp4" : "webm"}`}
-            className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+          <button
+            onClick={handleDownload}
+            disabled={downloadStatus === "loading"}
+            className="px-4 py-2 rounded-lg bg-muted border border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
+            {downloadStatus === "loading" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Download
-          </a>
+          </button>
           {canDelete && (
             <button
               onClick={onDelete}
