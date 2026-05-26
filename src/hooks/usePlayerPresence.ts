@@ -14,8 +14,9 @@ export function usePlayerPresence(
   const onJoinRef = useRef(onJoin)
   const myPlayerIdRef = useRef(myPlayerId)
 
-  useEffect(() => { onJoinRef.current = onJoin }, [onJoin])
-  useEffect(() => { myPlayerIdRef.current = myPlayerId }, [myPlayerId])
+  // Update synchronously every render so event handlers always see the latest value
+  onJoinRef.current = onJoin
+  myPlayerIdRef.current = myPlayerId
 
   useEffect(() => {
     const supabase = getSupabase()
