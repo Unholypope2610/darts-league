@@ -43,7 +43,7 @@ export async function GET() {
       avatarUrl: rp.player.avatarUrl,
       totalPoints: 0,
       eventsEntered: 0,
-      breakdown: [],
+      breakdown: [] as { competitionId: string; competitionName: string; season: string; points: number; placementLabel: string; entrantCount: number; awardedAt: string; expiresAt: string }[],
     }
     existing.totalPoints += rp.points
     existing.eventsEntered += 1
