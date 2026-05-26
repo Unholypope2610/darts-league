@@ -9,6 +9,7 @@ export const createCompetitionSchema = z.object({
   finishType: z.enum(["DOUBLE_OUT", "MASTER_OUT", "STRAIGHT_OUT"]).default("DOUBLE_OUT"),
   isSets: z.boolean().default(false),
   legSize: z.number().int().min(1).optional().nullable(),
+  isRanked: z.boolean().default(false),
 })
 
 export const updateCompetitionSchema = createCompetitionSchema.partial().extend({
@@ -26,5 +27,5 @@ export const createDivisionSchema = z.object({
 
 export const generateFixturesSchema = z.object({
   divisionId: z.string().optional(),
-  rounds: z.number().int().min(1).max(10).default(1),
+  rounds: z.number().int().min(1).max(20).default(1),
 })

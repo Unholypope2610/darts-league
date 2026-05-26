@@ -13,6 +13,7 @@ import {
   Settings,
   Crosshair,
   Swords,
+  Medal,
 } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 import { UserButton } from "@clerk/nextjs"
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/matches", label: "Casual", icon: Swords },
   { href: "/tables", label: "Tables", icon: BarChart2 },
   { href: "/brackets", label: "Brackets", icon: Target },
+  { href: "/rankings", label: "Rankings", icon: Medal },
   { href: "/history", label: "Champions Wall", icon: History },
   { href: "/settings/users", label: "Settings", icon: Settings },
 ]

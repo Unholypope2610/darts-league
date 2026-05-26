@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { isAdmin } from "@/lib/auth"
+import { awardRankingPoints } from "@/lib/utils/award-ranking-points"
 
 export async function POST(
   req: Request,
@@ -78,6 +79,8 @@ export async function POST(
       data: { status: "COMPLETED", winnerId: tier1Standings[0] ?? null },
     }),
   ])
+
+  await awardRankingPoints(competitionId)
 
   return NextResponse.json({ promoted, relegated })
 }

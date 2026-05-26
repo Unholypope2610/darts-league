@@ -42,6 +42,12 @@ export function PlayerCard({ player }: PlayerCardProps) {
             )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {player.rankedTitles > 0 && (
+              <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30">
+                <Trophy className="size-2.5" />
+                {player.rankedTitles}
+              </span>
+            )}
             {player.titles > 0 && (
               <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
                 <Trophy className="size-2.5" />

@@ -17,8 +17,26 @@ export interface Competition {
   bracketStartingScore: number | null
   bracketFinishType: string | null
   winnerId: string | null
+  isRanked: boolean
+  entrantCount: number | null
   createdAt: string
   updatedAt: string
+}
+
+export interface RankingEntry {
+  playerId: string
+  name: string
+  avatarUrl: string | null
+  points: number
+  eventsEntered: number
+  rankedTitles: number
+  breakdown: { competitionId: string; competitionName: string; season: string; points: number; placementLabel: string; entrantCount: number; awardedAt: string; expiresAt: string }[]
+}
+
+export interface ChampionEntry {
+  competitionName: string
+  current: { competitionId: string; season: string; isRanked: boolean; entrantCount: number | null; winner: { id: string; name: string; avatarUrl: string | null } } | null
+  past: { competitionId: string; season: string; isRanked: boolean; winner: { id: string; name: string; avatarUrl: string | null } }[]
 }
 
 export interface Player {
@@ -38,6 +56,7 @@ export interface Player {
   topCheckouts: number[]
   recentForm: ("W" | "D" | "L")[]
   titles: number
+  rankedTitles: number
   first9Average: number
   bestLeg: number | null
   replayScoreThreshold: number

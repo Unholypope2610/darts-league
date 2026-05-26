@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { SeasonEndModal } from "@/components/competitions/SeasonEndModal"
+import { CompetitionWizard } from "@/components/competitions/CompetitionWizard"
 
 interface PageProps {
   params: Promise<{ competitionId: string }>
@@ -19,6 +20,7 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
   const { data: competition, isLoading } = useCompetition(competitionId)
   const { mutate: update, isPending } = useUpdateCompetition(competitionId)
   const [showSeasonEnd, setShowSeasonEnd] = useState(false)
+  const [showRunAgain, setShowRunAgain] = useState(false)
   const [confirmSimulate, setConfirmSimulate] = useState(false)
   const [confirmSimulateBracket, setConfirmSimulateBracket] = useState(false)
 
@@ -122,17 +124,26 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
             </>
           )}
           {competition.status === "COMPLETED" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => update({ status: "ACTIVE" }, {
-                onSuccess: () => toast.success("Reverted to active."),
-                onError: () => toast.error("Failed to update status"),
-              })}
-              disabled={isPending}
-            >
-              Revert to Active
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => update({ status: "ACTIVE" }, {
+                  onSuccess: () => toast.success("Reverted to active."),
+                  onError: () => toast.error("Failed to update status"),
+                })}
+                disabled={isPending}
+              >
+                Revert to Active
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setShowRunAgain(true)}
+                className="bg-violet-600 hover:bg-violet-500 text-white"
+              >
+                🔄 Run Again
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -167,6 +178,30 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
         open={showSeasonEnd}
         onClose={() => setShowSeasonEnd(false)}
       />
+
+      <Dialog open={showRunAgain} onOpenChange={setShowRunAgain}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Run Again — New Season</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Pre-filled from &ldquo;{competition.name}&rdquo;. Adjust players and settings as needed.
+          </p>
+          <CompetitionWizard
+            cloneFrom={{
+              name: competition.name,
+              type: competition.type as "SINGLE_LEAGUE" | "DIVISIONS" | "KNOCKOUT",
+              startingScore: competition.startingScore,
+              bestOf: competition.bestOf,
+              finishType: competition.finishType as "DOUBLE_OUT" | "STRAIGHT_OUT" | "MASTER_OUT",
+              isRanked: competition.isRanked,
+              playerIds: competition.divisions?.flatMap((d: { players: { playerId: string }[] }) => d.players.map((p) => p.playerId)) ?? [],
+              div1PlayerIds: competition.divisions?.find((d: { tier: number }) => d.tier === 1)?.players.map((p: { playerId: string }) => p.playerId) ?? [],
+              div2PlayerIds: competition.divisions?.find((d: { tier: number }) => d.tier === 2)?.players.map((p: { playerId: string }) => p.playerId) ?? [],
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmSimulate} onOpenChange={setConfirmSimulate}>
         <DialogContent className="max-w-sm">

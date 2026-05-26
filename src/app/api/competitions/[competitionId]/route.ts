@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { updateCompetitionSchema } from "@/lib/validations/competition.schema"
 import { getLeagueWinner } from "@/lib/utils/getLeagueWinner"
+import { awardRankingPoints } from "@/lib/utils/award-ranking-points"
 
 export async function GET(
   _req: Request,
@@ -72,6 +73,11 @@ export async function PATCH(
     where: { id: competitionId },
     data: { ...parsed.data, ...(winnerId ? { winnerId } : {}) },
   })
+
+  if (parsed.data.status === "COMPLETED") {
+    await awardRankingPoints(competitionId)
+  }
+
   return NextResponse.json(competition)
 }
 

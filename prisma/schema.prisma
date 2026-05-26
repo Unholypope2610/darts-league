@@ -41,6 +41,7 @@ model Player {
   bracketSeedsB       BracketNode[]    @relation("SeedB")
   bracketWinners      BracketNode[]    @relation("BracketWinner")
   competitionsWon     Competition[]    @relation("CompetitionWinner")
+  rankingPoints       RankingPoint[]
 }
 
 model Competition {
@@ -59,12 +60,15 @@ model Competition {
   bracketFinishType  String?
   winnerId      String?
   winner        Player?  @relation("CompetitionWinner", fields: [winnerId], references: [id])
+  isRanked      Boolean  @default(false)
+  entrantCount  Int?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  divisions    Division[]
-  fixtures     Fixture[]
-  bracketNodes BracketNode[]
+  divisions     Division[]
+  fixtures      Fixture[]
+  bracketNodes  BracketNode[]
+  rankingPoints RankingPoint[]
 }
 
 model Division {
@@ -191,6 +195,18 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+}
+
+model RankingPoint {
+  id             String      @id @default(cuid())
+  playerId       String
+  player         Player      @relation(fields: [playerId], references: [id])
+  competitionId  String
+  competition    Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  points         Int
+  placementLabel String
+  entrantCount   Int
+  awardedAt      DateTime    @default(now())
 }
 
 model BracketNode {

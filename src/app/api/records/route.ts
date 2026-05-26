@@ -2,13 +2,19 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@clerk/nextjs/server"
 
-export async function GET() {
+export async function GET(req: Request) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const ranked = new URL(req.url).searchParams.get("ranked") === "true"
+  const compFilter = ranked ? { isRanked: true } : {}
+
   const [allVisits, allLegs, allMatches, titlesLeaderboard] = await Promise.all([
     prisma.visit.findMany({
-      where: { isBust: false },
+      where: {
+        isBust: false,
+        ...(ranked ? { leg: { match: { fixture: { competition: compFilter } } } } : {}),
+      },
       include: {
         player: { select: { id: true, name: true, avatarUrl: true } },
         leg: {
@@ -24,7 +30,10 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.leg.findMany({
-      where: { winnerId: { not: null } },
+      where: {
+        winnerId: { not: null },
+        ...(ranked ? { match: { fixture: { competition: compFilter } } } : {}),
+      },
       include: {
         match: {
           include: {
@@ -36,7 +45,10 @@ export async function GET() {
       },
     }),
     prisma.match.findMany({
-      where: { completedAt: { not: null } },
+      where: {
+        completedAt: { not: null },
+        ...(ranked ? { fixture: { competition: compFilter } } : {}),
+      },
       include: {
         playerA: { select: { id: true, name: true, avatarUrl: true } },
         playerB: { select: { id: true, name: true, avatarUrl: true } },
@@ -45,11 +57,11 @@ export async function GET() {
       },
     }),
     prisma.player.findMany({
-      where: { competitionsWon: { some: {} } },
+      where: { competitionsWon: { some: ranked ? { isRanked: true } : {} } },
       select: {
         id: true, name: true, avatarUrl: true,
-        _count: { select: { competitionsWon: true } },
-        competitionsWon: { select: { id: true, name: true, season: true, type: true } },
+        _count: { select: { competitionsWon: { where: ranked ? { isRanked: true } : {} } } },
+        competitionsWon: { where: ranked ? { isRanked: true } : {}, select: { id: true, name: true, season: true, type: true } },
       },
       orderBy: { competitionsWon: { _count: "desc" } },
     }),

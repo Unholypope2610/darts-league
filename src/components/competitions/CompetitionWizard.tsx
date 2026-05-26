@@ -33,19 +33,42 @@ const TYPE_INFO = {
   KNOCKOUT: { label: "Knockout", desc: "Seeded bracket tournament (4 or 8 players)." },
 }
 
-export function CompetitionWizard() {
+interface CloneFrom {
+  name: string
+  type: "SINGLE_LEAGUE" | "DIVISIONS" | "KNOCKOUT"
+  startingScore: number
+  bestOf: number
+  finishType: "DOUBLE_OUT" | "STRAIGHT_OUT" | "MASTER_OUT"
+  isRanked: boolean
+  playerIds: string[]
+  div1PlayerIds?: string[]
+  div2PlayerIds?: string[]
+}
+
+interface CompetitionWizardProps {
+  cloneFrom?: CloneFrom
+}
+
+export function CompetitionWizard({ cloneFrom }: CompetitionWizardProps = {}) {
   const router = useRouter()
   const { data: players } = usePlayers()
   const { mutate, isPending } = useCreateCompetition()
   const [step, setStep] = useState(1)
-  const [type, setType] = useState<"SINGLE_LEAGUE" | "DIVISIONS" | "KNOCKOUT">("SINGLE_LEAGUE")
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([])
-  const [div1Players, setDiv1Players] = useState<string[]>([])
-  const [div2Players, setDiv2Players] = useState<string[]>([])
+  const [type, setType] = useState<"SINGLE_LEAGUE" | "DIVISIONS" | "KNOCKOUT">(cloneFrom?.type ?? "SINGLE_LEAGUE")
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>(cloneFrom?.playerIds ?? [])
+  const [div1Players, setDiv1Players] = useState<string[]>(cloneFrom?.div1PlayerIds ?? [])
+  const [div2Players, setDiv2Players] = useState<string[]>(cloneFrom?.div2PlayerIds ?? [])
+  const [isRanked, setIsRanked] = useState(cloneFrom?.isRanked ?? false)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(step2Schema),
-    defaultValues: { name: "", season: new Date().getFullYear().toString(), startingScore: 501, bestOf: 7, finishType: "DOUBLE_OUT" as const },
+    defaultValues: {
+      name: cloneFrom?.name ?? "",
+      season: new Date().getFullYear().toString(),
+      startingScore: cloneFrom?.startingScore ?? 501,
+      bestOf: cloneFrom?.bestOf ?? 7,
+      finishType: (cloneFrom?.finishType ?? "DOUBLE_OUT") as "DOUBLE_OUT",
+    },
   })
 
   const finishType = watch("finishType")
@@ -59,7 +82,7 @@ export function CompetitionWizard() {
   function handleCreate() {
     handleSubmit(
       (data) => {
-        const payload: Record<string, unknown> = { ...data, type }
+        const payload: Record<string, unknown> = { ...data, type, isRanked }
         if (type === "SINGLE_LEAGUE" || type === "KNOCKOUT") {
           payload.playerIds = selectedPlayers
         } else {
@@ -219,6 +242,35 @@ export function CompetitionWizard() {
             </div>
           )}
 
+          {/* Ranking Tournament toggle */}
+          {(() => {
+            const count = type === "DIVISIONS" ? div1Players.length + div2Players.length : selectedPlayers.length
+            const eligible = count >= 4
+            return (
+              <div className={cn("flex items-center justify-between rounded-xl border-2 p-4 transition-all", isRanked && eligible ? "border-violet-500 bg-violet-500/5" : "border-border")}>
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-sm">Ranking Tournament</span>
+                  {eligible
+                    ? <span className="text-xs text-muted-foreground">Points awarded · Rolling 12-month standings</span>
+                    : <span className="text-xs text-red-400">Minimum 4 players required</span>
+                  }
+                </div>
+                <button
+                  type="button"
+                  disabled={!eligible}
+                  onClick={() => eligible && setIsRanked((v) => !v)}
+                  className={cn(
+                    "w-11 h-6 rounded-full transition-colors relative",
+                    isRanked && eligible ? "bg-violet-500" : "bg-muted",
+                    !eligible && "opacity-40 cursor-not-allowed",
+                  )}
+                >
+                  <span className={cn("absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", isRanked && eligible && "translate-x-5")} />
+                </button>
+              </div>
+            )
+          })()}
+
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => setStep(2)} className="flex-1">← Back</Button>
             <Button onClick={() => setStep(4)} className="flex-1">Review →</Button>
@@ -236,6 +288,7 @@ export function CompetitionWizard() {
             <div className="flex justify-between"><span className="text-muted-foreground">Season</span><span className="font-medium">{watch("season")}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Format</span><span className="font-medium">Bo{bestOf} • {startingScore} • {finishType.replace("_", " ")}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Players</span><span className="font-medium">{type === "DIVISIONS" ? `${div1Players.length} + ${div2Players.length}` : selectedPlayers.length}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Ranking Event</span><span className={cn("font-medium", isRanked ? "text-violet-400" : "text-muted-foreground")}>{isRanked ? "Yes — points awarded" : "No"}</span></div>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => setStep(3)} className="flex-1">← Back</Button>
