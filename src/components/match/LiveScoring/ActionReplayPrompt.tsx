@@ -71,7 +71,7 @@ async function injectDuration(blob: Blob, durationMs: number): Promise<Blob> {
 export function ActionReplayPrompt() {
   const { pendingReplay, matchId, startingScore, clearPendingReplay } = useLiveMatchStore()
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECS)
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "noVideo" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "buffering" | "saving" | "saved" | "noVideo" | "error">("idle")
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -102,10 +102,19 @@ export function ActionReplayPrompt() {
   async function handleSave() {
     if (!pendingReplay || !matchId) return
 
-    const result = captureReplayForPlayer(pendingReplay.playerId)
+    // Try immediately; if the buffer isn't ready yet, retry every 500ms for up to 5s
+    let result = captureReplayForPlayer(pendingReplay.playerId)
     if (!result) {
-      setStatus("noVideo")
-      setTimeout(() => clearPendingReplay(), 2000)
+      setStatus("buffering")
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 500))
+        result = captureReplayForPlayer(pendingReplay.playerId)
+        if (result) break
+      }
+    }
+
+    if (!result) {
+      setStatus("noVideo") // prompt stays open — user can tap "Retry Save"
       return
     }
 
@@ -223,13 +232,14 @@ export function ActionReplayPrompt() {
 
           <div className="px-3 pb-3">
             <button
-              onClick={handleSave}
-              disabled={status === "saving"}
+              onClick={status === "noVideo" ? handleSave : status === "idle" ? handleSave : undefined}
+              disabled={status === "saving" || status === "buffering" || status === "saved"}
               className="w-full py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground transition-all active:scale-95 disabled:opacity-60"
             >
               {status === "saving" && "Saving…"}
+              {status === "buffering" && "Buffering…"}
               {status === "saved" && "Saved!"}
-              {status === "noVideo" && "Buffer not ready yet"}
+              {status === "noVideo" && "Retry Save"}
               {status === "error" && "Save failed — try again"}
               {status === "idle" && "Save Replay"}
             </button>

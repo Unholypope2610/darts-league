@@ -389,16 +389,18 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       // ondataavailable when stop() is called, producing one giant chunk that makes
       // the rolling buffer useless. requestData() IS honoured on iOS.
       recorder.start()
+      // Fire immediately so the first chunk arrives within ~100ms rather than waiting a full second
+      setTimeout(() => { if (recorderRef.current?.state === "recording") recorderRef.current.requestData() }, 100)
       requestDataIntervalRef.current = setInterval(() => {
         if (recorderRef.current?.state === "recording") recorderRef.current.requestData()
-      }, 1000)
+      }, 500)
       setReplayCaptureFunc(playerId, (): CaptureResult | null => {
         if (!initHeadersRef.current) return null
         const cutoff = Date.now() - 25_000
         const filtered = chunksRef.current.filter(
           (c) => c !== initChunkRef.current && c.time >= cutoff
         )
-        if (filtered.length < 2) return null
+        if (filtered.length < 1) return null
         const durationMs = Date.now() - filtered[0].time
         const parts = isWebm ? normalizeWebMTimestamps(filtered.map(c => c.data)) : filtered.map(c => c.data)
         return {
