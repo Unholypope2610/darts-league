@@ -23,6 +23,7 @@ export async function POST(req: Request) {
 
   const body = await req.json()
   const parsed = createCompetitionSchema.safeParse(body)
+  console.log("[create-competition] body.isRanked=", body.isRanked, "parsed.isRanked=", parsed.data?.isRanked)
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }

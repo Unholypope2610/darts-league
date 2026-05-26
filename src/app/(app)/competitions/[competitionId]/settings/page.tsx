@@ -98,6 +98,27 @@ export default function CompetitionSettingsPage({ params }: PageProps) {
     <div className="flex flex-col gap-6 max-w-md">
       <h2 className="font-semibold">Settings</h2>
 
+      {/* Ranking toggle */}
+      <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between gap-4">
+        <div>
+          <p className="font-medium text-sm">Ranking Tournament</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {competition.isRanked ? "Points will be awarded on completion" : "Not a ranked event"}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() => update({ isRanked: !competition.isRanked }, {
+            onSuccess: () => toast.success(competition.isRanked ? "Ranking disabled" : "Ranking enabled"),
+            onError: () => toast.error("Failed to update"),
+          })}
+          className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${competition.isRanked ? "bg-violet-500" : "bg-muted"} ${isPending ? "opacity-40" : ""}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${competition.isRanked ? "translate-x-5" : ""}`} />
+        </button>
+      </div>
+
       {/* Status management */}
       <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
         <h3 className="font-medium">Competition Status</h3>
