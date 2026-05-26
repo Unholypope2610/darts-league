@@ -51,7 +51,7 @@ export async function awardRankingPoints(competitionId: string): Promise<void> {
 
   // Count total entrants across all divisions
   const allPlayerIds: string[] = [
-    ...new Set(competition.divisions.flatMap((d) => d.players.map((p) => p.playerId as string))),
+    ...new Set<string>(competition.divisions.flatMap((d) => d.players.map((p) => String(p.playerId)))),
   ]
   const entrantCount = allPlayerIds.length
   if (entrantCount < 4) return
