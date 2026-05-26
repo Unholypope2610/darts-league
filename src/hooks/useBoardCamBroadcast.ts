@@ -67,6 +67,105 @@ function findClusterTimecode(d: Uint8Array, cPos: number): { writePos: number; s
   return null
 }
 
+// --- fMP4 (ISOBMFF) timestamp normalizer ---
+// fMP4 moof→traf→tfdt boxes store baseMediaDecodeTime relative to recording
+// start.  Clipping the last 25 s from a 17-minute session leaves tfdt values
+// starting at ~1 020 000 (at 1 kHz timescale), making the video appear 17 min
+// long.  We subtract the first fragment's baseMediaDecodeTime from all of them.
+
+function mp4ReadTfdtFromBox(d: DataView, start: number, end: number): number | null {
+  // Walk direct children of a box range looking for "tfdt" (0x74667464)
+  let pos = start
+  while (pos + 12 <= end) {
+    const size = d.getUint32(pos)
+    if (size < 8 || pos + size > end) break
+    const a = d.getUint8(pos + 4), b = d.getUint8(pos + 5)
+    const c = d.getUint8(pos + 6), e = d.getUint8(pos + 7)
+    if (a === 0x74 && b === 0x66 && c === 0x64 && e === 0x74) {
+      const ver = d.getUint8(pos + 8)
+      if (ver === 1) {
+        return d.getUint32(pos + 12) * 0x100000000 + d.getUint32(pos + 16)
+      }
+      return d.getUint32(pos + 12)
+    }
+    pos += size
+  }
+  return null
+}
+
+function mp4PatchTfdtInBox(d: DataView, start: number, end: number, offset: number): void {
+  let pos = start
+  while (pos + 12 <= end) {
+    const size = d.getUint32(pos)
+    if (size < 8 || pos + size > end) break
+    const a = d.getUint8(pos + 4), b = d.getUint8(pos + 5)
+    const c = d.getUint8(pos + 6), e = d.getUint8(pos + 7)
+    if (a === 0x74 && b === 0x66 && c === 0x64 && e === 0x74) {
+      const ver = d.getUint8(pos + 8)
+      if (ver === 1) {
+        const hi = d.getUint32(pos + 12), lo = d.getUint32(pos + 16)
+        const t = Math.max(0, hi * 0x100000000 + lo - offset)
+        d.setUint32(pos + 12, Math.floor(t / 0x100000000))
+        d.setUint32(pos + 16, t >>> 0)
+      } else {
+        d.setUint32(pos + 12, Math.max(0, d.getUint32(pos + 12) - offset))
+      }
+    }
+    pos += size
+  }
+}
+
+function mp4WalkMoof(d: DataView, buf: ArrayBuffer, patchOffset: number | null): number | null {
+  // Walk top-level boxes; for each "moof" (0x6D6F6F66) walk its children for "traf"
+  // then within traf look for "tfdt".  Returns first tfdt time if patchOffset===null.
+  let pos = 0
+  let firstTime: number | null = null
+  while (pos + 8 <= buf.byteLength) {
+    const size = d.getUint32(pos)
+    if (size < 8) break
+    const a = d.getUint8(pos + 4), b = d.getUint8(pos + 5)
+    const c = d.getUint8(pos + 6), e = d.getUint8(pos + 7)
+    // "moof" = 0x6D 0x6F 0x6F 0x66
+    if (a === 0x6D && b === 0x6F && c === 0x6F && e === 0x66) {
+      const moofEnd = pos + size
+      let trafPos = pos + 8
+      while (trafPos + 8 <= moofEnd) {
+        const trafSize = d.getUint32(trafPos)
+        if (trafSize < 8) break
+        const ta = d.getUint8(trafPos + 4), tb = d.getUint8(trafPos + 5)
+        const tc = d.getUint8(trafPos + 6), te = d.getUint8(trafPos + 7)
+        // "traf" = 0x74 0x72 0x61 0x66
+        if (ta === 0x74 && tb === 0x72 && tc === 0x61 && te === 0x66) {
+          if (patchOffset === null) {
+            const t = mp4ReadTfdtFromBox(d, trafPos + 8, trafPos + trafSize)
+            if (t !== null && firstTime === null) firstTime = t
+          } else {
+            mp4PatchTfdtInBox(d, trafPos + 8, trafPos + trafSize, patchOffset)
+          }
+        }
+        trafPos += trafSize
+      }
+    }
+    pos += size
+  }
+  return firstTime
+}
+
+function normalizeMP4Timestamps(chunks: ArrayBuffer[]): ArrayBuffer[] {
+  if (chunks.length === 0) return chunks
+  let offset = 0
+  for (const buf of chunks) {
+    const t = mp4WalkMoof(new DataView(buf), buf, null)
+    if (t !== null && t > 0) { offset = t; break }
+  }
+  if (offset === 0) return chunks
+  return chunks.map(buf => {
+    const copy = buf.slice(0)
+    mp4WalkMoof(new DataView(copy), copy, offset)
+    return copy
+  })
+}
+
 // Accepts and returns ArrayBuffer so results are always valid BlobParts.
 function normalizeWebMTimestamps(chunks: ArrayBuffer[]): ArrayBuffer[] {
   const views = chunks.map(b => new Uint8Array(b))
@@ -286,11 +385,18 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   }, [playerId])
 
   const startRecorder = useCallback((stream: MediaStream) => {
-    // Prefer MP4/H.264 — plays on iOS Safari; fall back to WebM for Chrome/Android
-    const mimeType =
-      MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" :
-      MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
-      MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : null
+    // iOS Safari only supports MP4/H.264 for recording; Android/Chrome prefer WebM
+    // because requestData() produces reliable rolling chunks for WebM on Chrome,
+    // whereas Chrome's MP4 recorder has platform-specific chunk emission quirks.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    const mimeType = isIOS
+      ? (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" :
+         MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
+         MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : null)
+      : (MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
+         MediaRecorder.isTypeSupported("video/webm") ? "video/webm" :
+         MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" : null)
     if (!mimeType) return
     chunksRef.current = []
     initHeadersRef.current = null
@@ -402,7 +508,9 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         )
         if (filtered.length < 1) return null
         const durationMs = Date.now() - filtered[0].time
-        const parts = isWebm ? normalizeWebMTimestamps(filtered.map(c => c.data)) : filtered.map(c => c.data)
+        const parts = isWebm
+          ? normalizeWebMTimestamps(filtered.map(c => c.data))
+          : normalizeMP4Timestamps(filtered.map(c => c.data))
         return {
           blob: new Blob([initHeadersRef.current, ...parts], { type: mimeType }),
           durationMs,
