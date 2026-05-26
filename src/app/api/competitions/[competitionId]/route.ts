@@ -74,7 +74,8 @@ export async function PATCH(
     data: { ...parsed.data, ...(winnerId ? { winnerId } : {}) },
   })
 
-  if (parsed.data.status === "COMPLETED" && competition.isRanked) {
+  if (parsed.data.status === "COMPLETED") {
+    console.log(`[auto-award] competition=${competitionId} isRanked=${competition.isRanked}`)
     try {
       await awardRankingPoints(competitionId)
     } catch (err) {
