@@ -10,7 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatAverage } from "@/lib/utils/format"
 import { usePlayers } from "@/hooks/usePlayers"
-import { cn } from "@/lib/utils/cn"
 
 interface RecordData {
   highestCheckout: { player: { name: string; avatarUrl?: string | null }; score: number; competition?: { name: string } | null } | null
@@ -45,10 +44,10 @@ function PlayerRow({ name, avatarUrl, stat, label }: { name: string; avatarUrl?:
 }
 
 export default function RecordsPage() {
-  const [tab, setTab] = useState<"all" | "ranked">("all")
+  const [tab] = useState<"all">("all")
   const { data, isLoading } = useQuery<RecordData>({
     queryKey: ["records", tab],
-    queryFn: () => fetch(tab === "ranked" ? "/api/records?ranked=true" : "/api/records").then((r) => r.json()),
+    queryFn: () => fetch("/api/records").then((r) => r.json()),
   })
   const { data: players } = usePlayers()
   const winRateLeader = useMemo(() => {
@@ -86,27 +85,10 @@ export default function RecordsPage() {
         }
       />
 
-      {/* All / Ranked tab toggle */}
-      <div className="flex items-center gap-3">
-        <div className="flex rounded-xl overflow-hidden border border-border">
-          {(["all", "ranked"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "px-5 py-2 text-sm font-semibold transition-colors",
-                tab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t === "all" ? "All" : "Ranked"}
-            </button>
-          ))}
-        </div>
-        {tab === "ranked" && (
-          <Link href="/rankings" className="text-xs text-violet-400 hover:text-violet-300 font-semibold transition-colors">
-            View full rankings →
-          </Link>
-        )}
+      <div className="flex items-center gap-2">
+        <Link href="/rankings" className="text-xs text-violet-400 hover:text-violet-300 font-semibold transition-colors">
+          Ranked records & standings →
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
