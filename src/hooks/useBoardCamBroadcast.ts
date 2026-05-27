@@ -465,6 +465,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       recorderRef.current = recorder
       // Eagerly convert each MediaRecorder chunk to ArrayBuffer so timestamps can
       // be patched synchronously at capture time (no async needed in captureFunc).
+      recorder.onerror = () => setError("Recording stopped unexpectedly — replay may not be saved")
       recorder.ondataavailable = (e) => {
         if (e.data.size === 0) return
         const wallTime = Date.now()
@@ -643,6 +644,12 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       setIsStreaming(true)
       setError(null)
 
+      // Detect camera being revoked mid-session (iOS background, another app, screen lock)
+      stream.getVideoTracks()[0].onended = () => {
+        setError("Camera disconnected — tap Start Cam to reconnect")
+        stop()
+      }
+
       detectZoom(stream)
       await detectRearCameras(stream)
       startRecorder(stream)
@@ -675,8 +682,8 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         await createOffer(spectatorId)
       })
 
-      channel.subscribe(() => {
-        // Spectators' READY signals drive offer creation — nothing to do on subscribe
+      channel.subscribe((status) => {
+        if (status === "CHANNEL_ERROR") setError("Live stream connection failed — check your connection")
       })
     } catch {
       setError("Camera access denied or unavailable")
