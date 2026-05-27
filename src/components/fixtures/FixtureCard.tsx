@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { PreMatchModal } from "@/components/match/PreMatchModal"
@@ -29,10 +29,12 @@ interface FixtureCardProps {
 
 export function FixtureCard({ fixture, canScore, competitionCompleted }: FixtureCardProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { mutate: startFixture, isPending } = useStartFixture()
   const [modalOpen, setModalOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [confirmRestart, setConfirmRestart] = useState(false)
+  const [restartIsLocal, setRestartIsLocal] = useState(false)
   const [isRestarting, setIsRestarting] = useState(false)
   const [confirmPause, setConfirmPause] = useState(false)
   const [isPausing, setIsPausing] = useState(false)
@@ -51,6 +53,16 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
       const r = await fetch(`/api/matches/${fixture.matchId}/restart`, { method: "POST" })
       const json = await r.json()
       if (!r.ok) throw new Error(json?.error ?? "Failed to restart")
+
+      await fetch(`/api/matches/${fixture.matchId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isLocal: restartIsLocal }),
+      })
+
+      // Bust the stale cache so the live page loads fresh match data (no legs)
+      await queryClient.invalidateQueries({ queryKey: ["match", fixture.matchId] })
+
       setConfirmRestart(false)
       router.push(`/matches/${fixture.matchId}/live`)
     } catch (err) {
@@ -225,28 +237,49 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
         </div>
 
         {isParticipant && !competitionCompleted && fixture.matchId && (isLive || isPaused || isCompleted) && (
-          <div className="px-2 pt-1.5 flex items-center gap-2">
+          <div className="px-2 pt-1.5">
             {confirmRestart ? (
-              <>
-                <span className="text-xs text-muted-foreground flex-1">Restart this match?</span>
-                <button
-                  onClick={handleRestart}
-                  disabled={isRestarting}
-                  className="text-xs px-3 py-1 rounded-lg bg-destructive/80 text-destructive-foreground font-bold hover:bg-destructive disabled:opacity-50"
-                >
-                  {isRestarting ? "…" : "Yes, restart"}
-                </button>
-                <button
-                  onClick={() => setConfirmRestart(false)}
-                  disabled={isRestarting}
-                  className="text-xs px-3 py-1 rounded-lg bg-muted text-muted-foreground font-medium hover:bg-muted/70"
-                >
-                  Cancel
-                </button>
-              </>
+              <div className="flex flex-col gap-2">
+                <div className="flex rounded-lg overflow-hidden border border-border">
+                  {(["Online", "Local"] as const).map((opt) => {
+                    const active = opt === "Local" ? restartIsLocal : !restartIsLocal
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => setRestartIsLocal(opt === "Local")}
+                        disabled={isRestarting}
+                        className="flex-1 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
+                        style={{
+                          background: active ? "rgba(16,185,129,0.15)" : "transparent",
+                          color: active ? "#10b981" : "#71717a",
+                        }}
+                      >
+                        {opt === "Local" ? "Local (1 device)" : "Online"}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground flex-1">Restart this match?</span>
+                  <button
+                    onClick={handleRestart}
+                    disabled={isRestarting}
+                    className="text-xs px-3 py-1 rounded-lg bg-destructive/80 text-destructive-foreground font-bold hover:bg-destructive disabled:opacity-50"
+                  >
+                    {isRestarting ? "…" : "Yes, restart"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmRestart(false)}
+                    disabled={isRestarting}
+                    className="text-xs px-3 py-1 rounded-lg bg-muted text-muted-foreground font-medium hover:bg-muted/70"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             ) : (
               <button
-                onClick={() => setConfirmRestart(true)}
+                onClick={() => { setConfirmRestart(true); setRestartIsLocal(false) }}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Restart match
