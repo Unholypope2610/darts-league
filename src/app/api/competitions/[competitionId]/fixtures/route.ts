@@ -76,16 +76,32 @@ export async function POST(
     }
     const allFixtureData: FixtureInput[] = []
 
+    // Clear unplayed fixtures for the divisions being regenerated so we don't stack duplicates
+    await prisma.fixture.deleteMany({
+      where: {
+        competitionId,
+        divisionId: { in: divisionsToGenerate.map((d) => d.id) },
+        status: "SCHEDULED",
+      },
+    })
+
     for (const division of divisionsToGenerate) {
       const playerIds = division.players.map((p) => p.playerId)
       if (playerIds.length < 2) continue
+
+      // Start new fixtures from the matchday after the last played one
+      const lastPlayed = await prisma.fixture.findFirst({
+        where: { competitionId, divisionId: division.id, status: { not: "SCHEDULED" } },
+        orderBy: { matchday: "desc" },
+      })
+      const matchdayOffset = lastPlayed?.matchday ?? 0
 
       const generated = generateFixtures(playerIds, parsed.data.rounds)
       for (const f of generated) {
         allFixtureData.push({
           competitionId,
           divisionId: division.id,
-          matchday: f.matchday,
+          matchday: f.matchday + matchdayOffset,
           playerAId: f.playerAId,
           playerBId: f.playerBId,
           status: "SCHEDULED",
@@ -99,15 +115,6 @@ export async function POST(
         { status: 400 },
       )
     }
-
-    // Clear unplayed fixtures for the divisions being regenerated so we don't stack duplicates
-    await prisma.fixture.deleteMany({
-      where: {
-        competitionId,
-        divisionId: { in: divisionsToGenerate.map((d) => d.id) },
-        status: "SCHEDULED",
-      },
-    })
 
     await prisma.fixture.createMany({ data: allFixtureData })
 
