@@ -82,6 +82,7 @@ export interface CareerStats {
   first9Average: number
   bestLeg: { darts: number; matchIds: string[] } | null
   averageHistory: { date: string; average: number }[]
+  doublesHistory: { date: string; doublesPercentage: number }[]
 }
 
 export interface H2HRecord {
