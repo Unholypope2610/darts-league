@@ -226,6 +226,52 @@ export default function PlayerProfilePage({ params }: PageProps) {
             )
           })()}
 
+          {/* Doubles % trendline with projection */}
+          {cs.doublesHistory.length >= 2 && (() => {
+            const hist = cs.doublesHistory
+            const n = hist.length
+            const sumX = (n * (n - 1)) / 2
+            const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6
+            const sumY = hist.reduce((s, d) => s + d.doublesPercentage, 0)
+            const sumXY = hist.reduce((s, d, i) => s + i * d.doublesPercentage, 0)
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
+            const intercept = (sumY - slope * sumX) / n
+            const PROJ = 15
+            type ChartPoint = { date: string; doublesPercentage: number | null; projected: number | null }
+            const chartData: ChartPoint[] = hist.map((d, i) => ({
+              date: d.date,
+              doublesPercentage: d.doublesPercentage,
+              projected: i === n - 1 ? d.doublesPercentage : null,
+            }))
+            for (let i = 1; i <= PROJ; i++) {
+              const val = Math.min(100, Math.max(0, intercept + slope * (n - 1 + i)))
+              chartData.push({ date: `proj-${i}`, doublesPercentage: null, projected: parseFloat(val.toFixed(1)) })
+            }
+            return (
+              <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Doubles % Trend</p>
+                <ResponsiveContainer width="100%" height={80}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="dblGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="doublesPercentage" stroke="#8b5cf6" fill="url(#dblGrad)" strokeWidth={2} dot={false} connectNulls={false} />
+                    <Area type="monotone" dataKey="projected" stroke="#8b5cf6" strokeOpacity={0.4} strokeDasharray="5 3" fill="none" strokeWidth={2} dot={false} connectNulls={false} />
+                    <ReferenceLine x={hist[n - 1].date} stroke="var(--border)" strokeDasharray="3 3" />
+                    <Tooltip
+                      formatter={(v: unknown, key: unknown) => [`${(v as number).toFixed(1)}%`, key === "projected" ? "Projected" : "D%"]}
+                      labelFormatter={() => ""}
+                      contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: 12 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )
+          })()}
+
           {/* Recent form */}
           {cs.recentForm.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2">

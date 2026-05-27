@@ -96,6 +96,15 @@ export async function GET(
     })
     .filter((e) => e.average > 0)
 
+  const doublesHistory = [...allMatches]
+    .reverse()
+    .map((m) => {
+      const matchVisits = m.legs.flatMap((l) => l.visits.filter((v) => v.playerId === playerId))
+      const dp = doublesPercentage(matchVisits)
+      return { date: (m.completedAt ?? m.startedAt).toISOString(), doublesPercentage: parseFloat(dp.toFixed(1)) }
+    })
+    .filter((e) => e.doublesPercentage > 0)
+
   const careerStats = {
     played: allMatches.length,
     won: allMatches.filter((m) => m.winnerId === playerId).length,
@@ -112,6 +121,7 @@ export async function GET(
     first9Average: calculateAverage(first9Visits),
     bestLeg: bestLegDetailed,
     averageHistory,
+    doublesHistory,
   }
 
   // Compute H2H records grouped by opponent
