@@ -25,6 +25,7 @@ interface PlayerPanelProps {
   /** Whether this viewer can control cam for this panel */
   canControl?: boolean
   isLegStarter?: boolean
+  isLocal?: boolean
   className?: string
 }
 
@@ -55,6 +56,7 @@ export function PlayerPanel({
   allVisits,
   canControl = false,
   isLegStarter = false,
+  isLocal = false,
   className,
 }: PlayerPanelProps) {
   const legsNeeded = Math.ceil(bestOf / 2)
@@ -130,9 +132,9 @@ export function PlayerPanel({
         ))}
       </div>
 
-      {/* Cam section — always in DOM when active+streaming so srcObject is never lost.
-          Toggle button is always visible; controls + preview collapse when minimised. */}
-      <div className={cn("w-full flex flex-col gap-1.5", !(isActive && isStreaming) && "hidden")}>
+      {/* Cam section — in local mode only show for the active player (one shared camera);
+          in online mode always show when streaming so each player can manage their own cam. */}
+      <div className={cn("w-full flex flex-col gap-1.5", (isLocal ? !(isActive && isStreaming) : !isStreaming) && "hidden")}>
         <button
           onClick={() => setCamMinimized((v) => !v)}
           className="w-full flex items-center justify-center gap-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"

@@ -212,6 +212,7 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
                   allVisits={allVisits}
                   canControl={canControlA}
                   isLegStarter={legStarterId === playerA.id}
+                  isLocal={isLocal}
                 />
                 <PlayerPanel
                   matchId={matchId ?? ""}
@@ -227,6 +228,7 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
                   allVisits={allVisits}
                   canControl={canControlB}
                   isLegStarter={legStarterId === playerB.id}
+                  isLocal={isLocal}
                 />
               </>
             )
