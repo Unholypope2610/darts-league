@@ -397,7 +397,10 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       : (MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
          MediaRecorder.isTypeSupported("video/webm") ? "video/webm" :
          MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" : null)
-    if (!mimeType) return
+    if (!mimeType) {
+      setError("Recording unavailable — your browser doesn't support the required video format")
+      return
+    }
     chunksRef.current = []
     initHeadersRef.current = null
     initChunkRef.current = null
@@ -619,6 +622,14 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
   }, [])
 
   const start = useCallback(async (facing: FacingMode = "environment") => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setError("Camera not supported in this browser — try updating your browser or use Chrome/Safari")
+      return
+    }
+    if (typeof MediaRecorder === "undefined") {
+      setError("Video recording not supported in this browser")
+      return
+    }
     try {
       let stream: MediaStream
       try {
