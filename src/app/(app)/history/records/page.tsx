@@ -8,15 +8,16 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MatchSummaryModal } from "@/components/match/MatchSummaryModal"
 import { formatAverage } from "@/lib/utils/format"
 import { usePlayers } from "@/hooks/usePlayers"
 
 interface RecordData {
-  highestCheckout: { player: { name: string; avatarUrl?: string | null }; score: number; competition?: { name: string } | null } | null
-  bestLeg: { player: { name: string; avatarUrl?: string | null }; darts: number; competition?: { name: string } | null } | null
+  highestCheckout: { player: { name: string; avatarUrl?: string | null }; score: number; matchId?: string; competition?: { name: string } | null } | null
+  bestLeg: { player: { name: string; avatarUrl?: string | null }; darts: number; matchId?: string; competition?: { name: string } | null } | null
   most180s: { player: { name: string; avatarUrl?: string | null }; count: number }[]
-  highestAverage: { player: { name: string; avatarUrl?: string | null }; average: number; competition?: { name: string } | null } | null
-  bestFirst9: { player: { name: string; avatarUrl?: string | null }; average: number; competition?: { name: string } | null } | null
+  highestAverage: { player: { name: string; avatarUrl?: string | null }; average: number; matchId?: string; competition?: { name: string } | null } | null
+  bestFirst9: { player: { name: string; avatarUrl?: string | null }; average: number; matchId?: string; competition?: { name: string } | null } | null
   topAverages: { player: { name: string; avatarUrl?: string | null }; average: number }[]
   mostTitles: { player: { name: string; avatarUrl?: string | null }; count: number; competitionsWon: { id: string; name: string; season: string; type: string }[] }[]
 }
@@ -61,6 +62,7 @@ export default function RecordsPage() {
       .sort((a, b) => b.winPct - a.winPct)[0] ?? null
   }, [players])
   const [titlesModal, setTitlesModal] = useState<{ name: string; competitions: { id: string; name: string; season: string; type: string }[] } | null>(null)
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
 
   if (isLoading) {
     return (
@@ -107,45 +109,65 @@ export default function RecordsPage() {
 
         {data?.highestCheckout && (
           <RecordCard title="Highest Checkout">
-            <PlayerRow
-              name={data.highestCheckout.player.name}
-              avatarUrl={data.highestCheckout.player.avatarUrl}
-              stat={String(data.highestCheckout.score)}
-              label={data.highestCheckout.competition?.name}
-            />
+            <button
+              onClick={data.highestCheckout.matchId ? () => setSelectedMatchId(data.highestCheckout!.matchId!) : undefined}
+              className={data.highestCheckout.matchId ? "w-full text-left hover:opacity-80 transition-opacity" : "w-full text-left cursor-default"}
+            >
+              <PlayerRow
+                name={data.highestCheckout.player.name}
+                avatarUrl={data.highestCheckout.player.avatarUrl}
+                stat={String(data.highestCheckout.score)}
+                label={data.highestCheckout.matchId ? `${data.highestCheckout.competition?.name ?? ""} · View match →`.trim() : data.highestCheckout.competition?.name}
+              />
+            </button>
           </RecordCard>
         )}
 
         {data?.highestAverage && (
           <RecordCard title="Highest Match Average">
-            <PlayerRow
-              name={data.highestAverage.player.name}
-              avatarUrl={data.highestAverage.player.avatarUrl}
-              stat={formatAverage(data.highestAverage.average)}
-              label={data.highestAverage.competition?.name}
-            />
+            <button
+              onClick={data.highestAverage.matchId ? () => setSelectedMatchId(data.highestAverage!.matchId!) : undefined}
+              className={data.highestAverage.matchId ? "w-full text-left hover:opacity-80 transition-opacity" : "w-full text-left cursor-default"}
+            >
+              <PlayerRow
+                name={data.highestAverage.player.name}
+                avatarUrl={data.highestAverage.player.avatarUrl}
+                stat={formatAverage(data.highestAverage.average)}
+                label={data.highestAverage.matchId ? `${data.highestAverage.competition?.name ?? ""} · View match →`.trim() : data.highestAverage.competition?.name}
+              />
+            </button>
           </RecordCard>
         )}
 
         {data?.bestFirst9 && (
           <RecordCard title="Best First 9 Average">
-            <PlayerRow
-              name={data.bestFirst9.player.name}
-              avatarUrl={data.bestFirst9.player.avatarUrl}
-              stat={formatAverage(data.bestFirst9.average)}
-              label={data.bestFirst9.competition?.name}
-            />
+            <button
+              onClick={data.bestFirst9.matchId ? () => setSelectedMatchId(data.bestFirst9!.matchId!) : undefined}
+              className={data.bestFirst9.matchId ? "w-full text-left hover:opacity-80 transition-opacity" : "w-full text-left cursor-default"}
+            >
+              <PlayerRow
+                name={data.bestFirst9.player.name}
+                avatarUrl={data.bestFirst9.player.avatarUrl}
+                stat={formatAverage(data.bestFirst9.average)}
+                label={data.bestFirst9.matchId ? `${data.bestFirst9.competition?.name ?? ""} · View match →`.trim() : data.bestFirst9.competition?.name}
+              />
+            </button>
           </RecordCard>
         )}
 
         {data?.bestLeg && (
           <RecordCard title="Best Leg (Fewest Darts)">
-            <PlayerRow
-              name={data.bestLeg.player.name}
-              avatarUrl={data.bestLeg.player.avatarUrl}
-              stat={`${data.bestLeg.darts}d`}
-              label={data.bestLeg.competition?.name}
-            />
+            <button
+              onClick={data.bestLeg.matchId ? () => setSelectedMatchId(data.bestLeg!.matchId!) : undefined}
+              className={data.bestLeg.matchId ? "w-full text-left hover:opacity-80 transition-opacity" : "w-full text-left cursor-default"}
+            >
+              <PlayerRow
+                name={data.bestLeg.player.name}
+                avatarUrl={data.bestLeg.player.avatarUrl}
+                stat={`${data.bestLeg.darts}d`}
+                label={data.bestLeg.matchId ? `${data.bestLeg.competition?.name ?? ""} · View match →`.trim() : data.bestLeg.competition?.name}
+              />
+            </button>
           </RecordCard>
         )}
 
@@ -237,6 +259,8 @@ export default function RecordsPage() {
           No records yet. Start scoring matches to build up the hall of fame.
         </div>
       )}
+
+      <MatchSummaryModal matchId={selectedMatchId} onClose={() => setSelectedMatchId(null)} />
     </div>
   )
 }

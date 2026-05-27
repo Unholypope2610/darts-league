@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useState } from "react"
+import React, { use, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
@@ -20,8 +20,10 @@ interface PlayerTournamentStats {
   count140Plus: number
   count100Plus: number
   highestCheckout: number
+  highestCheckoutMatchId: string | null
   checkouts: number
   bestLeg: number | null
+  bestLegMatchId: string | null
 }
 
 interface TournamentStatsResponse {
@@ -29,8 +31,8 @@ interface TournamentStatsResponse {
   overview: {
     totalLegs: number
     total180s: number
-    highestCheckout: { score: number; playerName: string } | null
-    bestLeg: { darts: number; playerName: string } | null
+    highestCheckout: { score: number; playerName: string; matchId: string | null } | null
+    bestLeg: { darts: number; playerName: string; matchId: string | null } | null
   }
 }
 
@@ -38,12 +40,24 @@ interface PageProps {
   params: Promise<{ competitionId: string }>
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 text-center flex flex-col items-center gap-0.5">
+function StatCard({ label, value, sub, onClick }: { label: string; value: string | number; sub?: string; onClick?: () => void }) {
+  const inner = (
+    <>
       <div className="font-score text-3xl font-black">{value}</div>
       {sub && <div className="text-xs text-primary truncate max-w-full px-1">{sub}</div>}
       <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+    </>
+  )
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="rounded-xl border border-border bg-card p-4 text-center flex flex-col items-center gap-0.5 w-full hover:border-primary/50 transition-colors">
+        {inner}
+      </button>
+    )
+  }
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 text-center flex flex-col items-center gap-0.5">
+      {inner}
     </div>
   )
 }
@@ -113,14 +127,29 @@ export default function CompetitionStatsPage({ params }: PageProps) {
   const { players = [], overview } = data ?? { players: [], overview: { totalLegs: 0, total180s: 0, highestCheckout: null, bestLeg: null } }
   const hasData = players.some((p) => p.average > 0 || p.count180s > 0 || p.checkouts > 0)
 
-  const cols = [
-    { key: "average", label: "Avg", render: (p: PlayerTournamentStats) => p.average > 0 ? p.average.toFixed(2) : "—", className: "text-primary" },
-    { key: "doublesPercentage", label: "D%", render: (p: PlayerTournamentStats) => p.doublesPercentage > 0 ? `${p.doublesPercentage.toFixed(1)}%` : "—" },
-    { key: "count180s", label: "180s", render: (p: PlayerTournamentStats) => fmt(p.count180s), className: "text-amber-400" },
-    { key: "count140Plus", label: "140+", render: (p: PlayerTournamentStats) => fmt(p.count140Plus) },
-    { key: "count100Plus", label: "100+", render: (p: PlayerTournamentStats) => fmt(p.count100Plus) },
-    { key: "highestCheckout", label: "Hi CO", render: (p: PlayerTournamentStats) => fmt(p.highestCheckout), className: "text-emerald-400" },
-    { key: "bestLeg", label: "Best Leg", render: (p: PlayerTournamentStats) => p.bestLeg ? `${p.bestLeg}` : "—" },
+  const cols: {
+    key: string
+    label: string
+    render: (p: PlayerTournamentStats) => React.ReactNode
+    className?: string
+  }[] = [
+    { key: "average", label: "Avg", render: (p) => p.average > 0 ? p.average.toFixed(2) : "—", className: "text-primary" },
+    { key: "doublesPercentage", label: "D%", render: (p) => p.doublesPercentage > 0 ? `${p.doublesPercentage.toFixed(1)}%` : "—" },
+    { key: "count180s", label: "180s", render: (p) => fmt(p.count180s), className: "text-amber-400" },
+    { key: "count140Plus", label: "140+", render: (p) => fmt(p.count140Plus) },
+    { key: "count100Plus", label: "100+", render: (p) => fmt(p.count100Plus) },
+    {
+      key: "highestCheckout", label: "Hi CO", className: "text-emerald-400",
+      render: (p) => p.highestCheckout > 0 && p.highestCheckoutMatchId
+        ? <button onClick={() => setSelectedMatchId(p.highestCheckoutMatchId!)} className="underline decoration-dotted underline-offset-2 cursor-pointer hover:text-white transition-colors">{p.highestCheckout}</button>
+        : fmt(p.highestCheckout),
+    },
+    {
+      key: "bestLeg", label: "Best Leg",
+      render: (p) => p.bestLeg && p.bestLegMatchId
+        ? <button onClick={() => setSelectedMatchId(p.bestLegMatchId!)} className="underline decoration-dotted underline-offset-2 cursor-pointer hover:text-white transition-colors">{p.bestLeg}</button>
+        : (p.bestLeg ? `${p.bestLeg}` : "—"),
+    },
   ]
 
   // Fixture results — completed fixtures grouped by matchday
@@ -174,11 +203,13 @@ export default function CompetitionStatsPage({ params }: PageProps) {
           label="Highest Checkout"
           value={overview?.highestCheckout?.score ?? "—"}
           sub={overview?.highestCheckout?.playerName}
+          onClick={overview?.highestCheckout?.matchId ? () => setSelectedMatchId(overview.highestCheckout!.matchId) : undefined}
         />
         <StatCard
           label="Best Leg"
           value={overview?.bestLeg ? `${overview.bestLeg.darts} darts` : "—"}
           sub={overview?.bestLeg?.playerName}
+          onClick={overview?.bestLeg?.matchId ? () => setSelectedMatchId(overview.bestLeg!.matchId) : undefined}
         />
       </div>
 

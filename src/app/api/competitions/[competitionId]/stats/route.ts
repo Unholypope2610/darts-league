@@ -56,6 +56,8 @@ export async function GET(
   const playerVisits = new Map<string, typeof matches[0]["legs"][0]["visits"]>()
   const playerLegs = new Map<string, typeof matches[0]["legs"]>()
   const playerMeta = new Map<string, { name: string; avatarUrl: string | null }>()
+  const playerHighCheckout = new Map<string, { score: number; matchId: string }>()
+  const playerBestLegMap = new Map<string, { darts: number; matchId: string }>()
 
   for (const match of matches) {
     for (const p of [match.playerA, match.playerB]) {
@@ -68,8 +70,18 @@ export async function GET(
     for (const leg of match.legs) {
       playerLegs.get(match.playerAId)?.push(leg)
       playerLegs.get(match.playerBId)?.push(leg)
+      if (leg.winnerId && leg.dartsThrown > 0) {
+        const cur = playerBestLegMap.get(leg.winnerId)
+        if (!cur || leg.dartsThrown < cur.darts)
+          playerBestLegMap.set(leg.winnerId, { darts: leg.dartsThrown, matchId: match.id })
+      }
       for (const visit of leg.visits) {
         playerVisits.get(visit.playerId)?.push(visit)
+        if (visit.isCheckout) {
+          const cur = playerHighCheckout.get(visit.playerId)
+          if (!cur || visit.scoreThrown > cur.score)
+            playerHighCheckout.set(visit.playerId, { score: visit.scoreThrown, matchId: match.id })
+        }
       }
     }
   }
@@ -88,8 +100,10 @@ export async function GET(
         count140Plus: count140Plus(visits),
         count100Plus: count100Plus(visits),
         highestCheckout: highestCheckout(visits),
+        highestCheckoutMatchId: playerHighCheckout.get(playerId)?.matchId ?? null,
         checkouts: countCheckouts(visits),
         bestLeg: bestLeg(legs, playerId),
+        bestLegMatchId: playerBestLegMap.get(playerId)?.matchId ?? null,
       }
     })
     .sort((a, b) => b.average - a.average)
@@ -98,14 +112,14 @@ export async function GET(
   const totalLegs = matches.reduce((sum, m) => sum + m.legs.length, 0)
   const total180s = players.reduce((sum, p) => sum + p.count180s, 0)
 
-  const topCheckout = players.reduce<{ score: number; playerName: string } | null>((best, p) => {
-    if (p.highestCheckout > (best?.score ?? 0)) return { score: p.highestCheckout, playerName: p.name }
+  const topCheckout = players.reduce<{ score: number; playerName: string; matchId: string | null } | null>((best, p) => {
+    if (p.highestCheckout > (best?.score ?? 0)) return { score: p.highestCheckout, playerName: p.name, matchId: p.highestCheckoutMatchId }
     return best
   }, null)
 
-  const topBestLeg = players.reduce<{ darts: number; playerName: string } | null>((best, p) => {
+  const topBestLeg = players.reduce<{ darts: number; playerName: string; matchId: string | null } | null>((best, p) => {
     if (p.bestLeg !== null && (best === null || p.bestLeg < best.darts))
-      return { darts: p.bestLeg, playerName: p.name }
+      return { darts: p.bestLeg, playerName: p.name, matchId: p.bestLegMatchId }
     return best
   }, null)
 

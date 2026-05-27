@@ -75,6 +75,7 @@ export async function GET(req: Request) {
     ? {
         player: checkoutVisits[0].player,
         score: checkoutVisits[0].scoreThrown,
+        matchId: checkoutVisits[0].leg.match.id,
         date: checkoutVisits[0].createdAt,
         competition: checkoutVisits[0].leg.match.fixture?.competition ?? null,
       }
@@ -92,6 +93,7 @@ export async function GET(req: Request) {
           ? bestLegEntry.match.playerA
           : bestLegEntry.match.playerB,
         darts: bestLegEntry.dartsThrown,
+        matchId: bestLegEntry.match.id,
         date: bestLegEntry.createdAt,
         competition: bestLegEntry.match.fixture?.competition ?? null,
       }
