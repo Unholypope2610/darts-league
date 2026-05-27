@@ -309,6 +309,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
           defaultBestOf={fixture.competition?.bestOf ?? 7}
           defaultStartingScore={fixture.competition?.startingScore ?? 501}
           defaultFinishType={fixture.competition?.finishType ?? "DOUBLE_OUT"}
+          locked={!!fixture.competition}
           onStart={handleStart}
           onClose={() => setModalOpen(false)}
         />

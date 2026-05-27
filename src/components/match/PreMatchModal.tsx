@@ -9,6 +9,26 @@ import { prewarmSpeech } from "@/lib/utils/speech"
 
 type ModalPlayer = { id: string; name: string; avatarUrl: string | null }
 
+const FINISH_TYPE_LABELS: Record<string, string> = {
+  DOUBLE_OUT: "Double Out",
+  STRAIGHT_OUT: "Straight Out",
+  MASTER_OUT: "Master Out",
+}
+
+function LockedField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label className="flex items-center gap-1.5">
+        {label}
+        <span className="text-[10px] font-normal text-muted-foreground bg-muted px-1.5 py-0.5 rounded">set by competition</span>
+      </Label>
+      <div className="flex items-center h-9 px-3 rounded-md border border-border bg-muted/50 text-sm text-muted-foreground select-none">
+        {value}
+      </div>
+    </div>
+  )
+}
+
 interface PreMatchModalProps {
   open: boolean
   playerA: ModalPlayer
@@ -16,6 +36,7 @@ interface PreMatchModalProps {
   defaultBestOf?: number
   defaultStartingScore?: number
   defaultFinishType?: string
+  locked?: boolean
   onStart: (config: { starterId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean }) => void
   onClose?: () => void
 }
@@ -27,6 +48,7 @@ export function PreMatchModal({
   defaultBestOf = 7,
   defaultStartingScore = 501,
   defaultFinishType = "DOUBLE_OUT",
+  locked = false,
   onStart,
   onClose,
 }: PreMatchModalProps) {
@@ -47,44 +69,54 @@ export function PreMatchModal({
         </DialogHeader>
 
         <div className="flex flex-col gap-5 overflow-y-auto pr-1">
-          {/* Starting score */}
-          <div className="flex flex-col gap-2">
-            <Label>Starting Score</Label>
-            <Select value={String(startingScore)} onValueChange={(v) => setStartingScore(Number(v))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[301, 501, 701].map((s) => (
-                  <SelectItem key={s} value={String(s)}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {locked ? (
+            <>
+              <LockedField label="Starting Score" value={String(startingScore)} />
+              <LockedField label="Format" value={bestOf === 1 ? "First to 1" : `Best of ${bestOf} legs`} />
+              <LockedField label="Finish Type" value={FINISH_TYPE_LABELS[finishType] ?? finishType} />
+            </>
+          ) : (
+            <>
+              {/* Starting score */}
+              <div className="flex flex-col gap-2">
+                <Label>Starting Score</Label>
+                <Select value={String(startingScore)} onValueChange={(v) => setStartingScore(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[301, 501, 701].map((s) => (
+                      <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Best of */}
-          <div className="flex flex-col gap-2">
-            <Label>Format</Label>
-            <Select value={String(bestOf)} onValueChange={(v) => setBestOf(Number(v))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
-                  <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Best of ${n} legs`}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              {/* Best of */}
+              <div className="flex flex-col gap-2">
+                <Label>Format</Label>
+                <Select value={String(bestOf)} onValueChange={(v) => setBestOf(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Best of ${n} legs`}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Finish type */}
-          <div className="flex flex-col gap-2">
-            <Label>Finish Type</Label>
-            <Select value={finishType} onValueChange={(v) => { if (v) setFinishType(v) }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DOUBLE_OUT">Double Out</SelectItem>
-                <SelectItem value="STRAIGHT_OUT">Straight Out</SelectItem>
-                <SelectItem value="MASTER_OUT">Master Out</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              {/* Finish type */}
+              <div className="flex flex-col gap-2">
+                <Label>Finish Type</Label>
+                <Select value={finishType} onValueChange={(v) => { if (v) setFinishType(v) }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DOUBLE_OUT">Double Out</SelectItem>
+                    <SelectItem value="STRAIGHT_OUT">Straight Out</SelectItem>
+                    <SelectItem value="MASTER_OUT">Master Out</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
 
           {/* Match type */}
           <div className="flex flex-col gap-2">
