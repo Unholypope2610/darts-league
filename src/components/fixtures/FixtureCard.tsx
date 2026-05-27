@@ -77,7 +77,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
       const r = await fetch(`/api/fixtures/${fixture.id}/pause`, { method: "POST" })
       if (!r.ok) throw new Error("Failed to pause")
       setConfirmPause(false)
-      router.refresh()
+      queryClient.invalidateQueries({ queryKey: ["fixtures"] })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to pause match")
     } finally {
@@ -159,6 +159,13 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
             ) : isLive ? (
               <div className="flex flex-col items-center gap-0.5">
                 <span className="text-xs font-bold text-emerald-400 animate-pulse">LIVE</span>
+                {fixture.match && (
+                  <div className="flex items-center gap-1.5 font-score font-bold text-sm">
+                    <span>{fixture.match.playerAScore}</span>
+                    <span className="text-muted-foreground text-xs">–</span>
+                    <span>{fixture.match.playerBScore}</span>
+                  </div>
+                )}
                 {fixture.matchId && (
                   <Link href={`/matches/${fixture.matchId}/live`} className="text-xs text-emerald-400 hover:underline">
                     Watch

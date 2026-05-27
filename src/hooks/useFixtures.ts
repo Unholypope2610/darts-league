@@ -7,6 +7,7 @@ export function useFixtures(competitionId: string) {
     queryKey: ["fixtures", competitionId],
     queryFn: () => fetch(`/api/competitions/${competitionId}/fixtures`).then((r) => r.json()),
     enabled: !!competitionId,
+    refetchInterval: 15_000,
   })
 }
 
