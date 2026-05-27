@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useEffect, useRef } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { getSupabase } from "@/lib/supabase"
 import type { MatchWithLegs, RecordVisitResponse, VisitRecord } from "@/types/api"
@@ -13,6 +13,7 @@ export function useLiveMatch(matchId: string) {
   const applyRemoteLeg = useLiveMatchStore((s) => s.applyRemoteLeg)
   const applyRemoteEdit = useLiveMatchStore((s) => s.applyRemoteEdit)
   const applyDoublesConfirmed = useLiveMatchStore((s) => s.applyDoublesConfirmed)
+  const queryClient = useQueryClient()
 
   const { data, isLoading, error } = useQuery<MatchWithLegs>({
     queryKey: ["match", matchId],
@@ -32,6 +33,8 @@ export function useLiveMatch(matchId: string) {
   useEffect(() => {
     const supabase = getSupabase()
     const channel = supabase.channel(`match:${matchId}`)
+    // Track whether the channel has dropped so we know a reconnect means missed broadcasts
+    const wasDisconnected = { current: false }
 
     channel
       .on("broadcast", { event: "VISIT_RECORDED" }, ({ payload }) => {
@@ -59,6 +62,13 @@ export function useLiveMatch(matchId: string) {
             _broadcast: (event, payload) =>
               channel.send({ type: "broadcast", event, payload }),
           })
+          // Reconnect after a drop — refetch from DB to catch up on any missed broadcasts
+          if (wasDisconnected.current) {
+            wasDisconnected.current = false
+            queryClient.invalidateQueries({ queryKey: ["match", matchId] })
+          }
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          wasDisconnected.current = true
         }
       })
 
@@ -66,7 +76,7 @@ export function useLiveMatch(matchId: string) {
       useLiveMatchStore.setState({ _broadcast: null })
       supabase.removeChannel(channel)
     }
-  }, [matchId, applyRemoteVisit, applyRemoteLeg, applyRemoteEdit, applyDoublesConfirmed])
+  }, [matchId, applyRemoteVisit, applyRemoteLeg, applyRemoteEdit, applyDoublesConfirmed, queryClient])
 
   useEffect(() => {
     return () => reset()
