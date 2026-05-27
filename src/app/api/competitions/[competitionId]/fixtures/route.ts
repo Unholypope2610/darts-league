@@ -100,6 +100,15 @@ export async function POST(
       )
     }
 
+    // Clear unplayed fixtures for the divisions being regenerated so we don't stack duplicates
+    await prisma.fixture.deleteMany({
+      where: {
+        competitionId,
+        divisionId: { in: divisionsToGenerate.map((d) => d.id) },
+        status: "SCHEDULED",
+      },
+    })
+
     await prisma.fixture.createMany({ data: allFixtureData })
 
     // Activate the competition if it was in DRAFT
