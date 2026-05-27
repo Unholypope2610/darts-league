@@ -1,3 +1,5 @@
+import { getCheckoutSuggestion } from "@/lib/algorithms/checkout-suggestions"
+
 let cachedVoice: SpeechSynthesisVoice | null = null
 
 // Set to true by the live match page when the viewer is a spectator so the
@@ -69,7 +71,7 @@ export function announceVisit(
 
   if (isBust) {
     speak("Bust!", 0.85, 0.85)
-    if (nextPlayerRemainder <= 170 && nextPlayerRemainder > 1) {
+    if (getCheckoutSuggestion(nextPlayerRemainder)) {
       const firstName = nextPlayerName.split(" ")[0]
       speak(`${firstName} requires ${nextPlayerRemainder}`, 0.88, 1.0)
     }
