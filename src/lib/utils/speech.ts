@@ -69,6 +69,10 @@ export function announceVisit(
 
   if (isBust) {
     speak("Bust!", 0.85, 0.85)
+    if (nextPlayerRemainder <= 170 && nextPlayerRemainder > 1) {
+      const firstName = nextPlayerName.split(" ")[0]
+      speak(`${firstName} requires ${nextPlayerRemainder}`, 0.88, 1.0)
+    }
     return
   }
 
