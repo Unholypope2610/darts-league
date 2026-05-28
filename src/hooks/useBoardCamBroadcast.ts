@@ -5,6 +5,7 @@ import { getSupabase } from "@/lib/supabase"
 import { createPeerConnection } from "@/lib/webrtc"
 import { setReplayCaptureFunc, type CaptureResult } from "@/lib/replay-capture"
 import { useLiveMatchStore } from "@/stores/live-match.store"
+import { useCameraStore } from "@/stores/camera.store"
 
 type FacingMode = "environment" | "user"
 
@@ -330,6 +331,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     if (!z) {
       setZoomCapabilities(null)
       setZoomLevel(1)
+      useCameraStore.getState()._patch({ zoomCapabilities: null, zoomLevel: 1 })
       return
     }
     // iOS returns zoom but may omit or NaN individual fields — normalize to safe values
@@ -339,6 +341,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     const step = Number.isFinite(z.step) && z.step! > 0 ? z.step! : 1
     setZoomCapabilities({ min, max, step })
     setZoomLevel(min)
+    useCameraStore.getState()._patch({ zoomCapabilities: { min, max, step }, zoomLevel: min })
   }, [])
 
   const detectRearCameras = useCallback(async (stream: MediaStream) => {
@@ -355,6 +358,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       idx++
     }
     setRearCameras(cameras)
+    useCameraStore.getState()._patch({ rearCameras: cameras, activeCameraId: activeDeviceId })
   }, [])
 
   const stopRecorder = useCallback(() => {
@@ -540,6 +544,25 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     setZoomLevel(1)
     setRearCameras([])
     setActiveCameraId(null)
+    // Clear the global camera store so the dashboard preview also stops
+    useCameraStore.getState()._patch({
+      stream: null, facingMode: "environment", zoomLevel: 1,
+      zoomCapabilities: null, rearCameras: [], activeCameraId: null, error: null,
+    })
+  }, [stopRecorder])
+
+  // Closes WebRTC channel + recorder without stopping the physical camera track.
+  // Used on page unmount so the global camera stream persists for the next match.
+  const closeChannel = useCallback(() => {
+    stopRecorder()
+    streamRef.current = null
+    setLocalStream(null)
+    setIsStreaming(false)
+    pcsRef.current.forEach((pc) => pc.close())
+    pcsRef.current.clear()
+    channelRef.current?.send({ type: "broadcast", event: "HANGUP", payload: {} })
+    channelRef.current?.unsubscribe()
+    channelRef.current = null
   }, [stopRecorder])
 
   const switchRearCamera = useCallback(async (deviceId: string) => {
@@ -576,6 +599,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       )
       streamRef.current = newStream
       setLocalStream(newStream)
+      useCameraStore.getState()._patch({ stream: newStream })
       detectZoom(newStream)
       startRecorder(newStream)
       await detectRearCameras(newStream)
@@ -632,15 +656,29 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       return
     }
     try {
+      // Re-use a global stream already started from the Dashboard
+      const globalCam = useCameraStore.getState()
       let stream: MediaStream
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      if (globalCam.stream?.active) {
+        stream = globalCam.stream
+        facing = globalCam.facingMode
+        // Sync local state from the pre-existing global stream
+        setFacingMode(globalCam.facingMode)
+        if (globalCam.zoomCapabilities) setZoomCapabilities(globalCam.zoomCapabilities)
+        setZoomLevel(globalCam.zoomLevel)
+        setRearCameras(globalCam.rearCameras)
+        setActiveCameraId(globalCam.activeCameraId)
+      } else {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false })
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        }
+        // Persist the newly acquired stream globally
+        useCameraStore.getState()._patch({ stream, facingMode: facing, error: null })
       }
       streamRef.current = stream
       setLocalStream(stream)
-      setFacingMode(facing)
       setIsStreaming(true)
       setError(null)
 
@@ -650,8 +688,11 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
         stop()
       }
 
-      detectZoom(stream)
-      await detectRearCameras(stream)
+      if (!globalCam.stream?.active) {
+        // Only detect zoom/cameras when the stream is freshly acquired
+        detectZoom(stream)
+        await detectRearCameras(stream)
+      }
       startRecorder(stream)
 
       const supabase = getSupabase()
@@ -715,6 +756,7 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
       streamRef.current = newStream
       setLocalStream(newStream)
       setFacingMode(newFacing)
+      useCameraStore.getState()._patch({ stream: newStream, facingMode: newFacing })
       detectZoom(newStream)
       await detectRearCameras(newStream)
       startRecorder(newStream)
@@ -730,12 +772,26 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     const track = streamRef.current?.getVideoTracks()[0]
     if (!track) return
     setZoomLevel(zoom)
+    useCameraStore.getState()._patch({ zoomLevel: zoom })
     track.applyConstraints({ advanced: [{ zoom } as MediaTrackConstraintSet] }).catch(() => {})
   }, [])
 
+  // Auto-connect WebRTC + recorder when entering a match with a pre-existing global stream
   useEffect(() => {
-    return () => stop()
-  }, [stop])
+    const globalStream = useCameraStore.getState().stream
+    if (globalStream?.active && playerId && matchId) {
+      start(useCameraStore.getState().facingMode)
+    }
+    // Intentionally mount-only — we only want this to fire once when the hook initialises
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // On unmount: close WebRTC + recorder but leave the global camera stream running
+  // so it persists to the next match. Use stop() instead only when the user explicitly
+  // clicks "Stop Cam", which also clears the global stream.
+  useEffect(() => {
+    return () => closeChannel()
+  }, [closeChannel])
 
   return { isStreaming, error, localStream, facingMode, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera, rearCameras, activeCameraId, switchRearCamera }
 }

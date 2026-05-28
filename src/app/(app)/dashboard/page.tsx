@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useUser } from "@clerk/nextjs"
 import { useCompetitions } from "@/hooks/useCompetitions"
+import { useDashboardCam } from "@/hooks/useDashboardCam"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Trophy, Zap, Clock, ChevronRight, X } from "lucide-react"
+import { Trophy, Zap, Clock, ChevronRight, X, Video, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 import type { Competition } from "@/types/api"
 
@@ -88,6 +89,137 @@ function CompetitionCard({ comp }: { comp: Competition }) {
   )
 }
 
+function DashboardCamSetup() {
+  const cam = useDashboardCam()
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    el.srcObject = cam.stream
+    if (cam.stream) el.play().catch(() => {})
+  }, [cam.stream])
+
+  // Auto-expand when streaming starts
+  useEffect(() => {
+    if (cam.isStreaming) setExpanded(true)
+  }, [cam.isStreaming])
+
+  return (
+    <div
+      className="rounded-xl border p-4 transition-all"
+      style={{ background: "rgba(255,255,255,0.02)", borderColor: cam.isStreaming ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.07)" }}
+    >
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between"
+      >
+        <div className="flex items-center gap-2">
+          <Video className="w-3.5 h-3.5 text-zinc-500" />
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Board Cam</span>
+          {cam.isStreaming && (
+            <span className="flex items-center gap-1 text-xs font-bold text-emerald-400 ml-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-zinc-600">{expanded ? "▲" : "▼"}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 flex flex-col gap-3">
+          {!cam.isStreaming ? (
+            <button
+              onClick={cam.start}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold border border-zinc-700 text-zinc-300 bg-zinc-800/60 hover:border-zinc-500 hover:text-white active:scale-95 transition-all"
+            >
+              <span className="w-2 h-2 rounded-full bg-zinc-500" />
+              Start Cam
+            </button>
+          ) : (
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full aspect-video rounded-lg object-cover bg-black"
+              />
+
+              {/* Stop + Flip */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={cam.stop}
+                  style={{ touchAction: "manipulation" }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold border bg-red-500/20 text-red-400 border-red-500/40 hover:bg-red-500/30 active:scale-95 transition-all"
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  Stop Cam
+                </button>
+                <button
+                  onClick={cam.flip}
+                  title="Flip camera"
+                  style={{ touchAction: "manipulation" }}
+                  className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 transition-all"
+                >
+                  <RefreshCw className="w-4 h-4 text-zinc-400" />
+                </button>
+              </div>
+
+              {/* Rear camera selector */}
+              {cam.rearCameras.length > 1 && (
+                <div className="flex w-full rounded-lg overflow-hidden border border-zinc-700">
+                  {cam.rearCameras.map((c) => (
+                    <button
+                      key={c.deviceId}
+                      onClick={() => cam.switchRearCamera(c.deviceId)}
+                      title={c.label}
+                      style={{ touchAction: "manipulation" }}
+                      className={cn(
+                        "flex-1 py-1.5 text-xs font-bold transition-all active:scale-95",
+                        c.deviceId === cam.activeCameraId
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700",
+                      )}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Zoom controls */}
+              {cam.zoomCapabilities && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => cam.setZoom(Math.max(cam.zoomCapabilities!.min, parseFloat((cam.zoomLevel - cam.zoomCapabilities!.step).toFixed(2))))}
+                    className="flex-1 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-lg font-bold text-zinc-300 hover:bg-zinc-700 active:scale-95 transition-all"
+                  >
+                    −
+                  </button>
+                  <span className="text-xs font-bold text-zinc-400 w-10 text-center shrink-0">
+                    {cam.zoomLevel.toFixed(1)}×
+                  </span>
+                  <button
+                    onClick={() => cam.setZoom(Math.min(cam.zoomCapabilities!.max, parseFloat((cam.zoomLevel + cam.zoomCapabilities!.step).toFixed(2))))}
+                    className="flex-1 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-lg font-bold text-zinc-300 hover:bg-zinc-700 active:scale-95 transition-all"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {cam.error && <p className="text-xs text-red-400">{cam.error}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const { user } = useUser()
   const firstName = user?.firstName ?? user?.emailAddresses[0]?.emailAddress.split("@")[0] ?? "back"
@@ -146,6 +278,9 @@ export default function DashboardPage() {
           + New Competition
         </Link>
       </div>
+
+      {/* Board Cam setup */}
+      <DashboardCamSetup />
 
       {/* Participant filter */}
       {participants.length > 0 && (
