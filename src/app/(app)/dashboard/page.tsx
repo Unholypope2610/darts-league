@@ -132,7 +132,7 @@ function DashboardCamSetup() {
         <div className="mt-3 flex flex-col gap-3">
           {!cam.isStreaming ? (
             <button
-              onClick={cam.start}
+              onClick={() => cam.start()}
               className="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold border border-zinc-700 text-zinc-300 bg-zinc-800/60 hover:border-zinc-500 hover:text-white active:scale-95 transition-all"
             >
               <span className="w-2 h-2 rounded-full bg-zinc-500" />
