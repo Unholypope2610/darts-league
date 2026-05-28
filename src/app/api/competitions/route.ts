@@ -10,7 +10,7 @@ export async function GET() {
   const competitions = await prisma.competition.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      divisions: { include: { players: true } },
+      divisions: { include: { players: { include: { player: { select: { id: true, name: true } } } } } },
       _count: { select: { fixtures: true } },
     },
   })
