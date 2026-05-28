@@ -46,7 +46,6 @@ interface LiveMatchStore {
   // Doubles tracking prompt
   pendingDoublesPrompt: { visitId: string; type: "checkout" | "doubles" } | null
   pendingCheckoutVisitId: string | null
-  pendingEditLegStart: boolean
   awaitingMatchWinReveal: boolean  // suppresses reveal on remote devices until doubles confirmed
   pendingTurnPlayerId: string | null  // holds next turn while doubles prompt is active (non-checkout)
 
@@ -116,7 +115,6 @@ const initialState = {
   undoStack: [],
   pendingDoublesPrompt: null,
   pendingCheckoutVisitId: null,
-  pendingEditLegStart: false,
   awaitingMatchWinReveal: false,
   pendingTurnPlayerId: null,
   pendingReplay: null,
@@ -511,7 +509,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
     },
 
     dismissLegWin: () => {
-      const { pendingCheckoutVisitId, pendingEditLegStart, pendingNextStarter, isMatchWon } = get()
+      const { pendingCheckoutVisitId } = get()
       set((state) => {
         state.isLegWinAnimating = false
         state.legWinnerId = null
@@ -524,10 +522,6 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           s.pendingDoublesPrompt = { visitId: pendingCheckoutVisitId, type: "checkout" }
           s.pendingCheckoutVisitId = null
         })
-      } else if (pendingEditLegStart && pendingNextStarter && !isMatchWon) {
-        // Scoring device: edit caused a leg win — start the next leg directly (no doubles prompt)
-        set((s) => { s.pendingEditLegStart = false; s.pendingNextStarter = null })
-        get().startNewLeg(pendingNextStarter)
       }
       // Remote devices: do nothing — they receive LEG_STARTED broadcast → applyRemoteLeg
     },
@@ -670,7 +664,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
       } = await res.json()
       get().applyRemoteEdit(data.updatedVisits, data.legWinnerId, data.matchWinnerId, data.isMatchDraw)
       if (data.legWinnerId && !data.matchWinnerId) {
-        set((s) => { s.pendingEditLegStart = true })
+        set((s) => { s.pendingCheckoutVisitId = visitId })
       }
       get()._broadcast?.("SCORE_EDITED", {
         updatedVisits: data.updatedVisits,
