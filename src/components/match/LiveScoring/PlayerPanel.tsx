@@ -65,7 +65,7 @@ export function PlayerPanel({
   const legDarts = visits.filter((v) => v.playerId === playerId).reduce((acc, v) => acc + v.dartsUsed, 0)
 
   const { isStreaming, error: camError, localStream, zoomCapabilities, zoomLevel, setZoom, start, stop, flipCamera, rearCameras, activeCameraId, switchRearCamera } =
-    useBoardCamBroadcast(matchId, playerId)
+    useBoardCamBroadcast(matchId, playerId, canControl)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const [camMinimized, setCamMinimized] = useState(false)
 

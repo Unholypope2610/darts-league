@@ -86,14 +86,15 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
   // Pass "" for your own channel so the hook exits early; you see your own cam via
   // the local preview in PlayerPanel, and self-spectation would create a feedback loop
   // where your own spectate hook fires READY at your own broadcast hook endlessly.
-  // In local mode the device broadcasts on playerA's channel, so exclude it there too.
+  // In local mode the device broadcasts on playerA's channel only (one cam, one device),
+  // so spectators only need PlayerA's channel — disable PlayerB's spectate hook there too.
   const { remoteStream: playerACamStream } = useBoardCamSpectate(
     matchId ?? "",
     myRole !== "playerA" && myRole !== "local" ? (playerA?.id ?? "") : "",
   )
   const { remoteStream: playerBCamStream } = useBoardCamSpectate(
     matchId ?? "",
-    myRole !== "playerB" ? (playerB?.id ?? "") : "",
+    myRole !== "playerB" && !isLocal ? (playerB?.id ?? "") : "",
   )
 
   if (!playerA || !playerB) return null
@@ -165,7 +166,8 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
     : (myRole === "playerA" && isAActive) || (myRole === "playerB" && !isAActive)
 
   // The throwing player's cam feed — shown in the keypad area when not your turn.
-  // In local mode playerB has no broadcaster, so fall back to playerA's cam for spectators.
+  // In local mode playerBCamStream is null (hook disabled above), so the ?? naturally falls back
+  // to playerACamStream — the one broadcaster on the local device.
   const activeCamStream = isAActive ? playerACamStream : (playerBCamStream ?? playerACamStream)
   const throwingPlayerName = isAActive ? playerA.name : playerB.name
 

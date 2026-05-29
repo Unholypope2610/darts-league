@@ -250,7 +250,7 @@ function deriveShortLabel(rawLabel: string, indexAmongRear: number): string {
   return String(indexAmongRear + 1)
 }
 
-export function useBoardCamBroadcast(matchId: string, playerId: string) {
+export function useBoardCamBroadcast(matchId: string, playerId: string, enabled = true) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -776,8 +776,11 @@ export function useBoardCamBroadcast(matchId: string, playerId: string) {
     track.applyConstraints({ advanced: [{ zoom } as MediaTrackConstraintSet] }).catch(() => {})
   }, [])
 
-  // Auto-connect WebRTC + recorder when entering a match with a pre-existing global stream
+  // Auto-connect WebRTC + recorder when entering a match with a pre-existing global stream.
+  // Only fires when enabled (i.e. this device controls this player's cam) so the opponent's
+  // PlayerPanel hook doesn't accidentally broadcast on the opponent's WebRTC channel.
   useEffect(() => {
+    if (!enabled) return
     const globalStream = useCameraStore.getState().stream
     if (globalStream?.active && playerId && matchId) {
       start(useCameraStore.getState().facingMode)
