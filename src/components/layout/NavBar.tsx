@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -18,12 +19,12 @@ import {
 import { cn } from "@/lib/utils/cn"
 import { UserButton } from "@clerk/nextjs"
 
-const navItems = [
+const navItems: { href: string; label: string; icon: React.ElementType; exact?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/players", label: "Players", icon: Users },
   { href: "/competitions", label: "Competitions", icon: Trophy },
   { href: "/fixtures", label: "Fixtures", icon: Calendar },
-  { href: "/matches", label: "Casual", icon: Swords },
+  { href: "/matches", label: "Casual", icon: Swords, exact: true },
   { href: "/tables", label: "Tables", icon: BarChart2 },
   { href: "/brackets", label: "Brackets", icon: Target },
   { href: "/rankings", label: "Rankings", icon: Medal },
@@ -63,8 +64,9 @@ export function NavBar() {
           {/* Nav links — hidden on mobile */}
           <nav className="hidden md:flex items-center gap-1 flex-1">
             {navItems.map((item) => {
-              const isActive =
-                pathname === item.href || pathname.startsWith(item.href + "/")
+              const isActive = item.exact
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(item.href + "/")
               return (
                 <Link
                   key={item.href}
@@ -102,8 +104,9 @@ export function NavBar() {
       >
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive =
-            pathname === item.href || pathname.startsWith(item.href + "/")
+          const isActive = item.exact
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(item.href + "/")
           return (
             <Link
               key={item.href}
