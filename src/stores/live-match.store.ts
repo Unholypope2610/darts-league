@@ -258,7 +258,9 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             data.isBust ||
             (previousRemainder <= 50 && previousRemainder % 2 === 0) ||
             (previousRemainder < 40 && previousRemainder % 2 !== 0) ||
-            (!data.isBust && previousRemainder > 50 && data.newRemainder > 0 && data.newRemainder <= 50)
+            (!data.isBust && previousRemainder > 50 && data.newRemainder > 0 && data.newRemainder <= 50) ||
+            // Odd 41–49: player set up to a double and attempted it within the same visit
+            (!data.isBust && previousRemainder % 2 !== 0 && previousRemainder > 40 && previousRemainder <= 50 && data.newRemainder > 0 && data.newRemainder < 40)
           )
 
         // Announce the visit
