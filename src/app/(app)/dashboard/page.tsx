@@ -46,9 +46,8 @@ function CompetitionCard({ comp }: { comp: Competition }) {
   const isDraft = comp.status === "DRAFT"
 
   return (
-    <Link
-      href={`/competitions/${comp.id}`}
-      className="group relative block rounded-xl p-5 transition-all duration-200 hover:-translate-y-0.5"
+    <div
+      className="group relative rounded-xl overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
       style={{
         background: "rgba(255,255,255,0.03)",
         border: isActive
@@ -59,33 +58,52 @@ function CompetitionCard({ comp }: { comp: Competition }) {
       }}
     >
       {isActive && (
-        <div className="absolute top-0 left-0 right-0 h-px rounded-t-xl bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
       )}
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div>
-          <h3 className="font-bold text-white text-base group-hover:text-emerald-400 transition-colors">{comp.name}</h3>
-          <p className="text-sm text-zinc-500 mt-0.5">{comp.season}</p>
+      <Link href={`/competitions/${comp.id}`} className="block p-5">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-bold text-white text-base group-hover:text-emerald-400 transition-colors">{comp.name}</h3>
+            <p className="text-sm text-zinc-500 mt-0.5">{comp.season}</p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-emerald-400 transition-colors shrink-0 mt-0.5" />
         </div>
-        <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-emerald-400 transition-colors shrink-0 mt-0.5" />
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: "#888" }}>
-            {TYPE_LABELS[comp.type] ?? comp.type}
-          </span>
-          <span className="text-xs text-zinc-600">Bo{comp.bestOf} · {comp.startingScore}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: "#888" }}>
+              {TYPE_LABELS[comp.type] ?? comp.type}
+            </span>
+            <span className="text-xs text-zinc-600">Bo{comp.bestOf} · {comp.startingScore}</span>
+          </div>
+          {comp.hasLiveMatch && (
+            <span className="flex items-center gap-1 text-xs font-bold text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              LIVE
+            </span>
+          )}
+          {isDraft && (
+            <span className="text-xs font-semibold text-amber-400">DRAFT</span>
+          )}
         </div>
-        {isActive && (
-          <span className="flex items-center gap-1 text-xs font-bold text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            LIVE
+      </Link>
+
+      {/* Live match strip */}
+      {comp.liveMatches.map((m) => m.matchId && (
+        <Link
+          key={m.matchId}
+          href={`/matches/${m.matchId}/live`}
+          className="flex items-center justify-between px-5 py-2.5 border-t border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-xs text-zinc-300 truncate">
+            {m.playerAName.split(" ")[0]} <span className="font-score font-bold text-white">{m.playerAScore}</span>
+            <span className="text-zinc-600 mx-1">–</span>
+            <span className="font-score font-bold text-white">{m.playerBScore}</span> {m.playerBName.split(" ")[0]}
           </span>
-        )}
-        {isDraft && (
-          <span className="text-xs font-semibold text-amber-400">DRAFT</span>
-        )}
-      </div>
-    </Link>
+          <span className="text-xs font-bold text-emerald-400 shrink-0 ml-3">Watch →</span>
+        </Link>
+      ))}
+    </div>
   )
 }
 

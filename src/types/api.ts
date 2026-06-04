@@ -19,6 +19,8 @@ export interface Competition {
   winnerId: string | null
   isRanked: boolean
   entrantCount: number | null
+  hasLiveMatch: boolean
+  liveMatches: { matchId: string | null; playerAName: string; playerBName: string; playerAScore: number; playerBScore: number }[]
   createdAt: string
   updatedAt: string
   divisions?: {

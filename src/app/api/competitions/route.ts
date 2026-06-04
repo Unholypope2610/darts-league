@@ -12,9 +12,30 @@ export async function GET() {
     include: {
       divisions: { include: { players: { include: { player: { select: { id: true, name: true } } } } } },
       _count: { select: { fixtures: true } },
+      fixtures: {
+        where: { status: "LIVE" },
+        select: {
+          matchId: true,
+          playerA: { select: { name: true } },
+          playerB: { select: { name: true } },
+          match: { select: { playerAScore: true, playerBScore: true } },
+        },
+      },
     },
   })
-  return NextResponse.json(competitions)
+  return NextResponse.json(
+    competitions.map(({ fixtures, ...c }) => ({
+      ...c,
+      hasLiveMatch: fixtures.length > 0,
+      liveMatches: fixtures.map((f) => ({
+        matchId: f.matchId,
+        playerAName: f.playerA.name,
+        playerBName: f.playerB.name,
+        playerAScore: f.match?.playerAScore ?? 0,
+        playerBScore: f.match?.playerBScore ?? 0,
+      })),
+    }))
+  )
 }
 
 export async function POST(req: Request) {
