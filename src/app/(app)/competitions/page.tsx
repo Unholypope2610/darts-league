@@ -140,7 +140,7 @@ export default function CompetitionsPage() {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
         </div>
       ) : (
-        <Tabs defaultValue="all">
+        <Tabs defaultValue="ACTIVE">
           <TabsList className="mb-4">
             <TabsTrigger value="all">All ({byStatus.all.length})</TabsTrigger>
             <TabsTrigger value="ACTIVE">Active ({byStatus.ACTIVE.length})</TabsTrigger>
