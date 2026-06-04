@@ -1,20 +1,23 @@
 "use client"
 
-import { use, useEffect, useState, useRef } from "react"
+import { use, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { MessageCircle, RefreshCw } from "lucide-react"
+import { MessageCircle, RefreshCw, Video, RotateCcw } from "lucide-react"
 import { motion } from "framer-motion"
 import { usePracticeSession } from "@/hooks/usePracticeSession"
 import { useBobs27Store } from "@/stores/bobs27.store"
 import { useCricketStore } from "@/stores/cricket.store"
 import { useHalfItStore } from "@/stores/halfit.store"
 import { useMatchChat } from "@/hooks/useMatchChat"
+import { useBoardCamBroadcast } from "@/hooks/useBoardCamBroadcast"
+import { useBoardCamSpectate } from "@/hooks/useBoardCamSpectate"
 import { MatchChatPanel } from "@/components/match/LiveChat/MatchChatPanel"
 import { Bobs27Scoring } from "@/components/practice/Bobs27Scoring"
 import { CricketScoring } from "@/components/practice/CricketScoring"
 import { HalfItScoring } from "@/components/practice/HalfItScoring"
 import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils/cn"
 import { prewarmSpeech, setSpectatorCallerOverride } from "@/lib/utils/speech"
 
 interface PageProps { params: Promise<{ sessionId: string }> }
@@ -78,6 +81,31 @@ export default function PracticeSessionPage({ params }: PageProps) {
 
   const chat = useMatchChat({ matchId: sessionId, userId: me?.id ?? "", userName, isOpen: isChatOpen })
 
+  // Camera — broadcaster uses their playerId (or "local" for local mode)
+  // All non-broadcasters spectate the first player's stream
+  const broadcasterPlayerId = isLocal ? "local" : (myPlayerId ?? "")
+  const spectatePlayerId = data?.players[0]?.playerId ?? ""
+  const cam = useBoardCamBroadcast(sessionId, broadcasterPlayerId, canControl)
+  const { remoteStream } = useBoardCamSpectate(
+    sessionId,
+    // Spectators watch the first player; broadcasters don't self-spectate
+    !canControl ? spectatePlayerId : ""
+  )
+  const camVideoRef = useRef<HTMLVideoElement>(null)
+  const remoteVideoRef = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    if (camVideoRef.current && cam.localStream) {
+      camVideoRef.current.srcObject = cam.localStream
+      camVideoRef.current.play().catch(() => {})
+    }
+  }, [cam.localStream])
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream
+      remoteVideoRef.current.play().catch(() => {})
+    }
+  }, [remoteStream])
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto">
@@ -108,6 +136,74 @@ export default function PracticeSessionPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
+      {/* Board Cam */}
+      <div className="max-w-2xl mx-auto w-full px-4 pt-3">
+        <div
+          className="rounded-xl border p-3 transition-all"
+          style={{ background: "rgba(255,255,255,0.02)", borderColor: cam.isStreaming ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.07)" }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Video className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Board Cam</span>
+              {cam.isStreaming && (
+                <span className="flex items-center gap-1 text-xs font-bold text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live
+                </span>
+              )}
+              {!canControl && remoteStream && (
+                <span className="flex items-center gap-1 text-xs font-bold text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Watching
+                </span>
+              )}
+            </div>
+            {canControl && !cam.isStreaming && (
+              <button
+                onClick={() => cam.start()}
+                className="text-xs px-3 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-500 active:scale-95 transition-all"
+              >
+                Start Cam
+              </button>
+            )}
+            {canControl && cam.isStreaming && (
+              <div className="flex items-center gap-2">
+                <button onClick={cam.flipCamera} className="p-1.5 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 transition-all">
+                  <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+                </button>
+                <button
+                  onClick={cam.stop}
+                  className="text-xs px-3 py-1 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 active:scale-95 transition-all"
+                >
+                  Stop
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Local preview */}
+          {cam.isStreaming && (
+            <video ref={camVideoRef} autoPlay playsInline muted className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
+          )}
+          {/* Remote stream (spectator) */}
+          {!canControl && remoteStream && (
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
+          )}
+
+          {/* Zoom */}
+          {canControl && cam.isStreaming && cam.zoomCapabilities && (
+            <div className="flex items-center gap-2 mt-2">
+              <button onClick={() => cam.setZoom(Math.max(cam.zoomCapabilities!.min, parseFloat((cam.zoomLevel - cam.zoomCapabilities!.step).toFixed(2))))}
+                className="flex-1 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-lg hover:bg-zinc-700 active:scale-95 transition-all">−</button>
+              <span className="text-xs font-bold text-zinc-400 w-10 text-center">{cam.zoomLevel.toFixed(1)}×</span>
+              <button onClick={() => cam.setZoom(Math.min(cam.zoomCapabilities!.max, parseFloat((cam.zoomLevel + cam.zoomCapabilities!.step).toFixed(2))))}
+                className="flex-1 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-lg hover:bg-zinc-700 active:scale-95 transition-all">+</button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Game scoring UI */}
       <div className="max-w-2xl mx-auto w-full">

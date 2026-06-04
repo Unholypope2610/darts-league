@@ -118,16 +118,16 @@ export function announceMatchWin(winnerName: string) {
 
 // ── Practice Arena caller functions ──────────────────────────────────────────
 
-export function announceBobs27Round(target: string, dartsHit: number, pointsChange: number, runningScore: number) {
+export function announceBobs27Round(target: string, dartsHit: number, pointsChange: number) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return
   if (!isCallerEnabled()) return
   const label = target === "D25" ? "Bull" : target.replace("D", "Double ")
   if (dartsHit === 0) {
-    speak(`${label}. No hits. Minus ${Math.abs(pointsChange)}. Score: ${runningScore}.`, 0.88, 1.0)
+    speak(`${label}. Missed. Minus ${Math.abs(pointsChange)}.`, 0.88, 1.0)
   } else if (dartsHit === 3) {
-    speak(`${label}. Perfect round! Plus ${pointsChange}. Score: ${runningScore}.`, 0.85, 1.1)
+    speak(`${label}. Perfect! Plus ${pointsChange}.`, 0.85, 1.1)
   } else {
-    speak(`${label}. ${dartsHit} hit${dartsHit > 1 ? "s" : ""}. Plus ${pointsChange}. Score: ${runningScore}.`, 0.88, 1.0)
+    speak(`${label}. ${dartsHit} hit${dartsHit > 1 ? "s" : ""}. Plus ${pointsChange}.`, 0.88, 1.0)
   }
 }
 
@@ -147,17 +147,11 @@ export function announceHalfItRound(
 ) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return
   if (!isCallerEnabled()) return
-  const targetLabel =
-    target.type === "NUMBER" ? String(target.value) :
-    target.type === "DOUBLES" ? "Doubles" :
-    target.type === "TREBLES" ? "Trebles" :
-    target.type === "BULL" ? "Bull" :
-    target.type === "3_DIFF_COLOURS" ? "Three different colours" :
-    target.type === "3_SAME_COLOUR" ? "Three same colour" :
-    "Exact number"
   if (wasHalved) {
-    speak(`${targetLabel}. No score. Score halved to ${newTotal}.`, 0.85, 1.0)
-  } else {
-    speak(`${targetLabel}. ${pointsScored} points. Total: ${newTotal}.`, 0.88, 1.0)
+    speak(`No score. Halved to ${newTotal}.`, 0.85, 1.0)
+  } else if (pointsScored > 0) {
+    // Only say total if it differs from this round's score (i.e. not the very first round)
+    const suffix = newTotal !== pointsScored ? `. Total: ${newTotal}` : ""
+    speak(`${pointsScored}${suffix}.`, 0.88, 1.0)
   }
 }

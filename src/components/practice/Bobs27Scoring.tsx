@@ -51,7 +51,7 @@ export function Bobs27Scoring({ myPlayerId, canControl, isLocal }: Props) {
     const val = currentDouble.value / 2
     const pointsChange = dartsHit === 0 ? -val : val * dartsHit
     const newScore = currentScore + pointsChange
-    announceBobs27Round(currentDouble.label, dartsHit, pointsChange, newScore)
+    announceBobs27Round(currentDouble.label, dartsHit, pointsChange)
     await submitRound(dartsHit)
   }
 
