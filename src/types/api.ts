@@ -181,3 +181,77 @@ export interface RecordVisitResponse {
   isMatchDraw: boolean
   newRemainder: number
 }
+
+// ── Practice Arena ────────────────────────────────────────────────────────────
+
+export type GameMode = "BOBS_27" | "CRICKET" | "HALF_IT"
+export type PracticeVariant = "STANDARD" | "HARD" | "RANDOM"
+export type PracticeStatus = "IN_PROGRESS" | "COMPLETED"
+
+export interface PracticePlayerMeta {
+  id: string           // PracticePlayer.id
+  playerId: string
+  name: string
+  avatarUrl: string | null
+  turnOrder: number
+  finalScore: number | null
+  isEliminated: boolean
+}
+
+// Round data shapes per game mode
+export interface Bobs27RoundData {
+  target: string       // "D1"–"D20" | "D25"
+  dartsHit: number     // 0–3
+  pointsChange: number // positive or negative
+  runningScore: number
+}
+
+export interface CricketDart {
+  target: string       // "20"|"19"|"18"|"17"|"16"|"15"|"BULL"
+  multiplier: number   // 1|2|3
+}
+
+export interface CricketRoundData {
+  darts: CricketDart[]
+  marksEarned: Record<string, number>
+  pointsEarned: Record<string, number>
+  totalPointsEarned: number
+}
+
+export interface HalfItRoundData {
+  target: string             // "20"|"16"|"DOUBLES"|"17"|"18"|"TREBLES"|"19"|"20"|"BULL"|"3_DIFF_COLOURS"|"3_SAME_COLOUR"|"WILDCARD"
+  pointsScored: number
+  wasHalved: boolean
+  runningScore: number
+  colourConditionMet?: boolean        // colour rounds
+  wildcardTargets?: [number, number]  // wildcard round: [target1 (21-60), target2 (61-120)]  third is always 121+
+  dartDetails?: { segment: "single"|"double"|"treble"|"bull"|"outer"; number: number }[] // colour rounds
+}
+
+export type PracticeRoundData = Bobs27RoundData | CricketRoundData | HalfItRoundData
+
+export interface HalfItTarget {
+  type: "NUMBER" | "DOUBLES" | "TREBLES" | "BULL" | "3_DIFF_COLOURS" | "3_SAME_COLOUR" | "WILDCARD"
+  value?: number               // for NUMBER type
+  wildcardTargets?: [number, number] // wildcard: [21-60 target, 61-120 target]; 121+ is implicit
+}
+
+export interface PracticeSessionWithRounds {
+  id: string
+  gameMode: GameMode
+  variant: PracticeVariant
+  isLocal: boolean
+  status: PracticeStatus
+  winnerId: string | null
+  targetSequence: HalfItTarget[] | null
+  startedAt: string
+  completedAt: string | null
+  players: PracticePlayerMeta[]
+  rounds: {
+    id: string
+    playerId: string
+    roundNumber: number
+    data: PracticeRoundData
+    createdAt: string
+  }[]
+}
