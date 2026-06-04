@@ -83,7 +83,7 @@ export default function UsersSettingsPage() {
     }
   }
 
-  const [confirmTarget, setConfirmTarget] = useState<"casual-matches" | "competitions" | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<"casual-matches" | "competitions" | "practice-sessions" | null>(null)
   const { mutate: clearData, isPending: isClearing } = useMutation({
     mutationFn: (target: string) =>
       fetch(`/api/admin/data?target=${target}`, { method: "DELETE" }).then((r) => {
@@ -94,7 +94,12 @@ export default function UsersSettingsPage() {
       setConfirmTarget(null)
       qc.invalidateQueries({ queryKey: ["competitions"] })
       qc.invalidateQueries({ queryKey: ["casual-matches"] })
-      toast.success(target === "casual-matches" ? "Casual matches cleared" : "Competitions cleared")
+      qc.invalidateQueries({ queryKey: ["practice-sessions-admin"] })
+      toast.success(
+        target === "casual-matches" ? "Casual matches cleared"
+        : target === "practice-sessions" ? "Practice sessions cleared"
+        : "Competitions cleared"
+      )
     },
     onError: () => toast.error("Failed to clear data"),
   })
@@ -116,9 +121,18 @@ export default function UsersSettingsPage() {
   const casualMatches: { id: string; playerA: { name: string }; playerB: { name: string }; startedAt: string; completedAt: string | null }[] =
     Array.isArray(casualMatchesRaw) ? casualMatchesRaw : []
 
+  const { data: practiceSessionsRaw } = useQuery({
+    queryKey: ["practice-sessions-admin"],
+    queryFn: () => fetch("/api/practice").then((r) => r.json()),
+    enabled: isAdmin,
+  })
+  const practiceSessions: { id: string; gameMode: string; startedAt: string; players: { player: { name: string } }[] }[] =
+    Array.isArray(practiceSessionsRaw) ? practiceSessionsRaw : []
+
   const [selectedCompetitionId, setSelectedCompetitionId] = useState("")
   const [selectedMatchId, setSelectedMatchId] = useState("")
-  const [confirmSpecific, setConfirmSpecific] = useState<{ target: "competition" | "match"; id: string; label: string } | null>(null)
+  const [selectedPracticeSessionId, setSelectedPracticeSessionId] = useState("")
+  const [confirmSpecific, setConfirmSpecific] = useState<{ target: "competition" | "match" | "practice-session"; id: string; label: string } | null>(null)
 
   const { mutate: deleteSpecific, isPending: isDeletingSpecific } = useMutation({
     mutationFn: ({ target, id }: { target: string; id: string }) =>
@@ -130,9 +144,15 @@ export default function UsersSettingsPage() {
       setConfirmSpecific(null)
       setSelectedCompetitionId("")
       setSelectedMatchId("")
+      setSelectedPracticeSessionId("")
       qc.invalidateQueries({ queryKey: ["competitions"] })
       qc.invalidateQueries({ queryKey: ["casual-matches"] })
-      toast.success(target === "competition" ? "Competition deleted" : "Match deleted")
+      qc.invalidateQueries({ queryKey: ["practice-sessions-admin"] })
+      toast.success(
+        target === "competition" ? "Competition deleted"
+        : target === "practice-session" ? "Practice session deleted"
+        : "Match deleted"
+      )
     },
     onError: () => toast.error("Failed to delete"),
   })
@@ -276,6 +296,12 @@ export default function UsersSettingsPage() {
             >
               Clear all competitions
             </button>
+            <button
+              onClick={() => setConfirmTarget("practice-sessions")}
+              className="w-full py-2 rounded-lg border border-destructive/40 text-destructive text-sm font-medium hover:bg-destructive/10 transition-colors"
+            >
+              Clear all practice sessions
+            </button>
           </div>
 
           {/* Delete specific competition */}
@@ -338,6 +364,44 @@ export default function UsersSettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Delete specific practice session */}
+          {practiceSessions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Specific Practice Session</p>
+              <div className="flex gap-2">
+                <select
+                  value={selectedPracticeSessionId}
+                  onChange={(e) => setSelectedPracticeSessionId(e.target.value)}
+                  className="flex-1 h-9 rounded-lg text-sm px-2.5 bg-muted border border-border text-foreground outline-none"
+                >
+                  <option value="">Select session…</option>
+                  {practiceSessions.map((s) => {
+                    const modeLabel = s.gameMode === "BOBS_27" ? "Bob's 27" : s.gameMode === "CRICKET" ? "Cricket" : "Half It"
+                    const playerNames = s.players.map((p) => p.player.name).join(", ")
+                    return (
+                      <option key={s.id} value={s.id}>
+                        {modeLabel} · {playerNames} · {new Date(s.startedAt).toLocaleDateString()}
+                      </option>
+                    )
+                  })}
+                </select>
+                <button
+                  onClick={() => {
+                    const s = practiceSessions.find((x) => x.id === selectedPracticeSessionId)
+                    if (s) {
+                      const modeLabel = s.gameMode === "BOBS_27" ? "Bob's 27" : s.gameMode === "CRICKET" ? "Cricket" : "Half It"
+                      setConfirmSpecific({ target: "practice-session", id: s.id, label: `${modeLabel} — ${s.players.map((p) => p.player.name).join(", ")}` })
+                    }
+                  }}
+                  disabled={!selectedPracticeSessionId}
+                  className="px-3 h-9 rounded-lg text-sm font-medium border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -350,6 +414,8 @@ export default function UsersSettingsPage() {
           <p className="text-sm text-muted-foreground">
             {confirmTarget === "casual-matches"
               ? "This will permanently delete all casual match history and stats."
+              : confirmTarget === "practice-sessions"
+              ? "This will permanently delete all practice sessions and their stats."
               : "This will permanently delete all competitions, fixtures, and match history."}
           </p>
           <div className="flex gap-2 pt-2">

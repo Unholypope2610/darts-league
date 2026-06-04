@@ -27,7 +27,7 @@ const navItems: { href: string; label: string; icon: React.ElementType; exact?: 
   { href: "/matches", label: "Casual", icon: Swords, exact: true },
   { href: "/tables", label: "Tables", icon: BarChart2 },
   { href: "/brackets", label: "Brackets", icon: Target },
-  { href: "/practice", label: "Practice", icon: Crosshair },
+  { href: "/practice", label: "Practice Arena", icon: Crosshair },
   { href: "/rankings", label: "Rankings", icon: Medal },
   { href: "/history", label: "Champions Wall", icon: History },
   { href: "/settings/users", label: "Settings", icon: Settings },

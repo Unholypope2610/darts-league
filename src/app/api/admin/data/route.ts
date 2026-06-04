@@ -103,5 +103,15 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ deleted: true })
   }
 
+  if (target === "practice-sessions") {
+    await prisma.practiceSession.deleteMany({})
+    return NextResponse.json({ deleted: true })
+  }
+
+  if (target === "practice-session" && id) {
+    await prisma.practiceSession.delete({ where: { id } })
+    return NextResponse.json({ deleted: true })
+  }
+
   return NextResponse.json({ error: "Invalid target" }, { status: 400 })
 }
