@@ -12,7 +12,7 @@ function generateHalfItSequence(random: boolean): HalfItTarget[] {
     { type: "NUMBER", value: 18 },
     { type: "TREBLES" },
     { type: "NUMBER", value: 19 },
-    { type: "NUMBER", value: 20 },
+    { type: "NUMBER", value: 15 },
     { type: "BULL" },
     { type: "3_DIFF_COLOURS" },
     { type: "3_SAME_COLOUR" },

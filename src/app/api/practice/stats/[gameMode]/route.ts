@@ -15,9 +15,16 @@ export async function GET(_req: Request, { params }: Params) {
 
   const playerId = user.playerId
 
+  const SLUG_MAP: Record<string, string> = {
+    halfit: "HALF_IT",
+    bobs27: "BOBS_27",
+    cricket: "CRICKET",
+  }
+  const dbGameMode = SLUG_MAP[gameMode.toLowerCase()] ?? gameMode.toUpperCase()
+
   const sessions = await prisma.practiceSession.findMany({
     where: {
-      gameMode: gameMode.toUpperCase(),
+      gameMode: dbGameMode,
       status: "COMPLETED",
       players: { some: { playerId } },
     },
@@ -29,7 +36,7 @@ export async function GET(_req: Request, { params }: Params) {
     take: 100,
   })
 
-  if (gameMode.toUpperCase() === "BOBS_27") {
+  if (dbGameMode === "BOBS_27") {
     const hitsByDouble: Record<string, { hits: number; attempts: number }> = {}
     let totalScore = 0
     let bestScore = -Infinity
@@ -63,7 +70,7 @@ export async function GET(_req: Request, { params }: Params) {
     })
   }
 
-  if (gameMode.toUpperCase() === "CRICKET") {
+  if (dbGameMode === "CRICKET") {
     let totalMarks = 0
     let totalDarts = 0
     let wins = 0
@@ -103,7 +110,7 @@ export async function GET(_req: Request, { params }: Params) {
     })
   }
 
-  if (gameMode.toUpperCase() === "HALF_IT") {
+  if (dbGameMode === "HALF_IT") {
     let totalFinalScore = 0
     let bestFinalScore = 0
     let totalHalves = 0
