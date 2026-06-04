@@ -13,6 +13,17 @@ interface PageProps { params: Promise<{ sessionId: string }> }
 
 const MODE_LABELS: Record<string, string> = { BOBS_27: "Bob's 27", CRICKET: "Cricket", HALF_IT: "Half It" }
 
+function halfItTargetLabel(t: { type: string; value?: number; wildcardTargets?: [number, number] }): string {
+  if (t.type === "NUMBER") return String(t.value)
+  if (t.type === "DOUBLES") return "Doubles"
+  if (t.type === "TREBLES") return "Trebles"
+  if (t.type === "BULL") return "Bull"
+  if (t.type === "3_DIFF_COLOURS") return "3 Diff Colours"
+  if (t.type === "3_SAME_COLOUR") return "3 Same Colour"
+  if (t.type === "WILDCARD") return "Exact Number"
+  return t.type
+}
+
 function Bobs27Summary({ session }: { session: PracticeSessionWithRounds }) {
   const playerRounds: Record<string, Bobs27RoundData[]> = {}
   for (const p of session.players) playerRounds[p.playerId] = []
@@ -110,6 +121,13 @@ function HalfItSummary({ session }: { session: PracticeSessionWithRounds }) {
     playerRounds[r.playerId].push(r.data as HalfItRoundData)
   }
 
+  // Per-round lookup: roundsByPlayer[playerId][roundIndex] = HalfItRoundData
+  const roundsByPlayer: Record<string, Record<number, HalfItRoundData>> = {}
+  for (const r of session.rounds) {
+    roundsByPlayer[r.playerId] = roundsByPlayer[r.playerId] ?? {}
+    roundsByPlayer[r.playerId][r.roundNumber - 1] = r.data as HalfItRoundData
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {session.players.map((p) => {
@@ -142,6 +160,49 @@ function HalfItSummary({ session }: { session: PracticeSessionWithRounds }) {
           </div>
         )
       })}
+
+      {/* Per-round breakdown */}
+      {session.targetSequence && session.targetSequence.length > 0 && (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="py-2 px-2 text-left text-muted-foreground font-semibold">Rnd</th>
+                <th className="py-2 px-2 text-left text-muted-foreground font-semibold">Target</th>
+                {session.players.map((p) => (
+                  <th key={p.playerId} className="py-2 px-2 text-right text-muted-foreground font-semibold">{p.name.split(" ")[0]}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {session.targetSequence.map((t, idx) => (
+                <tr key={idx} className="border-b border-border/30 last:border-0">
+                  <td className="py-1.5 px-2 text-muted-foreground font-semibold">{idx + 1}</td>
+                  <td className="py-1.5 px-2 font-semibold">{halfItTargetLabel(t)}</td>
+                  {session.players.map((p) => {
+                    const pr = roundsByPlayer[p.playerId]?.[idx]
+                    return (
+                      <td key={p.playerId} className="py-1.5 px-2 text-right font-score">
+                        {pr ? (
+                          <span className={
+                            pr.wasHalved ? "text-red-400"
+                            : pr.pointsScored > 0 ? "text-emerald-400"
+                            : "text-muted-foreground"
+                          }>
+                            {pr.wasHalved ? "÷2" : pr.pointsScored > 0 ? `+${pr.pointsScored}` : "0"}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/30">─</span>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

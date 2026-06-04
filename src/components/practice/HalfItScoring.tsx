@@ -629,8 +629,12 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
                         {isCurrent && p.playerId === activePlayer.playerId ? (
                           <span className="text-primary">►</span>
                         ) : isPast && pr ? (
-                          <span className={pr.wasHalved ? "text-red-400" : "text-foreground"}>
-                            {pr.wasHalved ? `÷2=${pr.runningScore}` : pr.runningScore}
+                          <span className={
+                            pr.wasHalved ? "text-red-400"
+                            : pr.pointsScored > 0 ? "text-emerald-400"
+                            : "text-muted-foreground"
+                          }>
+                            {pr.wasHalved ? "÷2" : pr.pointsScored > 0 ? `+${pr.pointsScored}` : "0"}
                           </span>
                         ) : (
                           <span className="text-muted-foreground/30">─</span>
