@@ -78,15 +78,6 @@ export default function PracticeSessionPage({ params }: PageProps) {
 
   const chat = useMatchChat({ matchId: sessionId, userId: me?.id ?? "", userName, isOpen: isChatOpen })
 
-  // Find current active player's info for camera
-  const currentPlayerIndex = data?.gameMode === "BOBS_27"
-    ? useBobs27Store.getState().currentPlayerIndex
-    : data?.gameMode === "CRICKET"
-    ? useCricketStore.getState().currentPlayerIndex
-    : useHalfItStore.getState().currentPlayerIndex
-
-  const activePlayer = data?.players[currentPlayerIndex]
-
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto">

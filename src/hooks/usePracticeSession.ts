@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
+import { useEffect, useCallback, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getSupabase } from "@/lib/supabase"
 import { useBobs27Store } from "@/stores/bobs27.store"
@@ -10,6 +10,7 @@ import type { PracticeSessionWithRounds } from "@/types/api"
 
 export function usePracticeSession(sessionId: string) {
   const queryClient = useQueryClient()
+  const gameModeRef = useRef<string | null>(null)
 
   const { data, isLoading, error } = useQuery<PracticeSessionWithRounds>({
     queryKey: ["practice", sessionId],
@@ -22,16 +23,13 @@ export function usePracticeSession(sessionId: string) {
     refetchOnWindowFocus: false,
   })
 
-  const bobs27 = useBobs27Store()
-  const cricket = useCricketStore()
-  const halfit = useHalfItStore()
-
+  // Hydrate the correct store when data loads — use getState() to avoid store subscriptions
   useEffect(() => {
     if (!data) return
-    if (data.gameMode === "BOBS_27") bobs27.hydrate(data)
-    else if (data.gameMode === "CRICKET") cricket.hydrate(data)
-    else if (data.gameMode === "HALF_IT") halfit.hydrate(data)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    gameModeRef.current = data.gameMode
+    if (data.gameMode === "BOBS_27") useBobs27Store.getState().hydrate(data)
+    else if (data.gameMode === "CRICKET") useCricketStore.getState().hydrate(data)
+    else if (data.gameMode === "HALF_IT") useHalfItStore.getState().hydrate(data)
   }, [data])
 
   const forceResync = useCallback(async () => {
@@ -45,15 +43,16 @@ export function usePracticeSession(sessionId: string) {
         },
         staleTime: 0,
       })
-      if (fresh.gameMode === "BOBS_27") bobs27.hydrate(fresh)
-      else if (fresh.gameMode === "CRICKET") cricket.hydrate(fresh)
-      else if (fresh.gameMode === "HALF_IT") halfit.hydrate(fresh)
+      const gm = fresh.gameMode
+      if (gm === "BOBS_27") useBobs27Store.getState().hydrate(fresh)
+      else if (gm === "CRICKET") useCricketStore.getState().hydrate(fresh)
+      else if (gm === "HALF_IT") useHalfItStore.getState().hydrate(fresh)
     } catch {
       // silent
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, queryClient])
 
+  // Re-sync when returning from background
   useEffect(() => {
     function onVisibilityChange() {
       if (document.visibilityState === "visible") forceResync()
@@ -62,35 +61,34 @@ export function usePracticeSession(sessionId: string) {
     return () => document.removeEventListener("visibilitychange", onVisibilityChange)
   }, [forceResync])
 
-  // Supabase realtime
+  // Supabase realtime — use getState() and gameModeRef to avoid stale closures
   useEffect(() => {
     if (!data) return
     const supabase = getSupabase()
     const channel = supabase.channel(`practice:${sessionId}`)
     const wasDisconnected = { current: false }
 
-    const injectBroadcast = (fn: (event: string, payload: unknown) => void) => {
-      if (data.gameMode === "BOBS_27") useBobs27Store.setState({ _broadcast: fn })
-      else if (data.gameMode === "CRICKET") useCricketStore.setState({ _broadcast: fn })
-      else if (data.gameMode === "HALF_IT") useHalfItStore.setState({ _broadcast: fn })
-    }
-
     channel
       .on("broadcast", { event: "ROUND_SUBMITTED" }, ({ payload }) => {
-        if (data.gameMode === "BOBS_27") bobs27.applyRemoteRound(payload)
-        else if (data.gameMode === "CRICKET") cricket.applyRemoteTurn(payload)
-        else if (data.gameMode === "HALF_IT") halfit.applyRemoteRound(payload)
+        const gm = gameModeRef.current
+        if (gm === "BOBS_27") useBobs27Store.getState().applyRemoteRound(payload)
+        else if (gm === "CRICKET") useCricketStore.getState().applyRemoteTurn(payload)
+        else if (gm === "HALF_IT") useHalfItStore.getState().applyRemoteRound(payload)
       })
       .on("broadcast", { event: "ROUND_UNDONE" }, ({ payload }) => {
-        if (data.gameMode === "BOBS_27") bobs27.applyRemoteUndo(payload)
-        else if (data.gameMode === "CRICKET") cricket.applyRemoteUndo(payload)
-        else if (data.gameMode === "HALF_IT") halfit.applyRemoteUndo(payload)
+        const gm = gameModeRef.current
+        if (gm === "BOBS_27") useBobs27Store.getState().applyRemoteUndo(payload)
+        else if (gm === "CRICKET") useCricketStore.getState().applyRemoteUndo(payload)
+        else if (gm === "HALF_IT") useHalfItStore.getState().applyRemoteUndo(payload)
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          injectBroadcast((event, payload) =>
+          const fn = (event: string, payload: unknown) =>
             channel.send({ type: "broadcast", event, payload })
-          )
+          const gm = gameModeRef.current
+          if (gm === "BOBS_27") useBobs27Store.setState({ _broadcast: fn })
+          else if (gm === "CRICKET") useCricketStore.setState({ _broadcast: fn })
+          else if (gm === "HALF_IT") useHalfItStore.setState({ _broadcast: fn })
           if (wasDisconnected.current) {
             wasDisconnected.current = false
             forceResync()
@@ -101,22 +99,21 @@ export function usePracticeSession(sessionId: string) {
       })
 
     return () => {
-      if (data.gameMode === "BOBS_27") useBobs27Store.setState({ _broadcast: null })
-      else if (data.gameMode === "CRICKET") useCricketStore.setState({ _broadcast: null })
-      else if (data.gameMode === "HALF_IT") useHalfItStore.setState({ _broadcast: null })
+      const gm = gameModeRef.current
+      if (gm === "BOBS_27") useBobs27Store.setState({ _broadcast: null })
+      else if (gm === "CRICKET") useCricketStore.setState({ _broadcast: null })
+      else if (gm === "HALF_IT") useHalfItStore.setState({ _broadcast: null })
       supabase.removeChannel(channel)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, data?.gameMode])
+  }, [sessionId, data?.gameMode, forceResync])
 
-  // Reset stores on unmount
+  // Reset all stores on unmount
   useEffect(() => {
     return () => {
-      bobs27.reset()
-      cricket.reset()
-      halfit.reset()
+      useBobs27Store.getState().reset()
+      useCricketStore.getState().reset()
+      useHalfItStore.getState().reset()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return { data, isLoading, error, forceResync }
