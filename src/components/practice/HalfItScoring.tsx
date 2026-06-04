@@ -113,8 +113,8 @@ function RingKeypad({ mode, onAdd, dartCount }: RingKeypadProps) {
                 BG_CLS[col], TEXT_CLS[col]
               )}
             >
-              <span className="text-sm">{n}</span>
-              <span className="text-[10px] opacity-80">{pts}</span>
+              <span className={n >= 10 ? "text-base font-black leading-none" : "text-sm leading-none"}>{n}</span>
+              <span className={cn("opacity-80 leading-none", pts >= 30 ? "text-xs" : "text-[10px]")}>{pts}</span>
             </button>
           )
         })}
@@ -201,8 +201,8 @@ function ColourKeypad({ onAdd, dartCount }: ColourKeypadProps) {
                   BG_CLS[col], TEXT_CLS[col]
                 )}
               >
-                <span className="text-sm">{n}</span>
-                <span className="text-[10px] opacity-75">{pts}</span>
+                <span className={n >= 10 ? "text-base font-black leading-none" : "text-sm leading-none"}>{n}</span>
+                <span className={cn("opacity-75 leading-none", pts >= 30 ? "text-xs" : "text-[10px]")}>{pts}</span>
               </button>
             )
           })}
