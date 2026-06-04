@@ -219,50 +219,14 @@ interface WildcardKeypadProps {
   onSubmit: (score: number) => void
 }
 function WildcardKeypad({ targets, onSubmit }: WildcardKeypadProps) {
-  const [input, setInput] = useState("")
-
-  function handleTap(target: number | "121+") {
-    setInput(target === "121+" ? "121" : String(target))
-  }
-
-  function handleSubmit() {
-    const n = parseInt(input, 10)
-    if (isNaN(n)) return
-    onSubmit(n)
-    setInput("")
-  }
-
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground text-center">Shot Instructions: Score one of the exact numbers</p>
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-2">
-        <input
-          type="number"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Enter a score"
-          className="flex-1 bg-transparent text-foreground outline-none text-sm"
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={!input}
-          className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm font-bold disabled:opacity-40"
-        >
-          Submit
-        </button>
-      </div>
-
       <div className="grid grid-cols-3 gap-3">
         {[targets[0], targets[1], "121+" as const].map((t) => (
           <button
             key={String(t)}
-            onClick={() => handleTap(t)}
-            className={cn(
-              "py-8 rounded-xl border font-score text-3xl font-black transition-all active:scale-95",
-              input === String(t === "121+" ? 121 : t)
-                ? "border-primary/50 bg-primary/20 text-primary"
-                : "border-border bg-card hover:border-primary/30",
-            )}
+            onClick={() => onSubmit(t === "121+" ? 121 : t)}
+            className="py-8 rounded-xl border border-border bg-card font-score text-3xl font-black transition-all active:scale-95 hover:border-primary/30 hover:bg-primary/10"
           >
             {t}
           </button>
@@ -442,6 +406,9 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
         <div className="flex-1">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Shot Instructions</p>
           <p className="font-black text-lg text-emerald-400 uppercase">Your Target: {targetLabel(currentTarget)}</p>
+          {currentTarget.type === "NUMBER" && (
+            <p className="font-score font-black text-6xl text-emerald-400 leading-none mt-1">{currentTarget.value}</p>
+          )}
           {currentTarget.type === "WILDCARD" && currentTarget.wildcardTargets && (
             <div className="flex gap-2 mt-2">
               {[currentTarget.wildcardTargets[0], currentTarget.wildcardTargets[1], "121+"].map((t) => (

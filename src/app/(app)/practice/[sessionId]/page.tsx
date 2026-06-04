@@ -68,10 +68,11 @@ export default function PracticeSessionPage({ params }: PageProps) {
     : halfitStatus
 
   useEffect(() => {
-    if (gameStatus === "COMPLETED") {
-      setTimeout(() => router.push(`/practice/${sessionId}/stats`), 1500)
+    if (gameStatus === "COMPLETED" && !pendingReplay) {
+      const t = setTimeout(() => router.push(`/practice/${sessionId}/stats`), 1500)
+      return () => clearTimeout(t)
     }
-  }, [gameStatus, sessionId, router])
+  }, [gameStatus, pendingReplay, sessionId, router])
 
   const myPlayerId = me?.playerId ?? null
   const isParticipant = data?.players.some((p) => p.playerId === myPlayerId)
