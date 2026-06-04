@@ -121,6 +121,24 @@ export default function PracticeSessionPage({ params }: PageProps) {
     }
   }, [remoteStream])
 
+  // Half It: force a replay toast when the game ends (no button after last turn submit)
+  useEffect(() => {
+    if (
+      halfitStatus === "COMPLETED" &&
+      data?.gameMode === "HALF_IT" &&
+      cam.isStreaming &&
+      canControl
+    ) {
+      setPendingReplay({
+        playerId: broadcasterPlayerId,
+        label: "Last shot!",
+        context: { gameMode: "HALF_IT" },
+        autoSave: false,
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [halfitStatus])
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4 p-4 max-w-2xl mx-auto">
