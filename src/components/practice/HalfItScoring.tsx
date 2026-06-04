@@ -434,50 +434,6 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
         </div>
       )}
 
-      {/* Round history table (compact) */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="py-2 px-2 text-left text-muted-foreground font-semibold">Rnd</th>
-              <th className="py-2 px-2 text-left text-muted-foreground font-semibold">Target</th>
-              {players.map((p) => (
-                <th key={p.playerId} className="py-2 px-2 text-right text-muted-foreground font-semibold">{p.name.split(" ")[0]}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {targetSequence.map((t, idx) => {
-              const roundNum = idx + 1
-              const isCurrent = roundNum === currentRound
-              const isPast = roundNum < currentRound
-              return (
-                <tr key={idx} className={cn("border-b border-border/30 last:border-0", isCurrent ? "bg-primary/5" : "")}>
-                  <td className="py-1.5 px-2 font-semibold text-muted-foreground">{roundNum}</td>
-                  <td className="py-1.5 px-2 font-semibold">{targetLabel(t)}</td>
-                  {players.map((p) => {
-                    const pr = rounds[p.playerId]?.[idx]
-                    return (
-                      <td key={p.playerId} className="py-1.5 px-2 text-right font-score">
-                        {isCurrent && p.playerId === activePlayer.playerId ? (
-                          <span className="text-primary">►</span>
-                        ) : isPast && pr ? (
-                          <span className={pr.wasHalved ? "text-red-400" : "text-foreground"}>
-                            {pr.wasHalved ? `÷2=${pr.runningScore}` : pr.runningScore}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/30">─</span>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
       {/* Status */}
       {status === "COMPLETED" && (
         <div className="rounded-xl bg-primary/10 border border-primary/30 p-4 text-center">
@@ -548,6 +504,50 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
           Undo last turn
         </button>
       )}
+
+      {/* Score log — below the inputs */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="py-2 px-2 text-left text-muted-foreground font-semibold">Rnd</th>
+              <th className="py-2 px-2 text-left text-muted-foreground font-semibold">Target</th>
+              {players.map((p) => (
+                <th key={p.playerId} className="py-2 px-2 text-right text-muted-foreground font-semibold">{p.name.split(" ")[0]}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {targetSequence.map((t, idx) => {
+              const roundNum = idx + 1
+              const isCurrent = roundNum === currentRound
+              const isPast = roundNum < currentRound
+              return (
+                <tr key={idx} className={cn("border-b border-border/30 last:border-0", isCurrent ? "bg-primary/5" : "")}>
+                  <td className="py-1.5 px-2 font-semibold text-muted-foreground">{roundNum}</td>
+                  <td className="py-1.5 px-2 font-semibold">{targetLabel(t)}</td>
+                  {players.map((p) => {
+                    const pr = rounds[p.playerId]?.[idx]
+                    return (
+                      <td key={p.playerId} className="py-1.5 px-2 text-right font-score">
+                        {isCurrent && p.playerId === activePlayer.playerId ? (
+                          <span className="text-primary">►</span>
+                        ) : isPast && pr ? (
+                          <span className={pr.wasHalved ? "text-red-400" : "text-foreground"}>
+                            {pr.wasHalved ? `÷2=${pr.runningScore}` : pr.runningScore}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/30">─</span>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
