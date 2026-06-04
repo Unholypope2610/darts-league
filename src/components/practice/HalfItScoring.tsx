@@ -31,6 +31,19 @@ function getSegmentColour(segment: "single" | "double" | "treble" | "bull" | "ou
   return RING_COLOURS[number] ?? "red"
 }
 
+const BG_CLS: Record<Colour, string> = {
+  black: "bg-zinc-800 border-zinc-600",
+  white: "bg-zinc-100 border-zinc-300",
+  red: "bg-red-500 border-red-600",
+  green: "bg-emerald-500 border-emerald-600",
+}
+const TEXT_CLS: Record<Colour, string> = {
+  black: "text-white",
+  white: "text-zinc-900",
+  red: "text-white",
+  green: "text-white",
+}
+
 function targetLabel(t: HalfItTarget): string {
   if (t.type === "NUMBER") return String(t.value)
   if (t.type === "DOUBLES") return "Doubles"
@@ -74,115 +87,136 @@ function NumberKeypad({ value, onAdd, pendingTotal, dartCount }: NumberKeypadPro
   )
 }
 
-// ─── Full grid (doubles/trebles/colour) ────────────────────────────────────────
-interface GridKeypadProps {
-  mode: "doubles" | "trebles" | "colour"
-  onAdd: (pts: number, dartDetail?: { segment: "single" | "double" | "treble" | "bull" | "outer"; number: number }) => void
+// ─── Doubles / trebles grid (colour-coded by ring colour) ─────────────────────
+interface RingKeypadProps {
+  mode: "doubles" | "trebles"
+  onAdd: (pts: number, detail: { segment: "double" | "treble"; number: number }) => void
   dartCount: number
   pendingTotal: number
 }
-function GridKeypad({ mode, onAdd, dartCount, pendingTotal }: GridKeypadProps) {
+function RingKeypad({ mode, onAdd, dartCount, pendingTotal }: RingKeypadProps) {
+  const numbers = Array.from({ length: 20 }, (_, i) => i + 1)
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-muted-foreground text-center">
+        Shoot at a {mode === "doubles" ? "Double" : "Treble"}
+      </p>
+      <div className="grid grid-cols-5 gap-1.5">
+        {numbers.map((n) => {
+          const col = RING_COLOURS[n] ?? "red"
+          const pts = mode === "doubles" ? n * 2 : n * 3
+          const seg = mode === "doubles" ? "double" : "treble"
+          return (
+            <button
+              key={n}
+              onClick={() => onAdd(pts, { segment: seg, number: n })}
+              disabled={dartCount >= 3}
+              className={cn(
+                "flex flex-col items-center py-2.5 rounded-xl border-2 font-bold active:scale-95 transition-all disabled:opacity-30",
+                BG_CLS[col], TEXT_CLS[col]
+              )}
+            >
+              <span className="text-sm">{n}</span>
+              <span className="text-[10px] opacity-80">{pts}</span>
+            </button>
+          )
+        })}
+      </div>
+      <p className="text-center text-xs text-muted-foreground">Running this turn: <span className="text-foreground font-bold">{pendingTotal}</span></p>
+    </div>
+  )
+}
+
+// ─── Colour keypad (tabbed: Single / Double / Treble / Bull / Outer) ──────────
+type ColourTab = "single" | "double" | "treble" | "bull" | "outer"
+
+interface ColourKeypadProps {
+  onAdd: (pts: number, detail: { segment: "single" | "double" | "treble" | "bull" | "outer"; number: number }) => void
+  dartCount: number
+  pendingTotal: number
+}
+function ColourKeypad({ onAdd, dartCount, pendingTotal }: ColourKeypadProps) {
+  const [tab, setTab] = useState<ColourTab>("single")
   const numbers = Array.from({ length: 20 }, (_, i) => i + 1)
 
-  function handleTap(n: number) {
-    if (mode === "doubles") onAdd(n * 2, { segment: "double", number: n })
-    else if (mode === "trebles") onAdd(n * 3, { segment: "treble", number: n })
-  }
+  const TABS: { key: ColourTab; label: string; sub?: string }[] = [
+    { key: "single", label: "Single" },
+    { key: "double", label: "Double" },
+    { key: "treble", label: "Treble" },
+    { key: "bull", label: "Bull", sub: "50" },
+    { key: "outer", label: "Outer", sub: "25" },
+  ]
 
-  const COLOUR_DOT: Record<Colour, string> = {
-    black: "bg-zinc-800 border-zinc-600",
-    white: "bg-zinc-100 border-zinc-300",
-    red: "bg-red-500 border-red-600",
-    green: "bg-emerald-500 border-emerald-600",
+  function handleTap(n: number) {
+    if (dartCount >= 3) return
+    if (tab === "bull") {
+      onAdd(50, { segment: "bull", number: 25 })
+    } else if (tab === "outer") {
+      onAdd(25, { segment: "outer", number: 25 })
+    } else {
+      const pts = tab === "single" ? n : tab === "double" ? n * 2 : n * 3
+      onAdd(pts, { segment: tab, number: n })
+    }
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {mode !== "colour" && (
-        <p className="text-sm text-muted-foreground text-center">
-          Shoot at a {mode === "doubles" ? "Double" : "Treble"}
-        </p>
-      )}
-      {mode === "colour" && (
-        <p className="text-sm text-muted-foreground text-center">Select each dart&apos;s segment</p>
-      )}
+      {/* Tab bar */}
+      <div className="grid grid-cols-5 gap-0.5 rounded-xl bg-zinc-900 p-1">
+        {TABS.map(({ key, label, sub }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={cn(
+              "flex flex-col items-center py-1.5 rounded-lg leading-tight transition-all",
+              tab === key ? "bg-zinc-700 text-white" : "text-zinc-500 hover:text-zinc-300"
+            )}
+          >
+            <span className="text-[11px] font-bold">{label}</span>
+            {sub && <span className="text-[9px] opacity-70">{sub}</span>}
+          </button>
+        ))}
+      </div>
 
-      {mode === "colour" ? (
-        // Full 5-column grid: Single | Double | Treble | Bull | Outer
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr>
-                <th className="py-1 px-2 text-muted-foreground font-semibold text-left">Num</th>
-                <th className="py-1 px-2 text-muted-foreground font-semibold text-center">Single</th>
-                <th className="py-1 px-2 text-muted-foreground font-semibold text-center">Double</th>
-                <th className="py-1 px-2 text-muted-foreground font-semibold text-center">Treble</th>
-                <th className="py-1 px-2 text-muted-foreground font-semibold text-center">Bull</th>
-                <th className="py-1 px-2 text-muted-foreground font-semibold text-center">Outer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {numbers.map((n) => (
-                <tr key={n} className="border-t border-border/30">
-                  <td className="py-1.5 px-2 font-bold">{n}</td>
-                  {(["single", "double", "treble"] as const).map((seg) => {
-                    const col = getSegmentColour(seg, n)
-                    const pts = seg === "single" ? n : seg === "double" ? n * 2 : n * 3
-                    return (
-                      <td key={seg} className="py-1 px-1 text-center">
-                        <button
-                          onClick={() => { onAdd(pts, { segment: seg, number: n }) }}
-                          disabled={dartCount >= 3}
-                          className={cn("w-8 h-7 rounded border-2 font-bold text-xs active:scale-95 transition-all disabled:opacity-30", COLOUR_DOT[col])}
-                        >
-                          {pts}
-                        </button>
-                      </td>
-                    )
-                  })}
-                  {n === 1 ? (
-                    <>
-                      <td className="py-1 px-1 text-center">
-                        <button onClick={() => onAdd(50, { segment: "bull", number: 25 })} disabled={dartCount >= 3}
-                          className={cn("w-8 h-7 rounded border-2 font-bold text-xs active:scale-95 transition-all disabled:opacity-30", COLOUR_DOT.red)}>
-                          50
-                        </button>
-                      </td>
-                      <td className="py-1 px-1 text-center">
-                        <button onClick={() => onAdd(25, { segment: "outer", number: 25 })} disabled={dartCount >= 3}
-                          className={cn("w-8 h-7 rounded border-2 font-bold text-xs active:scale-95 transition-all disabled:opacity-30", COLOUR_DOT.green)}>
-                          25
-                        </button>
-                      </td>
-                    </>
-                  ) : (
-                    <><td /><td /></>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Bull / Outer: single large tap target */}
+      {(tab === "bull" || tab === "outer") ? (
+        <button
+          onClick={() => handleTap(0)}
+          disabled={dartCount >= 3}
+          className={cn(
+            "py-10 rounded-xl border-2 font-black text-5xl active:scale-95 transition-all disabled:opacity-30",
+            tab === "bull" ? `${BG_CLS.red} ${TEXT_CLS.red}` : `${BG_CLS.green} ${TEXT_CLS.green}`
+          )}
+        >
+          {tab === "bull" ? "50" : "25"}
+        </button>
       ) : (
-        // Doubles or trebles grid
+        /* Single / Double / Treble: 4×5 colour-coded number grid */
         <div className="grid grid-cols-5 gap-1.5">
           {numbers.map((n) => {
-            const pts = mode === "doubles" ? n * 2 : n * 3
+            const col = getSegmentColour(tab, n)
+            const pts = tab === "single" ? n : tab === "double" ? n * 2 : n * 3
             return (
               <button
                 key={n}
                 onClick={() => handleTap(n)}
                 disabled={dartCount >= 3}
-                className="flex flex-col items-center py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all disabled:opacity-40"
+                className={cn(
+                  "flex flex-col items-center py-2 rounded-lg border-2 font-bold active:scale-95 transition-all disabled:opacity-30",
+                  BG_CLS[col], TEXT_CLS[col]
+                )}
               >
-                <span className="font-bold text-sm">{n}</span>
-                <span className="text-[10px] text-muted-foreground">{pts}</span>
+                <span className="text-sm">{n}</span>
+                <span className="text-[10px] opacity-75">{pts}</span>
               </button>
             )
           })}
         </div>
       )}
-      <p className="text-center text-xs text-muted-foreground">Running this turn: <span className="text-foreground font-bold">{pendingTotal}</span></p>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Running this turn: <span className="text-foreground font-bold">{pendingTotal}</span>
+      </p>
     </div>
   )
 }
@@ -196,11 +230,7 @@ function WildcardKeypad({ targets, onSubmit }: WildcardKeypadProps) {
   const [input, setInput] = useState("")
 
   function handleTap(target: number | "121+") {
-    if (target === "121+") {
-      setInput("121")
-    } else {
-      setInput(String(target))
-    }
+    setInput(target === "121+" ? "121" : String(target))
   }
 
   function handleSubmit() {
@@ -230,7 +260,6 @@ function WildcardKeypad({ targets, onSubmit }: WildcardKeypadProps) {
         </button>
       </div>
 
-      {/* 3 target buttons */}
       <div className="grid grid-cols-3 gap-3">
         {[targets[0], targets[1], "121+" as const].map((t) => (
           <button
@@ -267,7 +296,6 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
   const submitRound = useHalfItStore((s) => s.submitRound)
   const undoLastRound = useHalfItStore((s) => s.undoLastRound)
 
-  // Pending dart tracking for multi-dart rounds
   const [pendingTotal, setPendingTotal] = useState(0)
   const [dartCount, setDartCount] = useState(0)
   const [dartDetails, setDartDetails] = useState<{ segment: "single" | "double" | "treble" | "bull" | "outer"; number: number }[]>([])
@@ -300,7 +328,6 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
   }
 
   async function handleSubmit() {
-    // Check colour condition if needed
     if (currentTarget.type === "3_DIFF_COLOURS" || currentTarget.type === "3_SAME_COLOUR") {
       const colours = dartDetails.map((d) => getSegmentColour(d.segment, d.number))
       const unique = new Set(colours)
@@ -346,20 +373,20 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
           />
         )
       case "DOUBLES":
-        return <GridKeypad mode="doubles" onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
+        return <RingKeypad mode="doubles" onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
       case "TREBLES":
-        return <GridKeypad mode="trebles" onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
+        return <RingKeypad mode="trebles" onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
       case "BULL":
         return (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted-foreground text-center">Shoot at the Bull</p>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => addDart(25, { segment: "outer", number: 25 })} disabled={dartCount >= 3}
-                className="py-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-bold text-lg active:scale-95 disabled:opacity-40">
+                className="py-6 rounded-xl border-2 border-emerald-500 bg-emerald-500 text-white font-bold text-lg active:scale-95 disabled:opacity-40">
                 Outer 25
               </button>
               <button onClick={() => addDart(50, { segment: "bull", number: 25 })} disabled={dartCount >= 3}
-                className="py-6 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 font-bold text-lg active:scale-95 disabled:opacity-40">
+                className="py-6 rounded-xl border-2 border-red-600 bg-red-500 text-white font-bold text-lg active:scale-95 disabled:opacity-40">
                 Bull 50
               </button>
             </div>
@@ -368,7 +395,7 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
         )
       case "3_DIFF_COLOURS":
       case "3_SAME_COLOUR":
-        return <GridKeypad mode="colour" onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
+        return <ColourKeypad onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
       case "WILDCARD":
         return <WildcardKeypad targets={currentTarget.wildcardTargets ?? [42, 95]} onSubmit={handleWildcardSubmit} />
     }
@@ -449,7 +476,6 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
         <div className="flex flex-col gap-3">
           {renderKeypad()}
 
-          {/* Submit + Miss buttons (not shown for wildcard — it handles its own) */}
           {needsSubmitButton && (
             <div className="flex gap-2 mt-1">
               <button
@@ -469,7 +495,6 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
             </div>
           )}
 
-          {/* Remove last dart */}
           {dartCount > 0 && currentTarget.type !== "WILDCARD" && canInput && (
             <button
               onClick={() => {
@@ -505,7 +530,7 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
         </button>
       )}
 
-      {/* Score log — below the inputs */}
+      {/* Score log */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <table className="w-full text-xs">
           <thead>
