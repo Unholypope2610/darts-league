@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { MessageCircle } from "lucide-react"
+import { MessageCircle, RefreshCw } from "lucide-react"
 import { motion } from "framer-motion"
 import { useLiveMatch } from "@/hooks/useLiveMatch"
 import { useLiveMatchStore } from "@/stores/live-match.store"
@@ -22,7 +22,8 @@ interface PageProps {
 export default function LiveMatchPage({ params }: PageProps) {
   const { matchId } = use(params)
   const router = useRouter()
-  const { isLoading, error } = useLiveMatch(matchId)
+  const { isLoading, error, forceResync } = useLiveMatch(matchId)
+  const [isSyncing, setIsSyncing] = useState(false)
   const isMatchWon = useLiveMatchStore((s) => s.isMatchWon)
   const playerA = useLiveMatchStore((s) => s.playerA)
   const playerB = useLiveMatchStore((s) => s.playerB)
@@ -185,6 +186,18 @@ export default function LiveMatchPage({ params }: PageProps) {
 
       {/* Invisible drag boundary covering the full viewport */}
       <div ref={dragBoundsRef} className="fixed inset-0 pointer-events-none z-[39]" />
+
+      {/* Manual resync button — bottom-left, for when state gets stuck after backgrounding */}
+      {!isMatchWon && (
+        <button
+          onClick={async () => { setIsSyncing(true); await forceResync(); setIsSyncing(false) }}
+          disabled={isSyncing}
+          className="fixed bottom-6 left-4 z-40 size-10 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center shadow-md active:scale-95 transition-all disabled:opacity-50"
+          aria-label="Resync match state"
+        >
+          <RefreshCw className={`size-4 ${isSyncing ? "animate-spin" : ""}`} />
+        </button>
+      )}
 
       {/* Floating chat button — draggable */}
       <motion.button

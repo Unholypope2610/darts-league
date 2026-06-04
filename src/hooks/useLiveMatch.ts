@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useCallback } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useLiveMatchStore } from "@/stores/live-match.store"
 import { getSupabase } from "@/lib/supabase"
@@ -30,10 +30,37 @@ export function useLiveMatch(matchId: string) {
     if (data) hydrate(data)
   }, [data, hydrate])
 
+  // Force a fresh fetch from the server and re-hydrate the store — bypasses staleTime.
+  // Used on visibility change (returning from background) and on the manual Resync button.
+  const forceResync = useCallback(async () => {
+    try {
+      const fresh = await queryClient.fetchQuery<MatchWithLegs>({
+        queryKey: ["match", matchId],
+        queryFn: async () => {
+          const res = await fetch(`/api/matches/${matchId}`)
+          if (!res.ok) throw new Error(`Failed to fetch match (${res.status})`)
+          return res.json()
+        },
+        staleTime: 0,
+      })
+      hydrate(fresh)
+    } catch {
+      // silent — user can retry
+    }
+  }, [matchId, hydrate, queryClient])
+
+  // Re-sync when the user returns to the app from the background
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") forceResync()
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange)
+  }, [forceResync])
+
   useEffect(() => {
     const supabase = getSupabase()
     const channel = supabase.channel(`match:${matchId}`)
-    // Track whether the channel has dropped so we know a reconnect means missed broadcasts
     const wasDisconnected = { current: false }
 
     channel
@@ -62,10 +89,10 @@ export function useLiveMatch(matchId: string) {
             _broadcast: (event, payload) =>
               channel.send({ type: "broadcast", event, payload }),
           })
-          // Reconnect after a drop — refetch from DB to catch up on any missed broadcasts
+          // Channel reconnected after a drop — fetch fresh state to catch missed broadcasts
           if (wasDisconnected.current) {
             wasDisconnected.current = false
-            queryClient.invalidateQueries({ queryKey: ["match", matchId] })
+            forceResync()
           }
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           wasDisconnected.current = true
@@ -76,11 +103,11 @@ export function useLiveMatch(matchId: string) {
       useLiveMatchStore.setState({ _broadcast: null })
       supabase.removeChannel(channel)
     }
-  }, [matchId, applyRemoteVisit, applyRemoteLeg, applyRemoteEdit, applyDoublesConfirmed, queryClient])
+  }, [matchId, applyRemoteVisit, applyRemoteLeg, applyRemoteEdit, applyDoublesConfirmed, forceResync])
 
   useEffect(() => {
     return () => reset()
   }, [reset])
 
-  return { isLoading, error }
+  return { isLoading, error, forceResync }
 }
