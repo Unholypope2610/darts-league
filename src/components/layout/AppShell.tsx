@@ -17,12 +17,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const playerIdRef = useRef<string | null>(null)
   const isLivePageRef = useRef(false)
-  useEffect(() => { isLivePageRef.current = isLivePage }, [isLivePage])
   const [userId, setUserId] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [playerName, setPlayerName] = useState<string | null>(null)
   const [challengeTarget, setChallengeTarget] = useState<{ id: string; name: string; avatarUrl: string | null } | null>(null)
   const isLivePage = pathname.includes("/live")
+  useEffect(() => { isLivePageRef.current = isLivePage }, [isLivePage])
   const [navVisible, setNavVisible] = useState(false)
 
   usePushSubscription(userId)
