@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { MessageCircle, RefreshCw, Video, RotateCcw } from "lucide-react"
+import { MessageCircle, RefreshCw, Video, RotateCcw, ChevronUp, ChevronDown } from "lucide-react"
 import { motion } from "framer-motion"
 import { usePracticeSession } from "@/hooks/usePracticeSession"
 import { useBobs27Store } from "@/stores/bobs27.store"
@@ -28,6 +28,7 @@ export default function PracticeSessionPage({ params }: PageProps) {
   const { data, isLoading, error, forceResync } = usePracticeSession(sessionId)
   const [isSyncing, setIsSyncing] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [camHidden, setCamHidden] = useState(false)
   const dragBoundsRef = useRef<HTMLDivElement>(null)
 
   const [showCallerPrompt, setShowCallerPrompt] = useState(() =>
@@ -160,47 +161,62 @@ export default function PracticeSessionPage({ params }: PageProps) {
                 </span>
               )}
             </div>
-            {canControl && !cam.isStreaming && (
-              <button
-                onClick={() => cam.start()}
-                className="text-xs px-3 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-500 active:scale-95 transition-all"
-              >
-                Start Cam
-              </button>
-            )}
-            {canControl && cam.isStreaming && (
-              <div className="flex items-center gap-2">
-                <button onClick={cam.flipCamera} className="p-1.5 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 transition-all">
-                  <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
-                </button>
+            <div className="flex items-center gap-2">
+              {(cam.isStreaming || (!canControl && remoteStream)) && (
                 <button
-                  onClick={cam.stop}
-                  className="text-xs px-3 py-1 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 active:scale-95 transition-all"
+                  onClick={() => setCamHidden((v) => !v)}
+                  className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
-                  Stop
+                  {camHidden ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                  {camHidden ? "Show cam" : "Hide cam"}
                 </button>
-              </div>
-            )}
+              )}
+              {canControl && !cam.isStreaming && (
+                <button
+                  onClick={() => cam.start()}
+                  className="text-xs px-3 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-500 active:scale-95 transition-all"
+                >
+                  Start Cam
+                </button>
+              )}
+              {canControl && cam.isStreaming && (
+                <div className="flex items-center gap-2">
+                  <button onClick={cam.flipCamera} className="p-1.5 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 transition-all">
+                    <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
+                  </button>
+                  <button
+                    onClick={cam.stop}
+                    className="text-xs px-3 py-1 rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 active:scale-95 transition-all"
+                  >
+                    Stop
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Local preview */}
-          {cam.isStreaming && (
-            <video ref={camVideoRef} autoPlay playsInline muted className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
-          )}
-          {/* Remote stream (spectator) */}
-          {!canControl && remoteStream && (
-            <video ref={remoteVideoRef} autoPlay playsInline className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
-          )}
+          {!camHidden && (
+            <>
+              {/* Local preview */}
+              {cam.isStreaming && (
+                <video ref={camVideoRef} autoPlay playsInline muted className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
+              )}
+              {/* Remote stream (spectator) */}
+              {!canControl && remoteStream && (
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
+              )}
 
-          {/* Zoom */}
-          {canControl && cam.isStreaming && cam.zoomCapabilities && (
-            <div className="flex items-center gap-2 mt-2">
-              <button onClick={() => cam.setZoom(Math.max(cam.zoomCapabilities!.min, parseFloat((cam.zoomLevel - cam.zoomCapabilities!.step).toFixed(2))))}
-                className="flex-1 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-lg hover:bg-zinc-700 active:scale-95 transition-all">−</button>
-              <span className="text-xs font-bold text-zinc-400 w-10 text-center">{cam.zoomLevel.toFixed(1)}×</span>
-              <button onClick={() => cam.setZoom(Math.min(cam.zoomCapabilities!.max, parseFloat((cam.zoomLevel + cam.zoomCapabilities!.step).toFixed(2))))}
-                className="flex-1 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-lg hover:bg-zinc-700 active:scale-95 transition-all">+</button>
-            </div>
+              {/* Zoom */}
+              {canControl && cam.isStreaming && cam.zoomCapabilities && (
+                <div className="flex items-center gap-2 mt-2">
+                  <button onClick={() => cam.setZoom(Math.max(cam.zoomCapabilities!.min, parseFloat((cam.zoomLevel - cam.zoomCapabilities!.step).toFixed(2))))}
+                    className="flex-1 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-lg hover:bg-zinc-700 active:scale-95 transition-all">−</button>
+                  <span className="text-xs font-bold text-zinc-400 w-10 text-center">{cam.zoomLevel.toFixed(1)}×</span>
+                  <button onClick={() => cam.setZoom(Math.min(cam.zoomCapabilities!.max, parseFloat((cam.zoomLevel + cam.zoomCapabilities!.step).toFixed(2))))}
+                    className="flex-1 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-lg hover:bg-zinc-700 active:scale-95 transition-all">+</button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
