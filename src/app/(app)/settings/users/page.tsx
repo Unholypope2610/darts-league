@@ -126,7 +126,7 @@ export default function UsersSettingsPage() {
     queryFn: () => fetch("/api/practice").then((r) => r.json()),
     enabled: isAdmin,
   })
-  const practiceSessions: { id: string; gameMode: string; startedAt: string; players: { player: { name: string } }[] }[] =
+  const practiceSessions: { id: string; gameMode: string; startedAt: string; players: { name: string }[] }[] =
     Array.isArray(practiceSessionsRaw) ? practiceSessionsRaw : []
 
   const [selectedCompetitionId, setSelectedCompetitionId] = useState("")
@@ -378,7 +378,7 @@ export default function UsersSettingsPage() {
                   <option value="">Select session…</option>
                   {practiceSessions.map((s) => {
                     const modeLabel = s.gameMode === "BOBS_27" ? "Bob's 27" : s.gameMode === "CRICKET" ? "Cricket" : "Half It"
-                    const playerNames = s.players.map((p) => p.player.name).join(", ")
+                    const playerNames = s.players.map((p) => p.name).join(", ")
                     return (
                       <option key={s.id} value={s.id}>
                         {modeLabel} · {playerNames} · {new Date(s.startedAt).toLocaleDateString()}
@@ -391,7 +391,7 @@ export default function UsersSettingsPage() {
                     const s = practiceSessions.find((x) => x.id === selectedPracticeSessionId)
                     if (s) {
                       const modeLabel = s.gameMode === "BOBS_27" ? "Bob's 27" : s.gameMode === "CRICKET" ? "Cricket" : "Half It"
-                      setConfirmSpecific({ target: "practice-session", id: s.id, label: `${modeLabel} — ${s.players.map((p) => p.player.name).join(", ")}` })
+                      setConfirmSpecific({ target: "practice-session", id: s.id, label: `${modeLabel} — ${s.players.map((p) => p.name).join(", ")}` })
                     }
                   }}
                   disabled={!selectedPracticeSessionId}

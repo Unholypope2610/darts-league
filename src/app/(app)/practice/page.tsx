@@ -91,7 +91,7 @@ export default function PracticeLobbyPage() {
               gameMode: string
               status: string
               startedAt: string
-              players: { playerId: string; player: { id: string; name: string; avatarUrl?: string | null } }[]
+              players: { playerId: string; name: string; avatarUrl?: string | null }[]
             }) => {
               const isLive = s.status === "IN_PROGRESS"
               return (
@@ -102,7 +102,7 @@ export default function PracticeLobbyPage() {
                 >
                   <div className="flex -space-x-2 shrink-0">
                     {s.players.slice(0, 4).map((p) => (
-                      <PlayerAvatar key={p.playerId} name={p.player.name} avatarUrl={p.player.avatarUrl} size="sm" />
+                      <PlayerAvatar key={p.playerId} name={p.name} avatarUrl={p.avatarUrl} size="sm" />
                     ))}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -118,7 +118,7 @@ export default function PracticeLobbyPage() {
                       )}
                     </div>
                     <p className="text-xs text-zinc-500">
-                      {s.players.map((p) => p.player.name).join(" · ")}
+                      {s.players.map((p) => p.name).join(" · ")}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
