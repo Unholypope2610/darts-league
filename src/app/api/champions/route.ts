@@ -7,7 +7,7 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const competitions = await prisma.competition.findMany({
-    where: { status: "COMPLETED", winnerId: { not: null } },
+    where: { status: "COMPLETED", winnerId: { not: null }, isRanked: true },
     select: {
       id: true,
       name: true,
