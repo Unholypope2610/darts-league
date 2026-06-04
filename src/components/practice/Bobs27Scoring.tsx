@@ -21,9 +21,11 @@ interface Props {
   myPlayerId: string | null
   canControl: boolean
   isLocal: boolean
+  onReplayTrigger?: (playerId: string, label: string, context: Record<string, unknown>) => void
+  replayBobs27HitsThreshold?: number
 }
 
-export function Bobs27Scoring({ myPlayerId, canControl, isLocal }: Props) {
+export function Bobs27Scoring({ myPlayerId, canControl, isLocal, onReplayTrigger, replayBobs27HitsThreshold = 3 }: Props) {
   const players = useBobs27Store((s) => s.players)
   const currentPlayerIndex = useBobs27Store((s) => s.currentPlayerIndex)
   const currentRound = useBobs27Store((s) => s.currentRound)
@@ -50,9 +52,11 @@ export function Bobs27Scoring({ myPlayerId, canControl, isLocal }: Props) {
     if (!canInput) return
     const val = currentDouble.value / 2
     const pointsChange = dartsHit === 0 ? -val : val * dartsHit
-    const newScore = currentScore + pointsChange
     announceBobs27Round(currentDouble.label, dartsHit, pointsChange)
     await submitRound(dartsHit)
+    if (dartsHit >= replayBobs27HitsThreshold && onReplayTrigger) {
+      onReplayTrigger(activePlayer.playerId, `${dartsHit}/3 on ${currentDouble.label}!`, { target: currentDouble.label, dartsHit })
+    }
   }
 
   return (

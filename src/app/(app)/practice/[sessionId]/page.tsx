@@ -16,6 +16,7 @@ import { MatchChatPanel } from "@/components/match/LiveChat/MatchChatPanel"
 import { Bobs27Scoring } from "@/components/practice/Bobs27Scoring"
 import { CricketScoring } from "@/components/practice/CricketScoring"
 import { HalfItScoring } from "@/components/practice/HalfItScoring"
+import { PracticeReplayPrompt, type PendingPracticeReplay } from "@/components/practice/PracticeReplayPrompt"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils/cn"
 import { prewarmSpeech, setSpectatorCallerOverride } from "@/lib/utils/speech"
@@ -29,6 +30,7 @@ export default function PracticeSessionPage({ params }: PageProps) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [camHidden, setCamHidden] = useState(false)
+  const [pendingReplay, setPendingReplay] = useState<PendingPracticeReplay | null>(null)
   const dragBoundsRef = useRef<HTMLDivElement>(null)
 
   const [showCallerPrompt, setShowCallerPrompt] = useState(() =>
@@ -75,6 +77,17 @@ export default function PracticeSessionPage({ params }: PageProps) {
   const isParticipant = data?.players.some((p) => p.playerId === myPlayerId)
   const isLocal = data?.isLocal ?? false
   const canControl = !!(isLocal || isParticipant)
+
+  // Replay thresholds — use the active player's config (or first player in local mode)
+  const myPlayerMeta = data?.players.find((p) => p.playerId === myPlayerId) ?? data?.players[0]
+  const replayBobs27HitsThreshold = myPlayerMeta?.replayBobs27HitsThreshold ?? 3
+  const replayMarksThreshold = myPlayerMeta?.replayMarksThreshold ?? 5
+
+  function handleReplayTrigger(_playerId: string, label: string, context: Record<string, unknown>) {
+    if (!cam.isStreaming) return
+    // Capture is always registered under broadcasterPlayerId ("local" or myPlayerId)
+    setPendingReplay({ playerId: broadcasterPlayerId, label, context, autoSave: !!context.autoSave })
+  }
 
   const userName = data?.players.find((p) => p.playerId === myPlayerId)?.name
     ?? me?.email?.split("@")[0]
@@ -224,15 +237,35 @@ export default function PracticeSessionPage({ params }: PageProps) {
       {/* Game scoring UI */}
       <div className="max-w-2xl mx-auto w-full">
         {data.gameMode === "BOBS_27" && (
-          <Bobs27Scoring sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl} isLocal={isLocal ?? false} />
+          <Bobs27Scoring
+            sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl} isLocal={isLocal ?? false}
+            onReplayTrigger={handleReplayTrigger}
+            replayBobs27HitsThreshold={replayBobs27HitsThreshold}
+          />
         )}
         {data.gameMode === "CRICKET" && (
-          <CricketScoring sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl} isLocal={isLocal ?? false} />
+          <CricketScoring
+            sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl} isLocal={isLocal ?? false}
+            onReplayTrigger={handleReplayTrigger}
+            replayMarksThreshold={replayMarksThreshold}
+          />
         )}
         {data.gameMode === "HALF_IT" && (
-          <HalfItScoring sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl} isLocal={isLocal ?? false} />
+          <HalfItScoring
+            sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl} isLocal={isLocal ?? false}
+            camIsStreaming={cam.isStreaming}
+            onReplayTrigger={handleReplayTrigger}
+          />
         )}
       </div>
+
+      {/* Practice replay prompt */}
+      <PracticeReplayPrompt
+        pending={pendingReplay}
+        sessionId={sessionId}
+        gameMode={data.gameMode}
+        onDismiss={() => setPendingReplay(null)}
+      />
 
       {/* Drag boundary */}
       <div ref={dragBoundsRef} className="fixed inset-0 pointer-events-none z-[39]" />

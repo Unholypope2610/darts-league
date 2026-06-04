@@ -14,15 +14,20 @@ export async function POST(req: Request) {
   const playerId = user.playerId
 
   const body = await req.json()
-  const { storageKey, matchId, scoreThrown, isCheckout, remainder, opponentName, playerLegsWon, oppLegsWon, startingScore, durationMs, scorerPlayerId } = body
+  const {
+    storageKey, matchId, practiceSessionId, gameMode, practiceContext,
+    scoreThrown, isCheckout, remainder, opponentName, playerLegsWon, oppLegsWon,
+    startingScore, durationMs, scorerPlayerId,
+  } = body
 
-  if (!storageKey || !matchId || typeof scoreThrown !== "number") {
+  const isPractice = !matchId && !!practiceSessionId
+  if (!storageKey || (!matchId && !practiceSessionId) || typeof scoreThrown !== "number") {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 })
   }
 
-  // In local play the scorer may differ from the authenticated user — verify they share a local match
   let targetPlayerId = playerId
-  if (scorerPlayerId && scorerPlayerId !== playerId) {
+  if (!isPractice && scorerPlayerId && scorerPlayerId !== playerId) {
+    // In local play the scorer may differ from the authenticated user — verify they share a local match
     const match = await prisma.match.findFirst({
       where: {
         id: matchId,
@@ -48,14 +53,17 @@ export async function POST(req: Request) {
   const replay = await prisma.replay.create({
     data: {
       playerId: targetPlayerId,
-      matchId,
+      matchId: matchId ?? null,
+      practiceSessionId: practiceSessionId ?? null,
+      gameMode: gameMode ?? null,
+      practiceContext: practiceContext ?? null,
       scoreThrown,
       isCheckout: Boolean(isCheckout),
-      remainder: Number(remainder),
-      opponentName: String(opponentName),
-      playerLegsWon: Number(playerLegsWon),
-      oppLegsWon: Number(oppLegsWon),
-      startingScore: Number(startingScore),
+      remainder: Number(remainder) || 0,
+      opponentName: String(opponentName ?? ""),
+      playerLegsWon: Number(playerLegsWon) || 0,
+      oppLegsWon: Number(oppLegsWon) || 0,
+      startingScore: Number(startingScore) || 0,
       durationMs: Number(durationMs) || 0,
       storageKey,
       storageUrl: publicUrl,

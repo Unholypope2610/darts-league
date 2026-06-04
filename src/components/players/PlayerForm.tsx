@@ -35,6 +35,8 @@ export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel 
       avatarUrl: defaultValues?.avatarUrl ?? "",
       replayScoreThreshold: defaultValues?.replayScoreThreshold ?? 100,
       replayCheckoutThreshold: defaultValues?.replayCheckoutThreshold ?? 69,
+      replayBobs27HitsThreshold: defaultValues?.replayBobs27HitsThreshold ?? 3,
+      replayMarksThreshold: defaultValues?.replayMarksThreshold ?? 5,
     },
   })
 
@@ -104,6 +106,35 @@ export function PlayerForm({ defaultValues, onSubmit, isSubmitting, submitLabel 
         </div>
         <p className="text-xs text-muted-foreground">
           A replay prompt appears when your camera is on and you hit these thresholds during a match.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Practice Replay Thresholds</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">Bob&apos;s 27 hits ≥</p>
+            <Input
+              type="number"
+              min={1}
+              max={3}
+              step={1}
+              {...register("replayBobs27HitsThreshold")}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted-foreground">Cricket marks ≥</p>
+            <Input
+              type="number"
+              min={1}
+              max={9}
+              step={1}
+              {...register("replayMarksThreshold")}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Triggers a replay prompt in practice modes when these thresholds are met.
         </p>
       </div>
 

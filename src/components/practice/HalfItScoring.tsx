@@ -281,9 +281,16 @@ function WildcardKeypad({ targets, onSubmit }: WildcardKeypadProps) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-interface Props { sessionId: string; myPlayerId: string | null; canControl: boolean; isLocal: boolean }
+interface Props {
+  sessionId: string
+  myPlayerId: string | null
+  canControl: boolean
+  isLocal: boolean
+  camIsStreaming?: boolean
+  onReplayTrigger?: (playerId: string, label: string, context: Record<string, unknown>) => void
+}
 
-export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
+export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming, onReplayTrigger }: Props) {
   const players = useHalfItStore((s) => s.players)
   const currentPlayerIndex = useHalfItStore((s) => s.currentPlayerIndex)
   const currentRound = useHalfItStore((s) => s.currentRound)
@@ -449,6 +456,14 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
                 {currentTarget.type === "3_SAME_COLOUR" ? "All same" : "All different"}
               </p>
             </div>
+          )}
+          {camIsStreaming && canInput && onReplayTrigger && (
+            <button
+              onClick={() => onReplayTrigger(activePlayer.playerId, targetLabel(currentTarget), { target: targetLabel(currentTarget), autoSave: true })}
+              className="mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/30 bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 active:scale-95 transition-all"
+            >
+              ● Save Replay
+            </button>
           )}
         </div>
       </div>

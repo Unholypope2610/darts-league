@@ -7,6 +7,8 @@ export const createPlayerSchema = z.object({
   hand: z.enum(["LEFT", "RIGHT"]).default("RIGHT"),
   replayScoreThreshold: z.coerce.number().int().min(60).max(180).default(100),
   replayCheckoutThreshold: z.coerce.number().int().min(40).max(170).default(69),
+  replayBobs27HitsThreshold: z.coerce.number().int().min(1).max(3).default(3),
+  replayMarksThreshold: z.coerce.number().int().min(1).max(9).default(5),
 })
 
 export const updatePlayerSchema = createPlayerSchema.partial()

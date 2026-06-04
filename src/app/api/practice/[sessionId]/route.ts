@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: Params) {
     where: { id: sessionId },
     include: {
       players: {
-        include: { player: { select: { id: true, name: true, avatarUrl: true } } },
+        include: { player: { select: { id: true, name: true, avatarUrl: true, replayBobs27HitsThreshold: true, replayMarksThreshold: true } } },
         orderBy: { turnOrder: "asc" },
       },
       rounds: { orderBy: { createdAt: "asc" } },
@@ -34,6 +34,8 @@ export async function GET(_req: Request, { params }: Params) {
       turnOrder: p.turnOrder,
       finalScore: p.finalScore,
       isEliminated: p.isEliminated,
+      replayBobs27HitsThreshold: p.player.replayBobs27HitsThreshold,
+      replayMarksThreshold: p.player.replayMarksThreshold,
     })),
   })
 }

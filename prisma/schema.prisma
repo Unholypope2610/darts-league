@@ -24,6 +24,8 @@ model Player {
   hand                    String   @default("RIGHT")
   replayScoreThreshold    Int      @default(100)
   replayCheckoutThreshold Int      @default(69)
+  replayBobs27HitsThreshold Int    @default(3)
+  replayMarksThreshold    Int      @default(5)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -171,21 +173,24 @@ model Visit {
 }
 
 model Replay {
-  id            String   @id @default(cuid())
-  playerId      String
-  player        Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  matchId       String
-  scoreThrown   Int
-  isCheckout    Boolean  @default(false)
-  remainder     Int
-  opponentName  String
-  playerLegsWon Int
-  oppLegsWon    Int
-  startingScore Int
-  storageKey    String
-  storageUrl    String
-  durationMs    Int      @default(0)
-  createdAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  playerId          String
+  player            Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  matchId           String?
+  practiceSessionId String?
+  gameMode          String?
+  practiceContext   Json?
+  scoreThrown       Int
+  isCheckout        Boolean  @default(false)
+  remainder         Int
+  opponentName      String
+  playerLegsWon     Int
+  oppLegsWon        Int
+  startingScore     Int
+  storageKey        String
+  storageUrl        String
+  durationMs        Int      @default(0)
+  createdAt         DateTime @default(now())
 }
 
 model PushSubscription {

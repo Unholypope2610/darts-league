@@ -68,6 +68,8 @@ export interface Player {
   bestLeg: number | null
   replayScoreThreshold: number
   replayCheckoutThreshold: number
+  replayBobs27HitsThreshold: number
+  replayMarksThreshold: number
 }
 
 export interface CareerStats {
@@ -126,6 +128,8 @@ export interface PlayerMeta {
   hand: string
   replayScoreThreshold?: number
   replayCheckoutThreshold?: number
+  replayBobs27HitsThreshold?: number
+  replayMarksThreshold?: number
 }
 
 export interface MatchWithLegs {
@@ -196,6 +200,8 @@ export interface PracticePlayerMeta {
   turnOrder: number
   finalScore: number | null
   isEliminated: boolean
+  replayBobs27HitsThreshold?: number
+  replayMarksThreshold?: number
 }
 
 // Round data shapes per game mode

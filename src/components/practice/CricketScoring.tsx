@@ -20,9 +20,16 @@ function MarkDisplay({ marks }: { marks: number }) {
   return <span className="text-emerald-400 font-black">⊗</span>
 }
 
-interface Props { sessionId: string; myPlayerId: string | null; canControl: boolean; isLocal: boolean }
+interface Props {
+  sessionId: string
+  myPlayerId: string | null
+  canControl: boolean
+  isLocal: boolean
+  onReplayTrigger?: (playerId: string, label: string, context: Record<string, unknown>) => void
+  replayMarksThreshold?: number
+}
 
-export function CricketScoring({ myPlayerId, canControl, isLocal }: Props) {
+export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigger, replayMarksThreshold = 5 }: Props) {
   const players = useCricketStore((s) => s.players)
   const currentPlayerIndex = useCricketStore((s) => s.currentPlayerIndex)
   const marks = useCricketStore((s) => s.marks)
@@ -52,9 +59,15 @@ export function CricketScoring({ myPlayerId, canControl, isLocal }: Props) {
 
   async function handleSubmit() {
     if (pendingDarts.length === 0) return
-    await submitTurn(pendingDarts)
+    const dartsToSubmit = pendingDarts
+    await submitTurn(dartsToSubmit)
     setPendingDarts([])
     setSelectedTarget(null)
+    // Calculate total marks earned across this turn
+    const marksTotal = dartsToSubmit.reduce((sum, d) => sum + d.multiplier, 0)
+    if (marksTotal >= replayMarksThreshold && onReplayTrigger) {
+      onReplayTrigger(activePlayer.playerId, `${marksTotal} marks!`, { marksTotal, darts: dartsToSubmit })
+    }
   }
 
   function handleMiss() {
