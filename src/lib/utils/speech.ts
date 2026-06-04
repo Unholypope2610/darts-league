@@ -115,3 +115,49 @@ export function announceMatchWin(winnerName: string) {
   window.speechSynthesis.cancel()
   speak(`${winnerName.split(" ")[0]} wins the match!`, 0.82, 1.15)
 }
+
+// ── Practice Arena caller functions ──────────────────────────────────────────
+
+export function announceBobs27Round(target: string, dartsHit: number, pointsChange: number, runningScore: number) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
+  const label = target === "D25" ? "Bull" : target.replace("D", "Double ")
+  if (dartsHit === 0) {
+    speak(`${label}. No hits. Minus ${Math.abs(pointsChange)}. Score: ${runningScore}.`, 0.88, 1.0)
+  } else if (dartsHit === 3) {
+    speak(`${label}. Perfect round! Plus ${pointsChange}. Score: ${runningScore}.`, 0.85, 1.1)
+  } else {
+    speak(`${label}. ${dartsHit} hit${dartsHit > 1 ? "s" : ""}. Plus ${pointsChange}. Score: ${runningScore}.`, 0.88, 1.0)
+  }
+}
+
+export function announceCricketDart(target: string, multiplier: number) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
+  const targetLabel = target === "BULL" ? "Bull" : target
+  const multLabel = multiplier === 3 ? "Triple" : multiplier === 2 ? "Double" : "Single"
+  speak(`${multLabel} ${targetLabel}!`, 0.85, 1.05)
+}
+
+export function announceHalfItRound(
+  target: { type: string; value?: number },
+  pointsScored: number,
+  wasHalved: boolean,
+  newTotal: number,
+) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
+  const targetLabel =
+    target.type === "NUMBER" ? String(target.value) :
+    target.type === "DOUBLES" ? "Doubles" :
+    target.type === "TREBLES" ? "Trebles" :
+    target.type === "BULL" ? "Bull" :
+    target.type === "3_DIFF_COLOURS" ? "Three different colours" :
+    target.type === "3_SAME_COLOUR" ? "Three same colour" :
+    "Exact number"
+  if (wasHalved) {
+    speak(`${targetLabel}. No score. Score halved to ${newTotal}.`, 0.85, 1.0)
+  } else {
+    speak(`${targetLabel}. ${pointsScored} points. Total: ${newTotal}.`, 0.88, 1.0)
+  }
+}
