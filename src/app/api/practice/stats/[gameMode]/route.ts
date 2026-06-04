@@ -5,15 +5,19 @@ import type { Bobs27RoundData, CricketRoundData, HalfItRoundData } from "@/types
 
 interface Params { params: Promise<{ gameMode: string }> }
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { gameMode } = await params
+  const { searchParams } = new URL(req.url)
+  const requestedPlayerId = searchParams.get("playerId")
+
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { playerId: true } })
   if (!user?.playerId) return NextResponse.json({ stats: null })
 
-  const playerId = user.playerId
+  // Allow viewing any player's stats; default to own player
+  const playerId = requestedPlayerId ?? user.playerId
 
   const SLUG_MAP: Record<string, string> = {
     halfit: "HALF_IT",

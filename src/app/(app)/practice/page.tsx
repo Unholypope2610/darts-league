@@ -115,18 +115,40 @@ type ModeSlug = "bobs27" | "cricket" | "halfit"
 
 function StatsTab() {
   const [modeTab, setModeTab] = useState<ModeSlug>("bobs27")
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
+
+  // Resolve own playerId so we can default-select the current user
+  const { data: me } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => fetch("/api/auth/sync", { method: "POST" }).then((r) => r.json()),
+    staleTime: Infinity,
+  })
+  const myPlayerId = me?.playerId ?? null
+  const viewingPlayerId = selectedPlayerId ?? myPlayerId
+
+  // All players for the selector
+  const { data: players } = useQuery<{ id: string; name: string; avatarUrl: string | null }[]>({
+    queryKey: ["players"],
+    queryFn: () => fetch("/api/players").then((r) => r.json()),
+  })
+
+  const statsUrl = (slug: string) =>
+    viewingPlayerId ? `/api/practice/stats/${slug}?playerId=${viewingPlayerId}` : `/api/practice/stats/${slug}`
 
   const { data: bobs27Data, isLoading: bobs27Loading } = useQuery({
-    queryKey: ["practice-stats", "bobs27"],
-    queryFn: () => fetch("/api/practice/stats/bobs27").then((r) => r.json()),
+    queryKey: ["practice-stats", "bobs27", viewingPlayerId],
+    queryFn: () => fetch(statsUrl("bobs27")).then((r) => r.json()),
+    enabled: !!viewingPlayerId,
   })
   const { data: cricketData, isLoading: cricketLoading } = useQuery({
-    queryKey: ["practice-stats", "cricket"],
-    queryFn: () => fetch("/api/practice/stats/cricket").then((r) => r.json()),
+    queryKey: ["practice-stats", "cricket", viewingPlayerId],
+    queryFn: () => fetch(statsUrl("cricket")).then((r) => r.json()),
+    enabled: !!viewingPlayerId,
   })
   const { data: halfitData, isLoading: halfitLoading } = useQuery({
-    queryKey: ["practice-stats", "halfit"],
-    queryFn: () => fetch("/api/practice/stats/halfit").then((r) => r.json()),
+    queryKey: ["practice-stats", "halfit", viewingPlayerId],
+    queryFn: () => fetch(statsUrl("halfit")).then((r) => r.json()),
+    enabled: !!viewingPlayerId,
   })
 
   const modeTabs: { key: ModeSlug; label: string }[] = [
@@ -138,9 +160,39 @@ function StatsTab() {
   const isLoading = modeTab === "bobs27" ? bobs27Loading : modeTab === "cricket" ? cricketLoading : halfitLoading
   const data = modeTab === "bobs27" ? bobs27Data : modeTab === "cricket" ? cricketData : halfitData
   const modeLabel = modeTabs.find((t) => t.key === modeTab)?.label ?? ""
+  const viewingPlayer = players?.find((p) => p.id === viewingPlayerId)
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Player selector */}
+      {players && players.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {players.map((p) => {
+            const isSelected = (viewingPlayerId ?? myPlayerId) === p.id
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPlayerId(p.id)}
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-2 rounded-xl border shrink-0 transition-all",
+                  isSelected ? "border-primary/50 bg-primary/10" : "border-border bg-card hover:border-primary/30"
+                )}
+              >
+                <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="sm" />
+                <span className={cn("text-[10px] font-semibold", isSelected ? "text-primary" : "text-zinc-500")}>
+                  {p.name.split(" ")[0]}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Viewing label */}
+      {viewingPlayer && viewingPlayer.id !== myPlayerId && (
+        <p className="text-xs text-zinc-500">Viewing <span className="font-semibold text-foreground">{viewingPlayer.name}</span></p>
+      )}
+
       {/* Mode sub-tabs */}
       <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-900 p-1">
         {modeTabs.map(({ key, label }) => (
