@@ -217,8 +217,9 @@ function ColourKeypad({ onAdd, dartCount }: ColourKeypadProps) {
 interface WildcardKeypadProps {
   targets: [number, number]
   onSubmit: (score: number) => void
+  onMiss: () => void
 }
-function WildcardKeypad({ targets, onSubmit }: WildcardKeypadProps) {
+function WildcardKeypad({ targets, onSubmit, onMiss }: WildcardKeypadProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-3">
@@ -232,6 +233,12 @@ function WildcardKeypad({ targets, onSubmit }: WildcardKeypadProps) {
           </button>
         ))}
       </div>
+      <button
+        onClick={onMiss}
+        className="w-full py-3 rounded-xl border border-border text-muted-foreground font-bold text-sm hover:border-red-500/40 hover:text-red-400 transition-all active:scale-95"
+      >
+        MISS
+      </button>
     </div>
   )
 }
@@ -387,7 +394,7 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
       case "3_SAME_COLOUR":
         return <ColourKeypad onAdd={addDart} dartCount={dartCount} />
       case "WILDCARD":
-        return <WildcardKeypad targets={currentTarget.wildcardTargets ?? [42, 95]} onSubmit={handleWildcardSubmit} />
+        return <WildcardKeypad targets={currentTarget.wildcardTargets ?? [42, 95]} onSubmit={handleWildcardSubmit} onMiss={handleMiss} />
     }
   }
 
