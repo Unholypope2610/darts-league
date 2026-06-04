@@ -113,6 +113,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
       {
         onSuccess: (match) => {
           setModalOpen(false)
+          sessionStorage.setItem(`caller-set-${match.id}`, "true")
           router.push(`/matches/${match.id}/live`)
         },
         onError: () => toast.error("Failed to start fixture"),

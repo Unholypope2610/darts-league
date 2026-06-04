@@ -24,6 +24,15 @@ export default function LiveMatchPage({ params }: PageProps) {
   const router = useRouter()
   const { isLoading, error, forceResync } = useLiveMatch(matchId)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [showCallerPrompt, setShowCallerPrompt] = useState(() =>
+    typeof window !== "undefined" && !sessionStorage.getItem(`caller-set-${matchId}`)
+  )
+
+  function handleCallerChoice(enabled: boolean) {
+    localStorage.setItem("masterCallerEnabled", String(enabled))
+    sessionStorage.setItem(`caller-set-${matchId}`, "true")
+    setShowCallerPrompt(false)
+  }
   const isMatchWon = useLiveMatchStore((s) => s.isMatchWon)
   const playerA = useLiveMatchStore((s) => s.playerA)
   const playerB = useLiveMatchStore((s) => s.playerB)
@@ -162,6 +171,27 @@ export default function LiveMatchPage({ params }: PageProps) {
 
   return (
     <>
+      {showCallerPrompt && !isLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+          <div className="bg-card border border-border rounded-2xl p-6 flex flex-col gap-3 w-full max-w-xs">
+            <p className="text-sm font-semibold text-center text-foreground">Enable the match caller?</p>
+            <p className="text-xs text-muted-foreground text-center">Announces scores, checkouts and leg wins</p>
+            <button
+              onClick={() => handleCallerChoice(true)}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
+            >
+              On
+            </button>
+            <button
+              onClick={() => handleCallerChoice(false)}
+              className="w-full py-2 rounded-xl text-muted-foreground text-sm hover:text-foreground transition-colors"
+            >
+              Off
+            </button>
+          </div>
+        </div>
+      )}
+
       {showRolePrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
           <div className="bg-card border border-border rounded-2xl p-6 flex flex-col gap-3 w-full max-w-xs">

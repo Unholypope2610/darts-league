@@ -16,6 +16,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const playerIdRef = useRef<string | null>(null)
+  const isLivePageRef = useRef(false)
+  useEffect(() => { isLivePageRef.current = isLivePage }, [isLivePage])
   const [userId, setUserId] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [playerName, setPlayerName] = useState<string | null>(null)
@@ -122,6 +124,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const { matchId, playerAName, playerBName, playerAId, playerBId } = payload as {
         matchId: string; playerAName: string; playerBName: string; playerAId: string; playerBId: string
       }
+      // Don't interrupt players who are already in a match
+      if (isLivePageRef.current) return
       // Players get their own "Join Now" toast — skip this one for them
       if (playerIdRef.current === playerAId || playerIdRef.current === playerBId) return
 
