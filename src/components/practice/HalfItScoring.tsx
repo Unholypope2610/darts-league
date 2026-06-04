@@ -441,7 +441,7 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
         </div>
         <div className="flex-1">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Shot Instructions</p>
-          <p className="font-black text-lg text-foreground uppercase">{targetLabel(currentTarget)}</p>
+          <p className="font-black text-lg text-emerald-400 uppercase">Your Target: {targetLabel(currentTarget)}</p>
           {currentTarget.type === "WILDCARD" && currentTarget.wildcardTargets && (
             <div className="flex gap-2 mt-2">
               {[currentTarget.wildcardTargets[0], currentTarget.wildcardTargets[1], "121+"].map((t) => (
@@ -449,21 +449,27 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
               ))}
             </div>
           )}
-          {(currentTarget.type === "3_DIFF_COLOURS" || currentTarget.type === "3_SAME_COLOUR") && (
-            <div className="flex gap-2 mt-2">
-              {(["black", "white", "red", "green"] as Colour[]).map((c) => (
-                <div key={c} className={cn("w-5 h-5 rounded-full border-2", {
-                  "bg-zinc-800 border-zinc-600": c === "black",
-                  "bg-zinc-100 border-zinc-300": c === "white",
-                  "bg-red-500 border-red-600": c === "red",
-                  "bg-emerald-500 border-emerald-600": c === "green",
-                })} />
-              ))}
-              <p className="text-xs text-muted-foreground ml-1">
-                {currentTarget.type === "3_SAME_COLOUR" ? "All same" : "All different"}
-              </p>
-            </div>
-          )}
+          {(currentTarget.type === "3_DIFF_COLOURS" || currentTarget.type === "3_SAME_COLOUR") && (() => {
+            const COLS = [
+              "bg-zinc-800 border-zinc-600",
+              "bg-zinc-100 border-zinc-300",
+              "bg-red-500 border-red-600",
+              "bg-emerald-500 border-emerald-600",
+            ]
+            const isSame = currentTarget.type === "3_SAME_COLOUR"
+            return (
+              <div className="flex gap-2 mt-2">
+                {COLS.map((baseCls, ci) => (
+                  <div key={ci} className="flex flex-col gap-1">
+                    {[0, 1, 2].map((row) => {
+                      const cls = isSame ? baseCls : COLS[(ci + row) % 4]
+                      return <div key={row} className={cn("w-3 h-3 rounded-full border", cls)} />
+                    })}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
           {camIsStreaming && canInput && onReplayTrigger && (
             <button
               onClick={() => onReplayTrigger(activePlayer.playerId, targetLabel(currentTarget), { target: targetLabel(currentTarget), autoSave: true })}
@@ -474,11 +480,6 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
           )}
         </div>
       </div>
-
-      {/* Target label */}
-      <p className="text-lg font-black text-emerald-400 uppercase">
-        Your Target: {targetLabel(currentTarget)}
-      </p>
 
       {/* Other players scores strip */}
       {players.length > 1 && (
