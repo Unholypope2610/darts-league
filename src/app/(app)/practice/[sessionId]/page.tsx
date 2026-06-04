@@ -208,17 +208,19 @@ export default function PracticeSessionPage({ params }: PageProps) {
             </div>
           </div>
 
+          {/* Local preview — kept in DOM so srcObject persists; hidden via CSS when camHidden */}
+          {cam.isStreaming && (
+            <video ref={camVideoRef} autoPlay playsInline muted
+              className={cn("w-full aspect-video rounded-lg object-cover bg-black mt-3", camHidden && "hidden")} />
+          )}
+          {/* Remote stream (spectator) — same pattern */}
+          {!canControl && remoteStream && (
+            <video ref={remoteVideoRef} autoPlay playsInline
+              className={cn("w-full aspect-video rounded-lg object-cover bg-black mt-3", camHidden && "hidden")} />
+          )}
+
           {!camHidden && (
             <>
-              {/* Local preview */}
-              {cam.isStreaming && (
-                <video ref={camVideoRef} autoPlay playsInline muted className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
-              )}
-              {/* Remote stream (spectator) */}
-              {!canControl && remoteStream && (
-                <video ref={remoteVideoRef} autoPlay playsInline className="w-full aspect-video rounded-lg object-cover bg-black mt-3" />
-              )}
-
               {/* Zoom */}
               {canControl && cam.isStreaming && cam.zoomCapabilities && (
                 <div className="flex items-center gap-2 mt-2">
@@ -227,6 +229,26 @@ export default function PracticeSessionPage({ params }: PageProps) {
                   <span className="text-xs font-bold text-zinc-400 w-10 text-center">{cam.zoomLevel.toFixed(1)}×</span>
                   <button onClick={() => cam.setZoom(Math.min(cam.zoomCapabilities!.max, parseFloat((cam.zoomLevel + cam.zoomCapabilities!.step).toFixed(2))))}
                     className="flex-1 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-lg hover:bg-zinc-700 active:scale-95 transition-all">+</button>
+                </div>
+              )}
+
+              {/* Camera selector (shown when device has multiple rear cameras) */}
+              {canControl && cam.isStreaming && cam.rearCameras.length >= 2 && (
+                <div className="flex gap-1 mt-2">
+                  {cam.rearCameras.map((c, i) => (
+                    <button
+                      key={c.deviceId}
+                      onClick={() => cam.switchRearCamera(c.deviceId)}
+                      className={cn(
+                        "flex-1 py-1 rounded-lg text-xs font-bold transition-all active:scale-95",
+                        cam.activeCameraId === c.deviceId
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-zinc-800 border border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                      )}
+                    >
+                      Cam {i + 1}
+                    </button>
+                  ))}
                 </div>
               )}
             </>
