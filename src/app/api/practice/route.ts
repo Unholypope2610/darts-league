@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
+import { sendPracticeSessionPush } from "@/lib/push"
 import type { HalfItTarget } from "@/types/api"
+
+const MODE_LABELS: Record<string, string> = {
+  BOBS_27: "Bob's 27",
+  CRICKET: "Cricket",
+  HALF_IT: "Half It",
+}
 
 function generateHalfItSequence(random: boolean): HalfItTarget[] {
   const base: HalfItTarget[] = [
@@ -100,6 +107,32 @@ export async function POST(req: Request) {
       rounds: true,
     },
   })
+
+  // Push notifications — best-effort, non-blocking
+  void (async () => {
+    try {
+      const creatorPlayer = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { playerId: true, player: { select: { name: true } } },
+      })
+      const creatorName = creatorPlayer?.player?.name ?? "Someone"
+      const gameModeLabel = MODE_LABELS[gameMode] ?? gameMode
+      const participantPlayerIdSet = new Set(playerIds)
+
+      // All subscribed users except the creator
+      const targets = await prisma.user.findMany({
+        where: { id: { not: userId }, pushSubscriptions: { some: {} } },
+        select: { id: true, playerId: true },
+      })
+
+      await Promise.allSettled(
+        targets.map((u) => {
+          const role = u.playerId && participantPlayerIdSet.has(u.playerId) ? "participant" : "spectator"
+          return sendPracticeSessionPush(u.id, creatorName, session.id, gameModeLabel, role)
+        }),
+      )
+    } catch { /* notifications are best-effort */ }
+  })()
 
   return NextResponse.json({
     ...session,
