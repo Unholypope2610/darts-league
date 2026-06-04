@@ -209,6 +209,7 @@ export default function LiveMatchPage({ params }: PageProps) {
           chat={chat}
           playerAName={playerA.name}
           playerBName={playerB.name}
+          myUserId={me?.id ?? ""}
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
         />

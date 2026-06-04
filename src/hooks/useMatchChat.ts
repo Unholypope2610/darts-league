@@ -5,6 +5,9 @@ import { getSupabase } from "@/lib/supabase"
 
 export type PollVote = "A" | "B" | null
 
+// messageId → emoji → userId[]
+export type Reactions = Record<string, Record<string, string[]>>
+
 export interface ChatMessage {
   id: string
   senderId: string
@@ -23,10 +26,12 @@ export interface PresenceUser {
 
 export interface UseMatchChatReturn {
   messages: ChatMessage[]
+  reactions: Reactions
   presenceUsers: PresenceUser[]
   myVote: PollVote
   sendMessage: (text: string) => void
   sendImage: (file: File) => Promise<void>
+  toggleReaction: (messageId: string, emoji: string) => void
   castVote: (vote: PollVote) => void
   unreadCount: number
   markRead: () => void
@@ -41,6 +46,7 @@ interface UseMatchChatOptions {
 
 export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChatOptions): UseMatchChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [reactions, setReactions] = useState<Reactions>({})
   const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([])
   const [myVote, setMyVote] = useState<PollVote>(null)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -49,9 +55,20 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
   const isOpenRef = useRef(isOpen)
   const userNameRef = useRef(userName)
 
-  // Keep refs in sync without resubscribing
   useEffect(() => { isOpenRef.current = isOpen }, [isOpen])
   useEffect(() => { userNameRef.current = userName }, [userName])
+
+  function applyReaction(prev: Reactions, messageId: string, emoji: string, senderId: string, action: "add" | "remove"): Reactions {
+    const msgReactions = { ...(prev[messageId] ?? {}) }
+    const users = [...(msgReactions[emoji] ?? [])]
+    if (action === "add" && !users.includes(senderId)) {
+      msgReactions[emoji] = [...users, senderId]
+    } else if (action === "remove") {
+      msgReactions[emoji] = users.filter((id) => id !== senderId)
+      if (msgReactions[emoji].length === 0) delete msgReactions[emoji]
+    }
+    return { ...prev, [messageId]: msgReactions }
+  }
 
   useEffect(() => {
     if (!matchId || !userId) return
@@ -63,6 +80,13 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
     channel.on("broadcast", { event: "MESSAGE" }, ({ payload }) => {
       setMessages((prev) => [...prev, payload as ChatMessage])
       if (!isOpenRef.current) setUnreadCount((c) => c + 1)
+    })
+
+    channel.on("broadcast", { event: "REACTION" }, ({ payload }) => {
+      const { messageId, emoji, senderId, action } = payload as {
+        messageId: string; emoji: string; senderId: string; action: "add" | "remove"
+      }
+      setReactions((prev) => applyReaction(prev, messageId, emoji, senderId, action))
     })
 
     channel.on("presence", { event: "sync" }, () => {
@@ -109,7 +133,6 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
       text: trimmed,
       timestamp: Date.now(),
     }
-    // Optimistic push — Supabase Broadcast does not echo to sender
     setMessages((prev) => [...prev, msg])
     channelRef.current?.send({ type: "broadcast", event: "MESSAGE", payload: msg })
   }, [userId])
@@ -132,6 +155,18 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
     channelRef.current?.send({ type: "broadcast", event: "MESSAGE", payload: msg })
   }, [userId])
 
+  const toggleReaction = useCallback((messageId: string, emoji: string) => {
+    const current = reactions[messageId]?.[emoji] ?? []
+    const action: "add" | "remove" = current.includes(userId) ? "remove" : "add"
+    // Optimistic update
+    setReactions((prev) => applyReaction(prev, messageId, emoji, userId, action))
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "REACTION",
+      payload: { messageId, emoji, senderId: userId, action },
+    })
+  }, [userId, reactions])
+
   const castVote = useCallback(async (vote: PollVote) => {
     setMyVote(vote)
     await channelRef.current?.track({ userId, name: userNameRef.current, vote } as PresenceUser)
@@ -141,5 +176,5 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
     setUnreadCount(0)
   }, [])
 
-  return { messages, presenceUsers, myVote, sendMessage, sendImage, castVote, unreadCount, markRead }
+  return { messages, reactions, presenceUsers, myVote, sendMessage, sendImage, toggleReaction, castVote, unreadCount, markRead }
 }
