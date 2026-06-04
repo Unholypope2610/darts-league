@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, KeyboardEvent } from "react"
-import { X } from "lucide-react"
+import { X, ImagePlus } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 import type { UseMatchChatReturn, PollVote } from "@/hooks/useMatchChat"
 
@@ -14,8 +14,11 @@ interface MatchChatPanelProps {
 }
 
 export function MatchChatPanel({ chat, playerAName, playerBName, isOpen, onClose }: MatchChatPanelProps) {
-  const { messages, presenceUsers, myVote, sendMessage, castVote, markRead } = chat
+  const { messages, presenceUsers, myVote, sendMessage, sendImage, castVote, markRead } = chat
   const [input, setInput] = useState("")
+  const [sendingImage, setSendingImage] = useState(false)
+  const [expandedImage, setExpandedImage] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Mark messages read when panel opens
@@ -40,6 +43,18 @@ export function MatchChatPanel({ chat, playerAName, playerBName, isOpen, onClose
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+    }
+  }
+
+  async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+    setSendingImage(true)
+    try {
+      await sendImage(file)
+    } finally {
+      setSendingImage(false)
     }
   }
 
@@ -140,7 +155,18 @@ export function MatchChatPanel({ chat, playerAName, playerBName, isOpen, onClose
                   {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
-              <p className="text-sm text-foreground leading-snug">{msg.text}</p>
+              {msg.imageUrl ? (
+                <button onClick={() => setExpandedImage(msg.imageUrl!)} className="self-start">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={msg.imageUrl}
+                    alt="shared image"
+                    className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-border"
+                  />
+                </button>
+              ) : (
+                <p className="text-sm text-foreground leading-snug">{msg.text}</p>
+              )}
             </div>
           )
         )}
@@ -150,11 +176,25 @@ export function MatchChatPanel({ chat, playerAName, playerBName, isOpen, onClose
       {/* Input */}
       <div className="flex gap-2 px-4 py-3 border-t border-border flex-shrink-0 pb-[max(12px,env(safe-area-inset-bottom))]">
         <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImagePick}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sendingImage}
+          className="p-2 rounded-lg bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40 active:scale-95 transition-all flex-shrink-0"
+        >
+          <ImagePlus className="w-4 h-4" />
+        </button>
+        <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Say something…"
+          placeholder={sendingImage ? "Uploading…" : "Say something…"}
           maxLength={200}
           className="flex-1 bg-muted rounded-lg px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
         />
@@ -166,6 +206,21 @@ export function MatchChatPanel({ chat, playerAName, playerBName, isOpen, onClose
           Send
         </button>
       </div>
+
+      {/* Fullscreen image viewer */}
+      {expandedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={expandedImage}
+            alt="full size"
+            className="max-w-full max-h-full rounded-xl object-contain"
+          />
+        </div>
+      )}
     </div>
   )
 }

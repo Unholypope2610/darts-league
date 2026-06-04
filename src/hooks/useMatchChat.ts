@@ -10,6 +10,7 @@ export interface ChatMessage {
   senderId: string
   senderName: string
   text: string
+  imageUrl?: string
   timestamp: number
   isSystem?: boolean
 }
@@ -25,6 +26,7 @@ export interface UseMatchChatReturn {
   presenceUsers: PresenceUser[]
   myVote: PollVote
   sendMessage: (text: string) => void
+  sendImage: (file: File) => Promise<void>
   castVote: (vote: PollVote) => void
   unreadCount: number
   markRead: () => void
@@ -112,6 +114,24 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
     channelRef.current?.send({ type: "broadcast", event: "MESSAGE", payload: msg })
   }, [userId])
 
+  const sendImage = useCallback(async (file: File) => {
+    const formData = new FormData()
+    formData.append("file", file)
+    const res = await fetch("/api/chat/images", { method: "POST", body: formData })
+    if (!res.ok) return
+    const { url } = await res.json()
+    const msg: ChatMessage = {
+      id: crypto.randomUUID(),
+      senderId: userId,
+      senderName: userNameRef.current,
+      text: "",
+      imageUrl: url,
+      timestamp: Date.now(),
+    }
+    setMessages((prev) => [...prev, msg])
+    channelRef.current?.send({ type: "broadcast", event: "MESSAGE", payload: msg })
+  }, [userId])
+
   const castVote = useCallback(async (vote: PollVote) => {
     setMyVote(vote)
     await channelRef.current?.track({ userId, name: userNameRef.current, vote } as PresenceUser)
@@ -121,5 +141,5 @@ export function useMatchChat({ matchId, userId, userName, isOpen }: UseMatchChat
     setUnreadCount(0)
   }, [])
 
-  return { messages, presenceUsers, myVote, sendMessage, castVote, unreadCount, markRead }
+  return { messages, presenceUsers, myVote, sendMessage, sendImage, castVote, unreadCount, markRead }
 }
