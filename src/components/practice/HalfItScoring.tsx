@@ -309,36 +309,48 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
 
   const currentScore = scores[activePlayer.playerId] ?? 0
 
-  function addDart(pts: number, detail?: { segment: "single" | "double" | "treble" | "bull" | "outer"; number: number }) {
-    setPendingTotal((t) => t + pts)
-    setDartCount((c) => c + 1)
-    if (detail) setDartDetails((d) => [...d, detail])
-  }
-
   function resetPending() {
     setPendingTotal(0)
     setDartCount(0)
     setDartDetails([])
   }
 
-  async function handleMiss() {
-    announceHalfItRound(currentTarget, 0, true, Math.floor(currentScore / 2))
-    await submitRound(0, true, { colourConditionMet: false, dartDetails })
-    resetPending()
-  }
+  type DartDetail = { segment: "single" | "double" | "treble" | "bull" | "outer"; number: number }
 
-  async function handleSubmit() {
+  async function doSubmit(total: number, details: DartDetail[]) {
     if (currentTarget.type === "3_DIFF_COLOURS" || currentTarget.type === "3_SAME_COLOUR") {
-      const colours = dartDetails.map((d) => getSegmentColour(d.segment, d.number))
+      const colours = details.map((d) => getSegmentColour(d.segment, d.number))
       const unique = new Set(colours)
       const conditionMet = currentTarget.type === "3_DIFF_COLOURS" ? unique.size === 3 : unique.size === 1
       const wasHalved = !conditionMet
-      announceHalfItRound(currentTarget, pendingTotal, wasHalved, wasHalved ? Math.floor(currentScore / 2) : currentScore + pendingTotal)
-      await submitRound(conditionMet ? pendingTotal : 0, wasHalved, { colourConditionMet: conditionMet, dartDetails })
+      announceHalfItRound(currentTarget, total, wasHalved, wasHalved ? Math.floor(currentScore / 2) : currentScore + total)
+      await submitRound(conditionMet ? total : 0, wasHalved, { colourConditionMet: conditionMet, dartDetails: details })
     } else {
-      announceHalfItRound(currentTarget, pendingTotal, false, currentScore + pendingTotal)
-      await submitRound(pendingTotal, false, { dartDetails: dartDetails.length > 0 ? dartDetails : undefined })
+      announceHalfItRound(currentTarget, total, false, currentScore + total)
+      await submitRound(total, false, { dartDetails: details.length > 0 ? details : undefined })
     }
+    resetPending()
+  }
+
+  function addDart(pts: number, detail?: DartDetail) {
+    const newTotal = pendingTotal + pts
+    const newCount = dartCount + 1
+    const newDetails = detail ? [...dartDetails, detail] : dartDetails
+    setPendingTotal(newTotal)
+    setDartCount(newCount)
+    if (detail) setDartDetails(newDetails)
+    if (newCount >= 3 && currentTarget.type !== "WILDCARD") {
+      void doSubmit(newTotal, newDetails)
+    }
+  }
+
+  async function handleSubmit() {
+    await doSubmit(pendingTotal, dartDetails)
+  }
+
+  async function handleMiss() {
+    announceHalfItRound(currentTarget, 0, true, Math.floor(currentScore / 2))
+    await submitRound(0, true, { colourConditionMet: false, dartDetails })
     resetPending()
   }
 
@@ -480,7 +492,8 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal }: Props) {
             <div className="flex gap-2 mt-1">
               <button
                 onClick={handleMiss}
-                className="flex-1 py-3 rounded-xl border border-border text-muted-foreground font-bold text-sm hover:border-red-500/40 hover:text-red-400 transition-all active:scale-95"
+                disabled={dartCount > 0}
+                className="flex-1 py-3 rounded-xl border border-border text-muted-foreground font-bold text-sm hover:border-red-500/40 hover:text-red-400 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none"
               >
                 MISS
               </button>
