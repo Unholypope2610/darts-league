@@ -58,23 +58,22 @@ function targetLabel(t: HalfItTarget): string {
 // ─── Number keypad (S/D/T for one number) ─────────────────────────────────────
 interface NumberKeypadProps {
   value: number
-  onAdd: (pts: number) => void
-  pendingTotal: number
+  onAdd: (pts: number, detail: { segment: "single" | "double" | "treble"; number: number }) => void
   dartCount: number
 }
-function NumberKeypad({ value, onAdd, pendingTotal, dartCount }: NumberKeypadProps) {
+function NumberKeypad({ value, onAdd, dartCount }: NumberKeypadProps) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground text-center">Shot Instructions: Shoot at {value}</p>
+      <p className="text-sm text-muted-foreground text-center">Shoot at {value}</p>
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: `S${value}`, pts: value },
-          { label: `D${value}`, pts: value * 2 },
-          { label: `T${value}`, pts: value * 3 },
-        ].map(({ label, pts }) => (
+          { label: `S${value}`, pts: value,     seg: "single"  as const },
+          { label: `D${value}`, pts: value * 2, seg: "double"  as const },
+          { label: `T${value}`, pts: value * 3, seg: "treble"  as const },
+        ].map(({ label, pts, seg }) => (
           <button
             key={label}
-            onClick={() => onAdd(pts)}
+            onClick={() => onAdd(pts, { segment: seg, number: value })}
             disabled={dartCount >= 3}
             className="py-6 rounded-xl border border-border bg-card font-bold text-lg hover:border-primary/40 hover:bg-primary/10 active:scale-95 transition-all disabled:opacity-40"
           >
@@ -82,7 +81,6 @@ function NumberKeypad({ value, onAdd, pendingTotal, dartCount }: NumberKeypadPro
           </button>
         ))}
       </div>
-      <p className="text-center text-xs text-muted-foreground">Running this turn: <span className="text-foreground font-bold">{pendingTotal}</span></p>
     </div>
   )
 }
@@ -92,9 +90,8 @@ interface RingKeypadProps {
   mode: "doubles" | "trebles"
   onAdd: (pts: number, detail: { segment: "double" | "treble"; number: number }) => void
   dartCount: number
-  pendingTotal: number
 }
-function RingKeypad({ mode, onAdd, dartCount, pendingTotal }: RingKeypadProps) {
+function RingKeypad({ mode, onAdd, dartCount }: RingKeypadProps) {
   const numbers = Array.from({ length: 20 }, (_, i) => i + 1)
   return (
     <div className="flex flex-col gap-3">
@@ -122,7 +119,6 @@ function RingKeypad({ mode, onAdd, dartCount, pendingTotal }: RingKeypadProps) {
           )
         })}
       </div>
-      <p className="text-center text-xs text-muted-foreground">Running this turn: <span className="text-foreground font-bold">{pendingTotal}</span></p>
     </div>
   )
 }
@@ -133,9 +129,8 @@ type ColourTab = "single" | "double" | "treble" | "bull" | "outer"
 interface ColourKeypadProps {
   onAdd: (pts: number, detail: { segment: "single" | "double" | "treble" | "bull" | "outer"; number: number }) => void
   dartCount: number
-  pendingTotal: number
 }
-function ColourKeypad({ onAdd, dartCount, pendingTotal }: ColourKeypadProps) {
+function ColourKeypad({ onAdd, dartCount }: ColourKeypadProps) {
   const [tab, setTab] = useState<ColourTab>("single")
   const numbers = Array.from({ length: 20 }, (_, i) => i + 1)
 
@@ -214,9 +209,6 @@ function ColourKeypad({ onAdd, dartCount, pendingTotal }: ColourKeypadProps) {
         </div>
       )}
 
-      <p className="text-center text-xs text-muted-foreground">
-        Running this turn: <span className="text-foreground font-bold">{pendingTotal}</span>
-      </p>
     </div>
   )
 }
@@ -372,6 +364,23 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
     resetPending()
   }
 
+  // ─── Dart tracker helpers ──────────────────────────────────────────────────
+
+  function detailLabel(d: DartDetail): string {
+    if (d.segment === "bull") return "Bull"
+    if (d.segment === "outer") return "Outer"
+    const prefix = d.segment === "single" ? "S" : d.segment === "double" ? "D" : "T"
+    return `${prefix}${d.number}`
+  }
+
+  function detailValue(d: DartDetail): number {
+    if (d.segment === "bull") return 50
+    if (d.segment === "outer") return 25
+    if (d.segment === "double") return d.number * 2
+    if (d.segment === "treble") return d.number * 3
+    return d.number
+  }
+
   function renderKeypad() {
     if (!canInput) {
       return (
@@ -387,14 +396,13 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
           <NumberKeypad
             value={currentTarget.value!}
             onAdd={addDart}
-            pendingTotal={pendingTotal}
             dartCount={dartCount}
           />
         )
       case "DOUBLES":
-        return <RingKeypad mode="doubles" onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
+        return <RingKeypad mode="doubles" onAdd={addDart} dartCount={dartCount} />
       case "TREBLES":
-        return <RingKeypad mode="trebles" onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
+        return <RingKeypad mode="trebles" onAdd={addDart} dartCount={dartCount} />
       case "BULL":
         return (
           <div className="flex flex-col gap-3">
@@ -409,12 +417,11 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
                 Bull 50
               </button>
             </div>
-            <p className="text-center text-xs text-muted-foreground">Running: <span className="text-foreground font-bold">{pendingTotal}</span></p>
           </div>
         )
       case "3_DIFF_COLOURS":
       case "3_SAME_COLOUR":
-        return <ColourKeypad onAdd={addDart} dartCount={dartCount} pendingTotal={pendingTotal} />
+        return <ColourKeypad onAdd={addDart} dartCount={dartCount} />
       case "WILDCARD":
         return <WildcardKeypad targets={currentTarget.wildcardTargets ?? [42, 95]} onSubmit={handleWildcardSubmit} />
     }
@@ -501,6 +508,42 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
       {/* Keypad */}
       {status === "IN_PROGRESS" && (
         <div className="flex flex-col gap-3">
+          {/* Dart tracker — shown for all non-WILDCARD rounds */}
+          {canInput && currentTarget.type !== "WILDCARD" && (
+            <div className="flex items-center gap-2">
+              {Array.from({ length: 3 }).map((_, i) => {
+                const d = dartDetails[i]
+                if (d) {
+                  const col = getSegmentColour(d.segment, d.number)
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex-1 flex flex-col items-center py-1.5 rounded-lg border-2 font-bold",
+                        BG_CLS[col], TEXT_CLS[col]
+                      )}
+                    >
+                      <span className="text-xs font-black">{detailLabel(d)}</span>
+                      <span className="text-[10px] opacity-80">{detailValue(d)}</span>
+                    </div>
+                  )
+                }
+                return (
+                  <div
+                    key={i}
+                    className="flex-1 flex items-center justify-center py-1.5 rounded-lg border-2 border-dashed border-zinc-700"
+                  >
+                    <span className="text-zinc-700 text-lg">○</span>
+                  </div>
+                )
+              })}
+              <div className="flex flex-col items-end shrink-0 min-w-[48px]">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Total</span>
+                <span className="font-score font-black text-xl text-foreground">{pendingTotal}</span>
+              </div>
+            </div>
+          )}
+
           {renderKeypad()}
 
           {needsSubmitButton && (
