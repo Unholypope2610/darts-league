@@ -50,7 +50,18 @@ export async function GET() {
     take: 20,
   })
 
-  return NextResponse.json(sessions)
+  return NextResponse.json(sessions.map((s) => ({
+    ...s,
+    players: s.players.map((p) => ({
+      id: p.id,
+      playerId: p.playerId,
+      name: p.player.name,
+      avatarUrl: p.player.avatarUrl ?? null,
+      turnOrder: p.turnOrder,
+      finalScore: p.finalScore,
+      isEliminated: p.isEliminated,
+    })),
+  })))
 }
 
 export async function POST(req: Request) {
@@ -90,5 +101,17 @@ export async function POST(req: Request) {
     },
   })
 
-  return NextResponse.json(session, { status: 201 })
+  return NextResponse.json({
+    ...session,
+    targetSequence: session.targetSequence ? JSON.parse(session.targetSequence) : null,
+    players: session.players.map((p) => ({
+      id: p.id,
+      playerId: p.playerId,
+      name: p.player.name,
+      avatarUrl: p.player.avatarUrl ?? null,
+      turnOrder: p.turnOrder,
+      finalScore: p.finalScore ?? null,
+      isEliminated: p.isEliminated,
+    })),
+  }, { status: 201 })
 }

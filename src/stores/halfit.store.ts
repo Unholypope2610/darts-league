@@ -49,7 +49,12 @@ export const useHalfItStore = create<HalfItStore>()(
       set((s) => {
         s.sessionId = session.id
         s.variant = session.variant as "STANDARD" | "RANDOM"
-        s.targetSequence = (session.targetSequence ?? []) as HalfItTarget[]
+        const rawSeq = session.targetSequence
+        s.targetSequence = Array.isArray(rawSeq)
+          ? rawSeq as HalfItTarget[]
+          : typeof rawSeq === "string"
+          ? JSON.parse(rawSeq) as HalfItTarget[]
+          : []
         s.players = session.players
         s.status = session.status as "IN_PROGRESS" | "COMPLETED"
         s.winnerId = session.winnerId

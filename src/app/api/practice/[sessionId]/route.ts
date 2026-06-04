@@ -22,5 +22,18 @@ export async function GET(_req: Request, { params }: Params) {
   })
 
   if (!session) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  return NextResponse.json(session)
+
+  return NextResponse.json({
+    ...session,
+    targetSequence: session.targetSequence ? JSON.parse(session.targetSequence) : null,
+    players: session.players.map((p) => ({
+      id: p.id,
+      playerId: p.playerId,
+      name: p.player.name,
+      avatarUrl: p.player.avatarUrl ?? null,
+      turnOrder: p.turnOrder,
+      finalScore: p.finalScore,
+      isEliminated: p.isEliminated,
+    })),
+  })
 }
