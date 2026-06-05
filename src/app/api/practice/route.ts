@@ -53,8 +53,8 @@ export async function GET() {
       OR: [
         // All in-progress sessions visible to everyone (for spectating)
         { status: "IN_PROGRESS" },
-        // Completed sessions only for the user's own games
-        { status: "COMPLETED", players: { some: { playerId: user.playerId } } },
+        // All completed sessions visible to everyone
+        { status: "COMPLETED" },
       ],
     },
     include: {
