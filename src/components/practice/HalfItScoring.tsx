@@ -88,7 +88,7 @@ function NumberKeypad({ value, onAdd, dartCount }: NumberKeypadProps) {
 // ─── Doubles / trebles grid (colour-coded by ring colour) ─────────────────────
 interface RingKeypadProps {
   mode: "doubles" | "trebles"
-  onAdd: (pts: number, detail: { segment: "double" | "treble"; number: number }) => void
+  onAdd: (pts: number, detail: { segment: "double" | "treble" | "bull"; number: number }) => void
   dartCount: number
 }
 function RingKeypad({ mode, onAdd, dartCount }: RingKeypadProps) {
@@ -119,6 +119,16 @@ function RingKeypad({ mode, onAdd, dartCount }: RingKeypadProps) {
           )
         })}
       </div>
+      {/* Double Bull — only valid in doubles rounds */}
+      {mode === "doubles" && (
+        <button
+          onClick={() => onAdd(50, { segment: "bull", number: 25 })}
+          disabled={dartCount >= 3}
+          className="py-3 rounded-xl border-2 border-red-600 bg-red-500 text-white font-bold text-base active:scale-95 transition-all disabled:opacity-30"
+        >
+          Bull · 50
+        </button>
+      )}
     </div>
   )
 }
