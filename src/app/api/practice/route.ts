@@ -49,7 +49,14 @@ export async function GET() {
   if (!user?.playerId) return NextResponse.json([])
 
   const sessions = await prisma.practiceSession.findMany({
-    where: { players: { some: { playerId: user.playerId } } },
+    where: {
+      OR: [
+        // All in-progress sessions visible to everyone (for spectating)
+        { status: "IN_PROGRESS" },
+        // Completed sessions only for the user's own games
+        { status: "COMPLETED", players: { some: { playerId: user.playerId } } },
+      ],
+    },
     include: {
       players: { include: { player: { select: { id: true, name: true, avatarUrl: true } } }, orderBy: { turnOrder: "asc" } },
     },
