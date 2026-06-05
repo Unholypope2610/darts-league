@@ -340,16 +340,14 @@ export default function PracticeSessionPage({ params }: PageProps) {
         )}
       </motion.button>
 
-      {data.players.length >= 2 && (
-        <MatchChatPanel
-          chat={chat}
-          playerAName={data.players[0]?.name ?? "Player A"}
-          playerBName={data.players[1]?.name ?? "Player B"}
-          myUserId={me?.id ?? ""}
-          isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
-        />
-      )}
+      <MatchChatPanel
+        chat={chat}
+        playerAName={data.players[0]?.name ?? "Player A"}
+        playerBName={data.players[1]?.name ?? data.players[0]?.name ?? "Player B"}
+        myUserId={me?.id ?? ""}
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+      />
     </>
   )
 }
