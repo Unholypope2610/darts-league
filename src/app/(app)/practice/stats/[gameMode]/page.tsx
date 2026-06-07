@@ -82,17 +82,20 @@ function Bobs27Stats({ data }: { data: { games: number; averageScore: number; be
   )
 }
 
-function CricketStats({ data }: { data: { games: number; wins: number; mpd: number; mpr: number; marksByTarget: Record<string, number> } }) {
+function CricketStats({ data }: { data: { games: number; wins: number; mpr: number; bestGameMpr: number; bestRoundMarks: number; tripleRate: number; threeInABed: number; totalRounds: number; marksByTarget: Record<string, number> } }) {
   const TARGETS = ["20","19","18","17","16","15","BULL"]
-  const totalMarks = Object.values(data.marksByTarget ?? {}).reduce((a, b) => a + b, 0)
 
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Games Played" value={data.games} />
         <StatCard label="Wins" value={data.wins} sub={data.games > 0 ? `${Math.round((data.wins / data.games) * 100)}% win rate` : undefined} />
-        <StatCard label="Marks Per Dart" value={data.mpd} sub="Key performance metric" />
-        <StatCard label="Total Marks" value={totalMarks} />
+        <StatCard label="Marks Per Round" value={data.mpr} sub="Standard MPR metric" />
+        <StatCard label="Best Game MPR" value={data.bestGameMpr} sub="Highest single game" />
+        <StatCard label="Triple Rate" value={`${data.tripleRate}%`} sub="Triples among scoring darts" />
+        <StatCard label="Three-in-a-Bed" value={data.threeInABed} sub="All 3 darts same triple" />
+        <StatCard label="Best Single Round" value={data.bestRoundMarks} sub="Most marks in one visit" />
+        <StatCard label="Total Rounds" value={data.totalRounds} sub="Turns played" />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4">

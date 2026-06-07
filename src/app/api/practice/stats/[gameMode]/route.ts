@@ -81,39 +81,56 @@ export async function GET(req: Request, { params }: Params) {
   if (dbGameMode === "CRICKET") {
     let totalMarks = 0
     let totalDarts = 0
+    let totalRounds = 0
+    let tripleDarts = 0
+    let threeInABed = 0
+    let bestRoundMarks = 0
+    let bestGameMpr = 0
     let wins = 0
     const marksByTarget: Record<string, number> = {}
-    const dartsByTarget: Record<string, number> = {}
+    const sessions2 = sessions.length
 
     for (const s of sessions) {
       if (s.winnerId) {
         const player = s.players[0]
         if (player && s.winnerId === player.playerId) wins++
       }
+      let sessionMarks = 0
+      let sessionRounds = 0
       for (const r of s.rounds) {
         const d = r.data as CricketRoundData
-        for (const [target, marks] of Object.entries(d.marksEarned)) {
-          totalMarks += marks
-          marksByTarget[target] = (marksByTarget[target] ?? 0) + marks
-        }
-        totalDarts += d.darts.length
+        totalRounds++
+        sessionRounds++
+        let roundMarks = 0
         for (const dart of d.darts) {
-          dartsByTarget[dart.target] = (dartsByTarget[dart.target] ?? 0) + 1
+          roundMarks += dart.multiplier
+          totalDarts++
+          if (dart.multiplier === 3) tripleDarts++
+          marksByTarget[dart.target] = (marksByTarget[dart.target] ?? 0) + dart.multiplier
+        }
+        totalMarks += roundMarks
+        sessionMarks += roundMarks
+        if (roundMarks > bestRoundMarks) bestRoundMarks = roundMarks
+        if (
+          d.darts.length === 3 &&
+          d.darts.every((dart) => dart.multiplier === 3 && dart.target === d.darts[0].target)
+        ) {
+          threeInABed++
         }
       }
+      const sessionMpr = sessionRounds > 0 ? sessionMarks / sessionRounds : 0
+      if (sessionMpr > bestGameMpr) bestGameMpr = sessionMpr
     }
-
-    const mpd = totalDarts > 0 ? totalMarks / totalDarts : 0
-    const sessions2 = sessions.length
-    const mpr = sessions2 > 0 && sessions[0]?.rounds.length > 0
-      ? totalMarks / sessions2
-      : 0
 
     return NextResponse.json({
       games: sessions2,
       wins,
-      mpd: Math.round(mpd * 100) / 100,
-      mpr: Math.round(mpr * 100) / 100,
+      mpr: totalRounds > 0 ? Math.round((totalMarks / totalRounds) * 100) / 100 : 0,
+      bestGameMpr: Math.round(bestGameMpr * 100) / 100,
+      bestRoundMarks,
+      tripleRate: totalDarts > 0 ? Math.round((tripleDarts / totalDarts) * 100) : 0,
+      threeInABed,
+      totalRounds,
       marksByTarget,
     })
   }
