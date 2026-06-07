@@ -188,8 +188,8 @@ export interface RecordVisitResponse {
 
 // ── Practice Arena ────────────────────────────────────────────────────────────
 
-export type GameMode = "BOBS_27" | "CRICKET" | "HALF_IT"
-export type PracticeVariant = "STANDARD" | "HARD" | "RANDOM"
+export type GameMode = "BOBS_27" | "CRICKET" | "HALF_IT" | "X01"
+export type PracticeVariant = "STANDARD" | "HARD" | "RANDOM" | "DOUBLE_OUT" | "STRAIGHT_OUT"
 export type PracticeStatus = "IN_PROGRESS" | "COMPLETED"
 
 export interface PracticePlayerMeta {
@@ -200,6 +200,8 @@ export interface PracticePlayerMeta {
   turnOrder: number
   finalScore: number | null
   isEliminated: boolean
+  isBot: boolean
+  botLevel: number | null
   replayBobs27HitsThreshold?: number
   replayMarksThreshold?: number
 }
@@ -234,7 +236,18 @@ export interface HalfItRoundData {
   dartDetails?: { segment: "single"|"double"|"treble"|"bull"|"outer"; number: number }[] // colour rounds
 }
 
-export type PracticeRoundData = Bobs27RoundData | CricketRoundData | HalfItRoundData
+export interface X01RoundData {
+  legNumber: number
+  scoreThrown: number
+  dartsUsed: number
+  doublesAttempted: number
+  previousRemainder: number
+  newRemainder: number
+  isBust: boolean
+  isCheckout: boolean
+}
+
+export type PracticeRoundData = Bobs27RoundData | CricketRoundData | HalfItRoundData | X01RoundData
 
 export interface HalfItTarget {
   type: "NUMBER" | "DOUBLES" | "TREBLES" | "BULL" | "3_DIFF_COLOURS" | "3_SAME_COLOUR" | "WILDCARD"
@@ -250,6 +263,10 @@ export interface PracticeSessionWithRounds {
   status: PracticeStatus
   winnerId: string | null
   targetSequence: HalfItTarget[] | null
+  isBotGame: boolean
+  startingScore: number | null
+  finishType: string
+  legsTarget: number | null
   startedAt: string
   completedAt: string | null
   players: PracticePlayerMeta[]
@@ -257,6 +274,7 @@ export interface PracticeSessionWithRounds {
     id: string
     playerId: string
     roundNumber: number
+    legNumber: number
     data: PracticeRoundData
     createdAt: string
   }[]

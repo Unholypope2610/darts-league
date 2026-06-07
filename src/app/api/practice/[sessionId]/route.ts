@@ -26,6 +26,10 @@ export async function GET(_req: Request, { params }: Params) {
   return NextResponse.json({
     ...session,
     targetSequence: session.targetSequence ? JSON.parse(session.targetSequence) : null,
+    isBotGame: session.isBotGame,
+    startingScore: session.startingScore,
+    finishType: session.finishType,
+    legsTarget: session.legsTarget,
     players: session.players.map((p) => ({
       id: p.id,
       playerId: p.playerId,
@@ -34,6 +38,8 @@ export async function GET(_req: Request, { params }: Params) {
       turnOrder: p.turnOrder,
       finalScore: p.finalScore,
       isEliminated: p.isEliminated,
+      isBot: p.isBot,
+      botLevel: p.botLevel ?? null,
       replayBobs27HitsThreshold: p.player.replayBobs27HitsThreshold,
       replayMarksThreshold: p.player.replayMarksThreshold,
     })),

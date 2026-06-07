@@ -6,6 +6,7 @@ import { getSupabase } from "@/lib/supabase"
 import { useBobs27Store } from "@/stores/bobs27.store"
 import { useCricketStore } from "@/stores/cricket.store"
 import { useHalfItStore } from "@/stores/halfit.store"
+import { useX01PracticeStore } from "@/stores/x01practice.store"
 import type { PracticeSessionWithRounds } from "@/types/api"
 
 export function usePracticeSession(sessionId: string) {
@@ -30,6 +31,7 @@ export function usePracticeSession(sessionId: string) {
     if (data.gameMode === "BOBS_27") useBobs27Store.getState().hydrate(data)
     else if (data.gameMode === "CRICKET") useCricketStore.getState().hydrate(data)
     else if (data.gameMode === "HALF_IT") useHalfItStore.getState().hydrate(data)
+    else if (data.gameMode === "X01") useX01PracticeStore.getState().hydrate(data)
   }, [data])
 
   const forceResync = useCallback(async () => {
@@ -47,6 +49,7 @@ export function usePracticeSession(sessionId: string) {
       if (gm === "BOBS_27") useBobs27Store.getState().hydrate(fresh)
       else if (gm === "CRICKET") useCricketStore.getState().hydrate(fresh)
       else if (gm === "HALF_IT") useHalfItStore.getState().hydrate(fresh)
+      else if (gm === "X01") useX01PracticeStore.getState().hydrate(fresh)
     } catch {
       // silent
     }
@@ -113,6 +116,7 @@ export function usePracticeSession(sessionId: string) {
       useBobs27Store.getState().reset()
       useCricketStore.getState().reset()
       useHalfItStore.getState().reset()
+      useX01PracticeStore.getState().reset()
     }
   }, [])
 

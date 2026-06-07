@@ -233,12 +233,16 @@ model BracketNode {
 
 model PracticeSession {
   id             String    @id @default(cuid())
-  gameMode       String    // "BOBS_27" | "CRICKET" | "HALF_IT"
-  variant        String    @default("STANDARD") // "STANDARD" | "HARD" | "RANDOM"
+  gameMode       String    // "BOBS_27" | "CRICKET" | "HALF_IT" | "X01"
+  variant        String    @default("STANDARD") // "STANDARD" | "HARD" | "RANDOM" | "DOUBLE_OUT" | "STRAIGHT_OUT"
   isLocal        Boolean   @default(false)
   status         String    @default("IN_PROGRESS") // "IN_PROGRESS" | "COMPLETED"
   winnerId       String?
   targetSequence String?
+  isBotGame      Boolean   @default(false)
+  startingScore  Int?      // for X01: 301 | 501 | 701 | custom
+  finishType     String    @default("DOUBLE_OUT") // for X01: "DOUBLE_OUT" | "STRAIGHT_OUT"
+  legsTarget     Int?      // for X01: first to X legs
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
 
@@ -255,6 +259,8 @@ model PracticePlayer {
   turnOrder    Int
   finalScore   Float?
   isEliminated Boolean         @default(false)
+  isBot        Boolean         @default(false)
+  botLevel     Int?
 }
 
 model PracticeRound {
@@ -263,6 +269,7 @@ model PracticeRound {
   session     PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   playerId    String
   roundNumber Int
+  legNumber   Int             @default(1)
   data        Json
   createdAt   DateTime        @default(now())
 }

@@ -8,6 +8,7 @@ const MODE_LABELS: Record<string, string> = {
   BOBS_27: "Bob's 27",
   CRICKET: "Cricket",
   HALF_IT: "Half It",
+  X01: "x01",
 }
 
 function generateHalfItSequence(random: boolean): HalfItTarget[] {
@@ -51,9 +52,7 @@ export async function GET() {
   const sessions = await prisma.practiceSession.findMany({
     where: {
       OR: [
-        // All in-progress sessions visible to everyone (for spectating)
         { status: "IN_PROGRESS" },
-        // All completed sessions visible to everyone
         { status: "COMPLETED" },
       ],
     },
@@ -74,6 +73,8 @@ export async function GET() {
       turnOrder: p.turnOrder,
       finalScore: p.finalScore,
       isEliminated: p.isEliminated,
+      isBot: p.isBot,
+      botLevel: p.botLevel ?? null,
     })),
   })))
 }
@@ -87,17 +88,42 @@ export async function POST(req: Request) {
     variant: string
     playerIds: string[]
     isLocal: boolean
+    isBotGame?: boolean
+    botLevel?: number
+    startingScore?: number
+    legsTarget?: number
   }
 
-  const { gameMode, variant, playerIds, isLocal } = body
+  const { gameMode, variant, playerIds, isLocal, isBotGame, botLevel, startingScore, legsTarget } = body
   if (!gameMode || !playerIds || playerIds.length === 0) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
+
+  // For x01, finishType comes from variant field
+  const finishType = gameMode === "X01" ? (variant ?? "DOUBLE_OUT") : "DOUBLE_OUT"
 
   const targetSequence =
     gameMode === "HALF_IT"
       ? JSON.stringify(generateHalfItSequence(variant === "RANDOM"))
       : null
+
+  // Find or create sentinel bot player if this is a bot game
+  let botPlayerId: string | null = null
+  if (isBotGame) {
+    let botPlayer = await prisma.player.findFirst({ where: { name: "DartBot" }, select: { id: true } })
+    if (!botPlayer) {
+      botPlayer = await prisma.player.create({ data: { name: "DartBot" }, select: { id: true } })
+    }
+    botPlayerId = botPlayer.id
+  }
+
+  // Build player create list
+  const playerCreateList = [
+    ...playerIds.map((pid, idx) => ({ playerId: pid, turnOrder: idx })),
+    ...(isBotGame && botPlayerId
+      ? [{ playerId: botPlayerId, turnOrder: playerIds.length, isBot: true, botLevel: botLevel ?? 5 }]
+      : []),
+  ]
 
   const session = await prisma.practiceSession.create({
     data: {
@@ -105,9 +131,11 @@ export async function POST(req: Request) {
       variant: variant ?? "STANDARD",
       isLocal: isLocal ?? false,
       targetSequence,
-      players: {
-        create: playerIds.map((pid, idx) => ({ playerId: pid, turnOrder: idx })),
-      },
+      isBotGame: isBotGame ?? false,
+      startingScore: gameMode === "X01" ? (startingScore ?? 501) : null,
+      finishType,
+      legsTarget: gameMode === "X01" ? (legsTarget ?? 1) : null,
+      players: { create: playerCreateList },
     },
     include: {
       players: { include: { player: { select: { id: true, name: true, avatarUrl: true } } }, orderBy: { turnOrder: "asc" } },
@@ -115,35 +143,40 @@ export async function POST(req: Request) {
     },
   })
 
-  // Push notifications — best-effort, non-blocking
-  void (async () => {
-    try {
-      const creatorPlayer = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { playerId: true, player: { select: { name: true } } },
-      })
-      const creatorName = creatorPlayer?.player?.name ?? "Someone"
-      const gameModeLabel = MODE_LABELS[gameMode] ?? gameMode
-      const participantPlayerIdSet = new Set(playerIds)
+  // Push notifications — best-effort, non-blocking (skip for bot games)
+  if (!isBotGame) {
+    void (async () => {
+      try {
+        const creatorPlayer = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { playerId: true, player: { select: { name: true } } },
+        })
+        const creatorName = creatorPlayer?.player?.name ?? "Someone"
+        const gameModeLabel = MODE_LABELS[gameMode] ?? gameMode
+        const participantPlayerIdSet = new Set(playerIds)
 
-      // All subscribed users except the creator
-      const targets = await prisma.user.findMany({
-        where: { id: { not: userId }, pushSubscriptions: { some: {} } },
-        select: { id: true, playerId: true },
-      })
+        const targets = await prisma.user.findMany({
+          where: { id: { not: userId }, pushSubscriptions: { some: {} } },
+          select: { id: true, playerId: true },
+        })
 
-      await Promise.allSettled(
-        targets.map((u) => {
-          const role = u.playerId && participantPlayerIdSet.has(u.playerId) ? "participant" : "spectator"
-          return sendPracticeSessionPush(u.id, creatorName, session.id, gameModeLabel, role)
-        }),
-      )
-    } catch { /* notifications are best-effort */ }
-  })()
+        await Promise.allSettled(
+          targets.map((u) => {
+            const role = u.playerId && participantPlayerIdSet.has(u.playerId) ? "participant" : "spectator"
+            return sendPracticeSessionPush(u.id, creatorName, session.id, gameModeLabel, role)
+          }),
+        )
+      } catch { /* notifications are best-effort */ }
+    })()
+  }
 
   return NextResponse.json({
     ...session,
     targetSequence: session.targetSequence ? JSON.parse(session.targetSequence) : null,
+    isBotGame: session.isBotGame,
+    startingScore: session.startingScore,
+    finishType: session.finishType,
+    legsTarget: session.legsTarget,
     players: session.players.map((p) => ({
       id: p.id,
       playerId: p.playerId,
@@ -152,6 +185,8 @@ export async function POST(req: Request) {
       turnOrder: p.turnOrder,
       finalScore: p.finalScore ?? null,
       isEliminated: p.isEliminated,
+      isBot: p.isBot,
+      botLevel: p.botLevel ?? null,
     })),
   }, { status: 201 })
 }

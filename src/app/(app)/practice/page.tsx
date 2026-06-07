@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
-import { Crosshair, Clock, CheckCircle2, Plus, BarChart2, Target } from "lucide-react"
+import { Crosshair, Clock, CheckCircle2, Plus, BarChart2, Target, Bot } from "lucide-react"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PracticeSetupModal } from "@/components/practice/PracticeSetupModal"
@@ -13,12 +13,14 @@ const MODE_LABELS: Record<string, string> = {
   BOBS_27: "Bob's 27",
   CRICKET: "Cricket",
   HALF_IT: "Half It",
+  X01: "x01",
 }
 
 const MODE_COLORS: Record<string, string> = {
   BOBS_27: "text-amber-400 bg-amber-500/10 border-amber-500/30",
   CRICKET: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
   HALF_IT: "text-violet-400 bg-violet-500/10 border-violet-500/30",
+  X01: "text-violet-400 bg-violet-500/10 border-violet-500/30",
 }
 
 // ─── Stats display components ────────────────────────────────────────────────
@@ -342,6 +344,31 @@ export default function PracticeLobbyPage() {
               </button>
             ))}
           </div>
+
+          {/* DartBot history links */}
+          <section>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-500 mb-3 flex items-center gap-2">
+              <Bot className="w-3.5 h-3.5 text-violet-400" />
+              vs DartBot History
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { slug: "cricket", label: "Cricket" },
+                { slug: "bobs27", label: "Bob's 27" },
+                { slug: "halfit", label: "Half It" },
+                { slug: "x01", label: "x01" },
+              ].map(({ slug, label }) => (
+                <Link
+                  key={slug}
+                  href={`/practice/stats/dartbot/${slug}`}
+                  className="flex items-center gap-2 p-3 rounded-xl border border-violet-500/20 bg-violet-500/5 hover:border-violet-500/40 hover:bg-violet-500/10 transition-all"
+                >
+                  <Bot className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                  <span className="text-xs font-bold text-violet-300">{label}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
 
           {/* Recent sessions */}
           <section>

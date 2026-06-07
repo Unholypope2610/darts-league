@@ -9,6 +9,8 @@ import { usePracticeSession } from "@/hooks/usePracticeSession"
 import { useBobs27Store } from "@/stores/bobs27.store"
 import { useCricketStore } from "@/stores/cricket.store"
 import { useHalfItStore } from "@/stores/halfit.store"
+import { useX01PracticeStore } from "@/stores/x01practice.store"
+import { computeBotBobs27Turn, computeBotCricketTurn, computeBotHalfItTurn, computeBotX01Visit } from "@/lib/bot/dartbot"
 import { useMatchChat } from "@/hooks/useMatchChat"
 import { useBoardCamBroadcast } from "@/hooks/useBoardCamBroadcast"
 import { useBoardCamSpectate } from "@/hooks/useBoardCamSpectate"
@@ -16,6 +18,7 @@ import { MatchChatPanel } from "@/components/match/LiveChat/MatchChatPanel"
 import { Bobs27Scoring } from "@/components/practice/Bobs27Scoring"
 import { CricketScoring } from "@/components/practice/CricketScoring"
 import { HalfItScoring } from "@/components/practice/HalfItScoring"
+import { X01Scoring } from "@/components/practice/X01Scoring"
 import { PracticeReplayPrompt, type PendingPracticeReplay } from "@/components/practice/PracticeReplayPrompt"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils/cn"
@@ -62,10 +65,80 @@ export default function PracticeSessionPage({ params }: PageProps) {
   const bobs27Status = useBobs27Store((s) => s.status)
   const cricketStatus = useCricketStore((s) => s.status)
   const halfitStatus = useHalfItStore((s) => s.status)
+  const x01Status = useX01PracticeStore((s) => s.status)
 
   const gameStatus = data?.gameMode === "BOBS_27" ? bobs27Status
     : data?.gameMode === "CRICKET" ? cricketStatus
+    : data?.gameMode === "X01" ? x01Status
     : halfitStatus
+
+  // Bot turn automation
+  const bobs27CurrentIdx = useBobs27Store((s) => s.currentPlayerIndex)
+  const bobs27Players = useBobs27Store((s) => s.players)
+  const bobs27Round = useBobs27Store((s) => s.currentRound)
+  const cricketCurrentIdx = useCricketStore((s) => s.currentPlayerIndex)
+  const cricketPlayers = useCricketStore((s) => s.players)
+  const cricketMarks = useCricketStore((s) => s.marks)
+  const halfitCurrentIdx = useHalfItStore((s) => s.currentPlayerIndex)
+  const halfitPlayers = useHalfItStore((s) => s.players)
+  const halfitTargetSeq = useHalfItStore((s) => s.targetSequence)
+  const halfitRound = useHalfItStore((s) => s.currentRound)
+  const x01CurrentIdx = useX01PracticeStore((s) => s.currentPlayerIndex)
+  const x01Players = useX01PracticeStore((s) => s.players)
+  const x01Remainders = useX01PracticeStore((s) => s.remainders)
+  const x01FinishType = useX01PracticeStore((s) => s.finishType)
+  const x01IsTransitioning = useX01PracticeStore((s) => s.isTransitioning)
+
+  useEffect(() => {
+    if (gameStatus !== "IN_PROGRESS") return
+
+    let currentPlayer: typeof bobs27Players[0] | undefined
+    let gameMode = data?.gameMode
+
+    if (gameMode === "BOBS_27") currentPlayer = bobs27Players[bobs27CurrentIdx]
+    else if (gameMode === "CRICKET") currentPlayer = cricketPlayers[cricketCurrentIdx]
+    else if (gameMode === "HALF_IT") currentPlayer = halfitPlayers[halfitCurrentIdx]
+    else if (gameMode === "X01") {
+      if (x01IsTransitioning) return
+      currentPlayer = x01Players[x01CurrentIdx]
+    }
+
+    if (!currentPlayer?.isBot) return
+
+    const level = currentPlayer.botLevel ?? 5
+    const delayMs = parseInt(sessionStorage.getItem(`bot-delay-${sessionId}`) ?? "4000", 10)
+
+    const t = setTimeout(async () => {
+      if (gameMode === "BOBS_27") {
+        const dartsHit = computeBotBobs27Turn(level)
+        await useBobs27Store.getState().submitRound(dartsHit)
+      } else if (gameMode === "CRICKET") {
+        const myMarks = cricketMarks[currentPlayer!.playerId] ?? {}
+        const allPlayerIds = cricketPlayers.map((p) => p.playerId)
+        const oppMarks: Record<string, number> = {}
+        for (const pid of allPlayerIds) {
+          if (pid === currentPlayer!.playerId) continue
+          for (const [target, count] of Object.entries(cricketMarks[pid] ?? {})) {
+            oppMarks[target] = Math.max(oppMarks[target] ?? 0, count)
+          }
+        }
+        const darts = computeBotCricketTurn(level, myMarks, oppMarks)
+        await useCricketStore.getState().submitTurn(darts)
+      } else if (gameMode === "HALF_IT") {
+        const target = halfitTargetSeq[halfitRound - 1]
+        if (!target) return
+        const { pointsScored, wasHalved } = computeBotHalfItTurn(level, target)
+        await useHalfItStore.getState().submitRound(pointsScored, wasHalved)
+      } else if (gameMode === "X01") {
+        const remainder = x01Remainders[currentPlayer!.playerId] ?? useX01PracticeStore.getState().startingScore
+        const result = computeBotX01Visit(level, remainder, x01FinishType)
+        await useX01PracticeStore.getState().submitVisit(result.scoreThrown, result.dartsUsed, result.doublesAttempted)
+      }
+    }, delayMs)
+
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bobs27CurrentIdx, cricketCurrentIdx, halfitCurrentIdx, x01CurrentIdx, gameStatus, x01IsTransitioning])
 
   useEffect(() => {
     if (gameStatus === "COMPLETED" && !pendingReplay) {
@@ -296,6 +369,11 @@ export default function PracticeSessionPage({ params }: PageProps) {
             sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl} isLocal={isLocal ?? false}
             camIsStreaming={cam.isStreaming}
             onReplayTrigger={handleReplayTrigger}
+          />
+        )}
+        {data.gameMode === "X01" && (
+          <X01Scoring
+            sessionId={sessionId} myPlayerId={myPlayerId} canControl={canControl}
           />
         )}
       </div>
