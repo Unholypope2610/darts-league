@@ -33,6 +33,21 @@ const X01_FORMATS = [
 
 const LEGS_OPTIONS = [1, 2, 3, 4, 5]
 
+// Stat indicators per level (index 0 = Lv.1), derived from probability tables
+const BOT_STAT_X01    = [15, 22, 32, 41, 53, 64, 75, 89, 102, 116] // 3-dart avg
+const BOT_STAT_CRICKET = [1.5, 2.1, 2.8, 3.5, 4.2, 4.9, 5.6, 6.3, 6.9, 7.5] // MPR
+const BOT_STAT_BOBS27  = [8, 14, 20, 28, 37, 47, 58, 68, 78, 87] // hit % per dart
+const BOT_STAT_HALFIT  = [10, 18, 27, 37, 47, 57, 67, 76, 84, 91] // scoring %
+
+function getBotStatLabel(subMode: BotSubMode | null, level: number): string {
+  const i = level - 1
+  if (subMode === "X01")     return `~${BOT_STAT_X01[i]} avg`
+  if (subMode === "CRICKET") return `~${BOT_STAT_CRICKET[i].toFixed(1)} MPR`
+  if (subMode === "BOBS_27") return `${BOT_STAT_BOBS27[i]}% hit rate`
+  if (subMode === "HALF_IT") return `${BOT_STAT_HALFIT[i]}% scoring chance`
+  return ""
+}
+
 interface Props { open: boolean; onClose: () => void }
 
 export function PracticeSetupModal({ open, onClose }: Props) {
@@ -312,6 +327,11 @@ export function PracticeSetupModal({ open, onClose }: Props) {
                 <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span>Novice</span><span>Club</span><span>Elite</span>
                 </div>
+                {getBotStatLabel(botSubMode, botLevel) && (
+                  <p className="text-[11px] text-violet-400/80 text-center font-semibold">
+                    {getBotStatLabel(botSubMode, botLevel)}
+                  </p>
+                )}
               </div>
 
               {/* Throw delay */}
