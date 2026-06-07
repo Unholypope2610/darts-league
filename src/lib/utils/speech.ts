@@ -82,8 +82,7 @@ export function announceVisit(
 
   if (isCheckout) {
     speak("Game shot!", 0.82, 1.15)
-  } else if (nextPlayerRemainder <= 170 && nextPlayerRemainder > 1) {
-    // Only call "requires" when the next player is in checkout range
+  } else if (getCheckoutSuggestion(nextPlayerRemainder)) {
     const firstName = nextPlayerName.split(" ")[0]
     speak(`${firstName} requires ${nextPlayerRemainder}`, 0.88, 1.0)
   }
