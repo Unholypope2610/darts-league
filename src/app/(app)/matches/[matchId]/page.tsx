@@ -80,6 +80,7 @@ export default function MatchSummaryPage({ params }: PageProps) {
     <div className="flex flex-col gap-6 max-w-xl">
       <PageHeader
         title={isLive ? "Match (Live)" : "Match Summary"}
+        backHref="/matches"
         actions={
           isLive ? (
             <Link href={`/matches/${matchId}/live`} className="px-4 py-2 rounded-lg bg-emerald-500 text-black text-sm font-bold">

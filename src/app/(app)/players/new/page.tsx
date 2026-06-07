@@ -23,7 +23,7 @@ export default function NewPlayerPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-md">
-      <PageHeader title="Add Player" />
+      <PageHeader title="Add Player" backHref="/players" />
       <div className="rounded-xl border border-border bg-card p-6">
         <PlayerForm onSubmit={handleSubmit} isSubmitting={isPending} submitLabel="Add Player" />
       </div>

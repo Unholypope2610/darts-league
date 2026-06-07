@@ -50,7 +50,7 @@ export default function EditPlayerPage({ params }: PageProps) {
 
   return (
     <div className="flex flex-col gap-6 max-w-md">
-      <PageHeader title="Edit Player" />
+      <PageHeader title="Edit Player" backHref={`/players/${playerId}`} />
       <div className="rounded-xl border border-border bg-card p-6">
         {player && (
           <PlayerForm

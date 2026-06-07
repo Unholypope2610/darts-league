@@ -67,7 +67,7 @@ export default function RecordsPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Hall of Fame" />
+        <PageHeader title="Hall of Fame" backHref="/history" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
         </div>
@@ -80,11 +80,7 @@ export default function RecordsPage() {
       <PageHeader
         title="Hall of Fame"
         description="All-time records across every season"
-        actions={
-          <Link href="/history" className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted">
-            ← Season Archive
-          </Link>
-        }
+        backHref="/history"
       />
 
       <div className="flex items-center gap-2">

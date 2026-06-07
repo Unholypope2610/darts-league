@@ -207,6 +207,7 @@ export default function UsersSettingsPage() {
       <PageHeader
         title="Settings"
         description="Manage users and app preferences"
+        backHref="/settings"
         actions={
           isAdmin ? (
             <Button onClick={() => setInviteOpen(true)} size="sm">
