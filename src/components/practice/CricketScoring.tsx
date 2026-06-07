@@ -16,10 +16,21 @@ const TARGET_VALUE: Record<string, number> = {
 const NUMBER_TARGETS = ["20", "19", "18", "17", "16", "15"] as CricketTarget[]
 
 function MarkIcon({ marks }: { marks: number }) {
-  if (marks === 0) return <span className="text-zinc-600 text-sm leading-none">─</span>
-  if (marks === 1) return <span className="text-zinc-300 text-sm leading-none font-bold">/</span>
-  if (marks === 2) return <span className="text-yellow-400 text-sm leading-none font-bold">X</span>
-  return <span className="text-emerald-400 text-sm leading-none font-black">⊗</span>
+  if (marks === 0) return <span className="text-zinc-600 text-sm leading-none select-none">─</span>
+  if (marks === 1) return <span className="text-zinc-300 text-sm leading-none font-bold select-none">/</span>
+  if (marks === 2) return <span className="text-yellow-400 text-sm leading-none font-bold select-none">X</span>
+  return <span className="text-emerald-400 text-sm leading-none font-black select-none">⊗</span>
+}
+
+// Filled circle dots matching Dart Counter style
+function Dots({ count, dim }: { count: number; dim?: boolean }) {
+  return (
+    <div className="flex gap-[3px] items-center justify-center">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className={cn("w-[5px] h-[5px] rounded-full", dim ? "bg-zinc-700" : "bg-zinc-400")} />
+      ))}
+    </div>
+  )
 }
 
 function dartLabel(dart: CricketDart): string {
@@ -56,26 +67,41 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
 
   if (!activePlayer) return null
 
+  function getCellState(target: CricketTarget) {
+    const myMarks = marks[activePlayer.playerId]?.[target] ?? 0
+    const isClosed = myMarks >= 3
+    const allOppsClosed = players
+      .filter((p) => p.playerId !== activePlayer.playerId)
+      .every((p) => (marks[p.playerId]?.[target] ?? 0) >= 3)
+    return { isClosed, canScore: isClosed && !allOppsClosed, allDone: isClosed && allOppsClosed }
+  }
+
+  async function handleSubmitDarts(darts: CricketDart[]) {
+    await submitTurn(darts)
+    setPendingDarts([])
+    const marksTotal = darts.reduce((sum, d) => sum + d.multiplier, 0)
+    if (marksTotal >= replayMarksThreshold && onReplayTrigger) {
+      onReplayTrigger(activePlayer.playerId, `${marksTotal} marks!`, { marksTotal, darts })
+    }
+  }
+
   function addDart(target: CricketTarget, multiplier: 1 | 2 | 3) {
     if (pendingDarts.length >= 3) return
-    announceCricketDart(target, multiplier)
-    setPendingDarts((d) => [...d, { target, multiplier }])
+    // Only call when this dart will score points
+    if (getCellState(target).canScore) announceCricketDart(target, multiplier)
+    const newDarts: CricketDart[] = [...pendingDarts, { target, multiplier }]
+    setPendingDarts(newDarts)
+    // Auto-submit after 3rd dart
+    if (newDarts.length === 3) void handleSubmitDarts(newDarts)
   }
 
   async function handleSubmit() {
     if (pendingDarts.length === 0) return
-    const dartsToSubmit = pendingDarts
-    await submitTurn(dartsToSubmit)
-    setPendingDarts([])
-    const marksTotal = dartsToSubmit.reduce((sum, d) => sum + d.multiplier, 0)
-    if (marksTotal >= replayMarksThreshold && onReplayTrigger) {
-      onReplayTrigger(activePlayer.playerId, `${marksTotal} marks!`, { marksTotal, darts: dartsToSubmit })
-    }
+    await handleSubmitDarts(pendingDarts)
   }
 
   function handleMiss() {
-    submitTurn([])
-    setPendingDarts([])
+    void handleSubmitDarts([])
   }
 
   function getPreviewPoints(): number {
@@ -106,22 +132,13 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
     return preview
   }
 
-  function getCellState(target: CricketTarget) {
-    const myMarks = marks[activePlayer.playerId]?.[target] ?? 0
-    const isClosed = myMarks >= 3
-    const allOppsClosed = players
-      .filter((p) => p.playerId !== activePlayer.playerId)
-      .every((p) => (marks[p.playerId]?.[target] ?? 0) >= 3)
-    return { isClosed, canScore: isClosed && !allOppsClosed, allDone: isClosed && allOppsClosed }
-  }
-
   const full = pendingDarts.length >= 3
   const isTwoPlayer = players.length === 2
 
   return (
     <div className="flex flex-col gap-3 p-4">
 
-      {/* ── Scoreboard: 2-player split panel vs multi-player scroll ── */}
+      {/* ── Scoreboard ── */}
       {isTwoPlayer ? (
         <div className="grid grid-cols-2 rounded-xl border border-border overflow-hidden">
           {players.map((p, i) => {
@@ -212,15 +229,13 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
               {activePlayer.name.split(" ")[0]}&apos;s turn
             </p>
             {canInput && (
-              <span className="text-xs text-muted-foreground">
-                dart {pendingDarts.length + 1} of 3
-              </span>
+              <span className="text-xs text-muted-foreground">dart {pendingDarts.length + 1} of 3</span>
             )}
           </div>
 
           {canInput ? (
             <>
-              {/* Dart chips + undo dart + submit */}
+              {/* Dart chip strip */}
               <div className="flex items-center gap-2">
                 <div className="flex gap-1.5 flex-1">
                   {Array.from({ length: 3 }).map((_, i) => {
@@ -240,10 +255,7 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                         {dartLabel(dart)}
                       </div>
                     ) : (
-                      <div
-                        key={i}
-                        className="flex-1 py-1.5 rounded-lg border-2 border-dashed border-zinc-700 flex items-center justify-center"
-                      >
+                      <div key={i} className="flex-1 py-1.5 rounded-lg border-2 border-dashed border-zinc-800 flex items-center justify-center">
                         <span className="text-zinc-700 text-xs">─</span>
                       </div>
                     )
@@ -254,7 +266,8 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                   <span className="text-xs font-bold text-amber-400 shrink-0">+{getPreviewPoints()}</span>
                 )}
 
-                {pendingDarts.length > 0 && (
+                {/* Undo last dart — only while turn is in progress */}
+                {pendingDarts.length > 0 && !full && (
                   <button
                     onClick={() => setPendingDarts((d) => d.slice(0, -1))}
                     className="p-2 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 active:scale-95 transition-all"
@@ -264,64 +277,63 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                   </button>
                 )}
 
-                <button
-                  onClick={handleSubmit}
-                  disabled={pendingDarts.length === 0}
-                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition-all disabled:opacity-30"
-                >
-                  Submit
-                </button>
+                {/* Submit early (1 or 2 darts) — auto-fires on 3rd */}
+                {pendingDarts.length > 0 && !full && (
+                  <button
+                    onClick={handleSubmit}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition-all"
+                  >
+                    Submit
+                  </button>
+                )}
               </div>
 
-              {/* ── Target grid: marks col + S + D + T ── */}
+              {/* ── Target grid — Dart Counter style: marks col + 3 tappable cols, no header ── */}
               <div className="rounded-xl border border-zinc-800 overflow-hidden">
 
-                {/* Column headers */}
-                <div className="grid grid-cols-[28px_1fr_1fr_1fr] border-b border-zinc-800 bg-zinc-900/80">
-                  <div />
-                  {(["S", "D", "T"] as const).map((h) => (
-                    <div key={h} className="py-1.5 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-widest">
-                      {h}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Rows 20–15 */}
+                {/* Number rows 20–15 */}
                 {NUMBER_TARGETS.map((target) => {
                   const myMarks = Math.min(marks[activePlayer.playerId]?.[target] ?? 0, 3)
                   const { canScore, allDone } = getCellState(target)
                   const pv = TARGET_VALUE[target]
                   return (
-                    <div key={target} className="grid grid-cols-[28px_1fr_1fr_1fr] border-b border-zinc-800/60">
-                      {/* Mark status column */}
-                      <div className="flex items-center justify-center border-r border-zinc-800/60">
+                    <div key={target} className="grid grid-cols-[32px_1fr_1fr_1fr] border-b border-zinc-800/50">
+                      {/* Mark status — active player's progress on this target */}
+                      <div className={cn(
+                        "flex items-center justify-center border-r border-zinc-800/50",
+                        allDone && "bg-zinc-900/60",
+                      )}>
                         <MarkIcon marks={myMarks} />
                       </div>
-                      {/* S / D / T buttons */}
+
+                      {/* Single / Double / Triple tap cells */}
                       {([1, 2, 3] as const).map((mult) => (
                         <button
                           key={mult}
                           onClick={() => addDart(target, mult)}
-                          disabled={full}
+                          disabled={full || allDone}
                           className={cn(
-                            "flex flex-col items-center justify-center py-2.5 gap-0.5",
-                            "border-r border-zinc-800/60 last:border-0",
-                            "transition-all active:scale-95 disabled:opacity-40",
+                            "flex flex-col items-center justify-center py-[9px] gap-[3px]",
+                            "border-r border-zinc-800/50 last:border-0",
+                            "transition-colors active:scale-95",
                             allDone
-                              ? "bg-zinc-900/60"
+                              ? "bg-zinc-900/60 cursor-not-allowed"
                               : canScore
-                              ? "bg-amber-500/15 hover:bg-amber-500/25"
-                              : "bg-zinc-800/30 hover:bg-zinc-700/50",
+                              ? "bg-amber-500/15 active:bg-amber-500/30"
+                              : "active:bg-zinc-700/60",
+                            full && !allDone && "opacity-40",
                           )}
                         >
                           <span className={cn(
-                            "text-base font-black",
-                            allDone ? "text-zinc-600" : canScore ? "text-amber-200" : "text-zinc-100",
+                            "text-[15px] font-black leading-none",
+                            allDone ? "text-zinc-700 line-through decoration-zinc-600" : canScore ? "text-amber-200" : "text-zinc-100",
                           )}>
                             {target}
                           </span>
-                          {canScore && (
-                            <span className="text-[10px] font-bold text-amber-400">+{pv * mult}</span>
+                          {canScore ? (
+                            <span className="text-[10px] font-bold text-amber-400 leading-none">+{pv * mult}</span>
+                          ) : (
+                            <Dots count={mult} dim={allDone} />
                           )}
                         </button>
                       ))}
@@ -329,13 +341,16 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                   )
                 })}
 
-                {/* Bull row: marks col + Bull (1mk) + D.Bull (2mk) */}
+                {/* Bull row */}
                 {(() => {
                   const myMarks = Math.min(marks[activePlayer.playerId]?.["BULL"] ?? 0, 3)
                   const { canScore, allDone } = getCellState("BULL" as CricketTarget)
                   return (
                     <div className="flex">
-                      <div className="w-7 shrink-0 flex items-center justify-center border-r border-zinc-800/60">
+                      <div className={cn(
+                        "w-8 shrink-0 flex items-center justify-center border-r border-zinc-800/50",
+                        allDone && "bg-zinc-900/60",
+                      )}>
                         <MarkIcon marks={myMarks} />
                       </div>
                       <div className="flex-1 grid grid-cols-2">
@@ -343,26 +358,29 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                           <button
                             key={mult}
                             onClick={() => addDart("BULL" as CricketTarget, mult)}
-                            disabled={full}
+                            disabled={full || allDone}
                             className={cn(
-                              "flex flex-col items-center justify-center py-2.5 gap-0.5",
-                              "border-r border-zinc-800/60 last:border-0",
-                              "transition-all active:scale-95 disabled:opacity-40",
+                              "flex flex-col items-center justify-center py-[9px] gap-[3px]",
+                              "border-r border-zinc-800/50 last:border-0",
+                              "transition-colors active:scale-95",
                               allDone
-                                ? "bg-zinc-900/60"
+                                ? "bg-zinc-900/60 cursor-not-allowed"
                                 : canScore
-                                ? "bg-amber-500/15 hover:bg-amber-500/25"
-                                : "bg-zinc-800/30 hover:bg-zinc-700/50",
+                                ? "bg-amber-500/15 active:bg-amber-500/30"
+                                : "active:bg-zinc-700/60",
+                              full && !allDone && "opacity-40",
                             )}
                           >
                             <span className={cn(
-                              "text-sm font-black",
-                              allDone ? "text-zinc-600" : canScore ? "text-amber-200" : "text-zinc-100",
+                              "text-[13px] font-black leading-none",
+                              allDone ? "text-zinc-700 line-through decoration-zinc-600" : canScore ? "text-amber-200" : "text-zinc-100",
                             )}>
                               {mult === 1 ? "Bull" : "D.Bull"}
                             </span>
-                            {canScore && (
-                              <span className="text-[10px] font-bold text-amber-400">+{25 * mult}</span>
+                            {canScore ? (
+                              <span className="text-[10px] font-bold text-amber-400 leading-none">+{25 * mult}</span>
+                            ) : (
+                              <Dots count={mult} dim={allDone} />
                             )}
                           </button>
                         ))}
@@ -372,12 +390,12 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                 })()}
               </div>
 
-              {/* Miss + undo last turn */}
+              {/* Miss + undo last turn — only visible before any dart is entered */}
               {pendingDarts.length === 0 && (
                 <div className="flex gap-2">
                   <button
                     onClick={handleMiss}
-                    className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground text-sm font-semibold hover:border-primary/30 active:scale-95 transition-all"
+                    className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground text-sm font-semibold hover:border-zinc-600 active:scale-95 transition-all"
                   >
                     Miss — no hits
                   </button>
