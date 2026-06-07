@@ -93,6 +93,12 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
 
   async function handleDartsConfirmed(dartsUsed: number) {
     if (!pendingDarts) return
+    // Re-read store to guard against the game ending while the dart picker was open
+    const fresh = useX01PracticeStore.getState()
+    if (fresh.status !== "IN_PROGRESS" || fresh.isTransitioning || fresh.players[fresh.currentPlayerIndex]?.isBot) {
+      setPendingDarts(null)
+      return
+    }
     const { score, isBust, doublesAttempted } = pendingDarts
     setPendingDarts(null)
     const nextPlayerId = opponent?.playerId ?? ""

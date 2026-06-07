@@ -142,13 +142,16 @@ export default function PracticeSessionPage({ params }: PageProps) {
         announceHalfItRound(target, pointsScored, wasHalved, newScore)
         await useHalfItStore.getState().submitRound(pointsScored, wasHalved)
       } else if (gameMode === "X01") {
-        const remainder = x01Remainders[currentPlayer!.playerId] ?? useX01PracticeStore.getState().startingScore
-        const result = computeBotX01Visit(level, remainder, x01FinishType)
+        // Re-read fresh state — the 4-second delay means conditions may have changed
         const x01State = useX01PracticeStore.getState()
+        if (x01State.status !== "IN_PROGRESS" || x01State.isTransitioning) return
+        if (!x01State.players[x01State.currentPlayerIndex]?.isBot) return
+        const remainder = x01State.remainders[currentPlayer!.playerId] ?? x01State.startingScore
+        const result = computeBotX01Visit(level, remainder, x01FinishType)
         const humanPlayer = x01State.players.find((p) => !p.isBot)
         const humanRemainder = humanPlayer ? (x01State.remainders[humanPlayer.playerId] ?? x01State.startingScore) : 0
         announceVisit(result.scoreThrown, humanRemainder, humanPlayer?.name ?? "", result.isCheckout, result.isBust)
-        await useX01PracticeStore.getState().submitVisit(result.scoreThrown, result.dartsUsed, result.doublesAttempted)
+        await x01State.submitVisit(result.scoreThrown, result.dartsUsed, result.doublesAttempted)
       }
     }, delayMs)
 
