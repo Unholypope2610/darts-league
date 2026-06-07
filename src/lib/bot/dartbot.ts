@@ -383,20 +383,41 @@ function dartScore(target: DartTarget): number {
   return target.value
 }
 
-function simulateDartAtTarget(level: number, target: DartTarget): boolean {
+// Returns the board coordinates to aim at for a given checkout target.
+// TRIPLE → treble ring midpoint (r=103), DOUBLE → double ring midpoint (r=166),
+// SINGLE → outer single midpoint (r=134), BULL → board centre.
+function aimForTarget(target: DartTarget): { x: number; y: number } {
+  if (target.type === "BULL") return { x: 0, y: 0 }
+  const idx = BOARD_NUMBERS.indexOf(target.value)
+  const rad = idx * 18 * Math.PI / 180
+  const r = target.type === "TRIPLE" ? 103 : target.type === "DOUBLE" ? 166 : 134
+  return { x: r * Math.sin(rad), y: r * Math.cos(rad) }
+}
+
+// Hybrid checkout dart model.
+// Uses calibrated hit probabilities (so checkout frequency stays realistic),
+// but when a dart misses its intended target, the Gaussian model determines
+// where it actually landed — giving realistic partial scores (e.g. missed D20
+// might hit S20, clip D18, or fly off the board).
+function simulateDartAtTarget(level: number, target: DartTarget): { score: number; isDouble: boolean } {
+  let hitIntended: boolean
   switch (target.type) {
-    case "DOUBLE":
-      return roll() < DOUBLE_HIT_PROB[level - 1]
-    case "TRIPLE":
-      return roll() < CHECKOUT_TRIPLE_PROB[level - 1]
-    case "BULL": {
-      // Bull is moderately harder than a double
-      const p = DOUBLE_HIT_PROB[level - 1] * 0.75
-      return roll() < p
-    }
-    case "SINGLE":
-      return roll() < 0.95 // singles almost always hit
+    case "DOUBLE": hitIntended = roll() < DOUBLE_HIT_PROB[level - 1]; break
+    case "TRIPLE": hitIntended = roll() < CHECKOUT_TRIPLE_PROB[level - 1]; break
+    case "BULL":   hitIntended = roll() < DOUBLE_HIT_PROB[level - 1] * 0.75; break
+    case "SINGLE": hitIntended = roll() < 0.95; break
   }
+
+  if (hitIntended) {
+    const score = dartScore(target)
+    const isDouble = target.type === "DOUBLE" || target.type === "BULL"
+    return { score, isDouble }
+  }
+
+  // Missed — use Gaussian to find actual landing
+  const landing = throwDart(aimForTarget(target).x, aimForTarget(target).y, X01_SIGMA[level - 1])
+  const isDouble = landing.score > 0 && (landing.score === landing.segment * 2 || landing.score === 50)
+  return { score: landing.score, isDouble }
 }
 
 // Board management aims, in order of fallback: T20 → T19 → T18
@@ -489,31 +510,24 @@ export function computeBotX01Visit(
     dartsUsed++
     if (target.type === "DOUBLE") doublesAttempted++
 
-    const didHit = simulateDartAtTarget(level, target)
-    if (didHit) {
-      const ds = dartScore(target)
-      const newRem = runningRemainder - ds
+    const landing = simulateDartAtTarget(level, target)
+    const newRem = runningRemainder - landing.score
 
-      if (newRem < 0) {
-        // Overshot — bust
-        return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
-      }
-      if (newRem === 0) {
-        if (finishType === "DOUBLE_OUT" && target.type !== "DOUBLE" && target.type !== "BULL") {
-          // Hit exact zero but not on a double/bull — bust
-          return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
-        }
-        return { scoreThrown: scoreThrown + ds, dartsUsed, doublesAttempted, isBust: false, isCheckout: true }
-      }
-      if (newRem === 1 && finishType === "DOUBLE_OUT") {
-        // Madhouse — bust
-        return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
-      }
-
-      scoreThrown += ds
-      runningRemainder = newRem
+    if (newRem < 0) {
+      return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
     }
-    // else: missed that dart, remaining darts continue in loop
+    if (newRem === 0) {
+      if (finishType === "DOUBLE_OUT" && !landing.isDouble) {
+        return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
+      }
+      return { scoreThrown: scoreThrown + landing.score, dartsUsed, doublesAttempted, isBust: false, isCheckout: true }
+    }
+    if (newRem === 1 && finishType === "DOUBLE_OUT") {
+      return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
+    }
+
+    scoreThrown += landing.score
+    runningRemainder = newRem
   }
 
   // Route exhausted (or missed all darts) — remaining darts fill with scoring attempts
