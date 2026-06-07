@@ -22,7 +22,7 @@ import { X01Scoring } from "@/components/practice/X01Scoring"
 import { PracticeReplayPrompt, type PendingPracticeReplay } from "@/components/practice/PracticeReplayPrompt"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils/cn"
-import { prewarmSpeech, setSpectatorCallerOverride } from "@/lib/utils/speech"
+import { prewarmSpeech, setSpectatorCallerOverride, announceVisit, announceBobs27Round, announceCricketDart, announceHalfItRound } from "@/lib/utils/speech"
 
 interface PageProps { params: Promise<{ sessionId: string }> }
 
@@ -111,6 +111,11 @@ export default function PracticeSessionPage({ params }: PageProps) {
     const t = setTimeout(async () => {
       if (gameMode === "BOBS_27") {
         const dartsHit = computeBotBobs27Turn(level)
+        const bobs27Doubles = ["D1","D2","D3","D4","D5","D6","D7","D8","D9","D10","D11","D12","D13","D14","D15","D16","D17","D18","D19","D20","D25"]
+        const target = bobs27Doubles[useBobs27Store.getState().currentRound - 1]
+        const doubleVal = parseInt(target.replace("D", ""), 10) * 2
+        const pointsChange = dartsHit === 0 ? -doubleVal : doubleVal * dartsHit
+        announceBobs27Round(target, dartsHit, pointsChange)
         await useBobs27Store.getState().submitRound(dartsHit)
       } else if (gameMode === "CRICKET") {
         const myMarks = cricketMarks[currentPlayer!.playerId] ?? {}
@@ -123,15 +128,26 @@ export default function PracticeSessionPage({ params }: PageProps) {
           }
         }
         const darts = computeBotCricketTurn(level, myMarks, oppMarks)
+        for (const dart of darts) {
+          announceCricketDart(dart.target, dart.multiplier)
+        }
         await useCricketStore.getState().submitTurn(darts)
       } else if (gameMode === "HALF_IT") {
         const target = halfitTargetSeq[halfitRound - 1]
         if (!target) return
         const { pointsScored, wasHalved } = computeBotHalfItTurn(level, target)
+        const halfitState = useHalfItStore.getState()
+        const currentScore = halfitState.scores[currentPlayer!.playerId] ?? 0
+        const newScore = wasHalved ? Math.floor(currentScore / 2) : currentScore + pointsScored
+        announceHalfItRound(target, pointsScored, wasHalved, newScore)
         await useHalfItStore.getState().submitRound(pointsScored, wasHalved)
       } else if (gameMode === "X01") {
         const remainder = x01Remainders[currentPlayer!.playerId] ?? useX01PracticeStore.getState().startingScore
         const result = computeBotX01Visit(level, remainder, x01FinishType)
+        const x01State = useX01PracticeStore.getState()
+        const humanPlayer = x01State.players.find((p) => !p.isBot)
+        const humanRemainder = humanPlayer ? (x01State.remainders[humanPlayer.playerId] ?? x01State.startingScore) : 0
+        announceVisit(result.scoreThrown, humanRemainder, humanPlayer?.name ?? "", result.isCheckout, result.isBust)
         await useX01PracticeStore.getState().submitVisit(result.scoreThrown, result.dartsUsed, result.doublesAttempted)
       }
     }, delayMs)
