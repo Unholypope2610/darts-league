@@ -5,13 +5,13 @@ import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Trophy, ArrowLeft, BarChart2 } from "lucide-react"
+import { Trophy, ArrowLeft, BarChart2, Bot } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
-import type { PracticeSessionWithRounds, Bobs27RoundData, CricketRoundData, HalfItRoundData } from "@/types/api"
+import type { PracticeSessionWithRounds, Bobs27RoundData, CricketRoundData, HalfItRoundData, X01RoundData } from "@/types/api"
 
 interface PageProps { params: Promise<{ sessionId: string }> }
 
-const MODE_LABELS: Record<string, string> = { BOBS_27: "Bob's 27", CRICKET: "Cricket", HALF_IT: "Half It" }
+const MODE_LABELS: Record<string, string> = { BOBS_27: "Bob's 27", CRICKET: "Cricket", HALF_IT: "Half It", X01: "x01" }
 
 function halfItTargetLabel(t: { type: string; value?: number; wildcardTargets?: [number, number] }): string {
   if (t.type === "NUMBER") return String(t.value)
@@ -207,6 +207,77 @@ function HalfItSummary({ session }: { session: PracticeSessionWithRounds }) {
   )
 }
 
+function X01Summary({ session }: { session: PracticeSessionWithRounds }) {
+  const playerVisits: Record<string, X01RoundData[]> = {}
+  for (const p of session.players) playerVisits[p.playerId] = []
+  for (const r of session.rounds) {
+    playerVisits[r.playerId] = playerVisits[r.playerId] ?? []
+    playerVisits[r.playerId].push(r.data as X01RoundData)
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {session.players.map((p) => {
+        const visits = playerVisits[p.playerId] ?? []
+        const legsWon = visits.filter((v) => v.isCheckout).length
+
+        const totalScore = visits.reduce((s, v) => s + (v.isBust ? 0 : v.scoreThrown), 0)
+        const totalDarts = visits.reduce((s, v) => s + v.dartsUsed, 0)
+        const avg = totalDarts > 0 ? ((totalScore / totalDarts) * 3).toFixed(2) : "0.00"
+
+        const checkouts = visits.filter((v) => v.isCheckout).map((v) => v.scoreThrown)
+        const highestCheckout = checkouts.length > 0 ? Math.max(...checkouts) : null
+        const count180s = visits.filter((v) => !v.isBust && v.scoreThrown === 180).length
+
+        // Best leg: fewest darts in a won leg
+        const legDartsMap: Record<number, { darts: number; won: boolean }> = {}
+        for (const v of visits) {
+          if (!legDartsMap[v.legNumber]) legDartsMap[v.legNumber] = { darts: 0, won: false }
+          legDartsMap[v.legNumber].darts += v.dartsUsed
+          if (v.isCheckout) legDartsMap[v.legNumber].won = true
+        }
+        const wonLegDarts = Object.values(legDartsMap).filter((l) => l.won).map((l) => l.darts)
+        const bestLeg = wonLegDarts.length > 0 ? Math.min(...wonLegDarts) : null
+
+        const isWinner = session.winnerId === p.playerId
+
+        return (
+          <div key={p.playerId} className={cn("rounded-xl border p-4 bg-card", isWinner ? "border-amber-500/40" : "border-border")}>
+            <div className="flex items-center gap-3 mb-3">
+              {p.isBot
+                ? <div className="size-10 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center shrink-0"><Bot className="size-5 text-violet-400" /></div>
+                : <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="md" />
+              }
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold">{p.isBot ? "DartBot" : p.name}</p>
+                  {isWinner && <Trophy className="w-4 h-4 text-amber-400" />}
+                  {p.isBot && p.botLevel != null && <span className="text-xs text-violet-400">Lv.{p.botLevel}</span>}
+                </div>
+                <p className="font-score text-2xl font-black text-primary">{legsWon} {legsWon === 1 ? "leg" : "legs"}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center">
+              {[
+                { label: "Average", value: avg },
+                { label: "Highest CO", value: highestCheckout ?? "—" },
+                { label: "180s", value: count180s },
+                { label: "Best Leg", value: bestLeg != null ? `${bestLeg}d` : "—" },
+                { label: "Total Darts", value: totalDarts },
+              ].map(({ label, value }) => (
+                <div key={label} className="rounded-lg bg-muted p-2">
+                  <p className="font-score font-bold text-lg">{value}</p>
+                  <p className="text-[10px] text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function SessionStatsPage({ params }: PageProps) {
   const { sessionId } = use(params)
 
@@ -242,9 +313,10 @@ export default function SessionStatsPage({ params }: PageProps) {
       {session.gameMode === "BOBS_27" && <Bobs27Summary session={session} />}
       {session.gameMode === "CRICKET" && <CricketSummary session={session} />}
       {session.gameMode === "HALF_IT" && <HalfItSummary session={session} />}
+      {session.gameMode === "X01" && <X01Summary session={session} />}
 
       <Link
-        href={`/practice/stats/${gameSlug}`}
+        href={session.isBotGame ? `/practice/stats/dartbot/${gameSlug}` : `/practice/stats/${gameSlug}`}
         className="flex items-center justify-center gap-2 py-3 rounded-xl border border-border text-muted-foreground text-sm font-semibold hover:border-primary/30 hover:text-foreground transition-all"
       >
         <BarChart2 className="w-4 h-4" />

@@ -10,16 +10,16 @@ export interface VisitForStats {
 }
 
 export function calculateAverage(visits: VisitForStats[]): number {
-  const valid = visits.filter((v) => !v.isBust)
-  const totalScore = valid.reduce((sum, v) => sum + v.scoreThrown, 0)
-  const totalDarts = valid.reduce((sum, v) => sum + v.dartsUsed, 0)
+  // Standard: bust scores 0 but darts still count in denominator
+  const totalScore = visits.reduce((sum, v) => sum + (v.isBust ? 0 : v.scoreThrown), 0)
+  const totalDarts = visits.reduce((sum, v) => sum + v.dartsUsed, 0)
   if (totalDarts === 0) return 0
   return (totalScore / totalDarts) * 3
 }
 
 export function calculateFirst9Average(visits: VisitForStats[]): number {
-  const valid = visits.filter((v) => !v.isBust).slice(0, 3)
-  return calculateAverage(valid)
+  // First 9 darts = first 3 visits regardless of bust
+  return calculateAverage(visits.slice(0, 3))
 }
 
 export function countScoreOrAbove(visits: VisitForStats[], threshold: number): number {

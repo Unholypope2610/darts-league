@@ -1,17 +1,30 @@
 "use client"
 
+import { useState } from "react"
 import { useX01PracticeStore } from "@/stores/x01practice.store"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
-import { BOT_LEVEL_NAMES } from "@/lib/bot/dartbot"
 import { getCheckoutSuggestionText } from "@/lib/algorithms/checkout-suggestions"
 import { announceVisit } from "@/lib/utils/speech"
 import { cn } from "@/lib/utils/cn"
 import { Delete, Undo2, Bot, Loader2 } from "lucide-react"
+import type { X01RoundData } from "@/types/api"
 
 interface Props {
   sessionId: string
   myPlayerId: string | null
   canControl: boolean
+}
+
+function computeAvg(visits: X01RoundData[]): string {
+  if (visits.length === 0) return "0.00"
+  const totalScore = visits.reduce((s, v) => s + (v.isBust ? 0 : v.scoreThrown), 0)
+  const totalDarts = visits.reduce((s, v) => s + v.dartsUsed, 0)
+  if (totalDarts === 0) return "0.00"
+  return ((totalScore / totalDarts) * 3).toFixed(2)
+}
+
+function computeLegDarts(visits: X01RoundData[]): number {
+  return visits.reduce((s, v) => s + v.dartsUsed, 0)
 }
 
 export function X01Scoring({ myPlayerId, canControl }: Props) {
@@ -28,22 +41,29 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   const dartInput = useX01PracticeStore((s) => s.dartInput)
   const isTransitioning = useX01PracticeStore((s) => s.isTransitioning)
   const lastRoundId = useX01PracticeStore((s) => s.lastRoundId)
+  const allVisits = useX01PracticeStore((s) => s.allVisits)
+  const currentLegVisits = useX01PracticeStore((s) => s.currentLegVisits)
   const inputDigit = useX01PracticeStore((s) => s.inputDigit)
   const clearInput = useX01PracticeStore((s) => s.clearInput)
   const submitVisit = useX01PracticeStore((s) => s.submitVisit)
   const undoLastVisit = useX01PracticeStore((s) => s.undoLastVisit)
 
+  const [pendingDarts, setPendingDarts] = useState<{
+    score: number
+    isBust: boolean
+    doublesAttempted: number
+  } | null>(null)
+
   if (players.length === 0) return null
 
   const activePlayer = players[currentPlayerIndex]
   const opponent = players.find((p) => p.playerId !== activePlayer?.playerId)
-  const myPlayer = players.find((p) => p.playerId === myPlayerId)
   const botPlayer = players.find((p) => p.isBot)
   const humanPlayer = players.find((p) => !p.isBot)
 
   const isBotTurn = activePlayer?.isBot
   const isMyTurn = canControl && !isBotTurn
-  const canInput = isMyTurn && status === "IN_PROGRESS" && !isTransitioning
+  const canInput = isMyTurn && status === "IN_PROGRESS" && !isTransitioning && !pendingDarts
 
   const activeRemainder = remainders[activePlayer?.playerId ?? ""] ?? startingScore
   const checkoutSuggestion = !isBotTurn && activeRemainder <= 170 && activeRemainder >= 2
@@ -51,27 +71,34 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
     : null
 
   const scoreValue = parseInt(dartInput, 10) || 0
+  const isCheckoutScore = scoreValue > 0 && scoreValue === activeRemainder
 
   async function handleSubmit() {
-    if (!canInput || scoreValue > activeRemainder) return
-    const nextPlayerName = opponent?.name ?? ""
+    if (!canInput || scoreValue > activeRemainder || scoreValue < 0) return
+    if (isCheckoutScore) {
+      setPendingDarts({ score: scoreValue, isBust: false, doublesAttempted: 1 })
+      return
+    }
     const nextPlayerId = opponent?.playerId ?? ""
     const nextRemainder = remainders[nextPlayerId] ?? startingScore
-    const isBust = false // bust is via dedicated button
-    const isCheckout = scoreValue === activeRemainder && finishType === "STRAIGHT_OUT"
-      || (scoreValue === activeRemainder && finishType === "DOUBLE_OUT" && false) // checked in store
-    // Let the store handle bust/checkout detection
-    announceVisit(scoreValue, nextRemainder, nextPlayerName, scoreValue === activeRemainder, false)
-    await submitVisit(scoreValue, 3, scoreValue === activeRemainder ? 1 : 0)
+    announceVisit(scoreValue, nextRemainder, opponent?.name ?? "", false, false)
+    await submitVisit(scoreValue, 3, 0)
   }
 
   async function handleBust() {
     if (!canInput) return
-    const nextPlayerName = opponent?.name ?? ""
+    const doublesAttempted = activeRemainder <= 170 ? 1 : 0
+    setPendingDarts({ score: 0, isBust: true, doublesAttempted })
+  }
+
+  async function handleDartsConfirmed(dartsUsed: number) {
+    if (!pendingDarts) return
+    const { score, isBust, doublesAttempted } = pendingDarts
+    setPendingDarts(null)
     const nextPlayerId = opponent?.playerId ?? ""
     const nextRemainder = remainders[nextPlayerId] ?? startingScore
-    announceVisit(0, nextRemainder, nextPlayerName, false, true)
-    await submitVisit(0, 3, 1)
+    announceVisit(score, nextRemainder, opponent?.name ?? "", !isBust && score > 0, isBust)
+    await submitVisit(score, dartsUsed, doublesAttempted)
   }
 
   const humanLegs = legsWon[humanPlayer?.playerId ?? ""] ?? 0
@@ -100,11 +127,13 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
           const isActive = idx === currentPlayerIndex
           const rem = remainders[p.playerId] ?? startingScore
           const legs = legsWon[p.playerId] ?? 0
+          const avg = computeAvg(allVisits[p.playerId] ?? [])
+          const legDarts = computeLegDarts(currentLegVisits[p.playerId] ?? [])
           return (
             <div
               key={p.playerId}
               className={cn(
-                "flex flex-col items-center gap-2 py-4 px-3 transition-all",
+                "flex flex-col items-center gap-1.5 py-4 px-3 transition-all",
                 isActive ? "bg-primary/10 border-primary/20" : "bg-muted/20",
                 idx === 0 && "border-r border-border",
               )}
@@ -125,6 +154,9 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
               </div>
               <p className={cn("font-score font-black leading-none", rem <= 170 ? "text-4xl text-emerald-400" : "text-4xl")}>
                 {rem}
+              </p>
+              <p className="text-[10px] text-muted-foreground tabular-nums">
+                {avg} avg · {legDarts}d
               </p>
               <div className="flex gap-1">
                 {Array.from({ length: legsTarget }).map((_, i) => (
@@ -171,7 +203,7 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
         </div>
       )}
 
-      {/* Input display */}
+      {/* Input display + numpad */}
       {!isBotTurn && status === "IN_PROGRESS" && (
         <>
           <div className="mx-4 mt-4 flex items-center justify-between">
@@ -183,7 +215,7 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
                 {dartInput}
               </span>
             </div>
-            {lastRoundId && (
+            {lastRoundId && !pendingDarts && (
               <button onClick={undoLastVisit} className="p-2 rounded-xl bg-muted border border-border hover:bg-muted/80 transition-all active:scale-95">
                 <Undo2 className="size-4 text-muted-foreground" />
               </button>
@@ -219,9 +251,14 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
             <button
               onClick={handleSubmit}
               disabled={!canInput || scoreValue > activeRemainder || scoreValue < 0}
-              className="py-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm active:scale-95 transition-all disabled:opacity-40"
+              className={cn(
+                "py-4 rounded-xl font-bold text-sm active:scale-95 transition-all disabled:opacity-40",
+                isCheckoutScore
+                  ? "bg-emerald-500 text-white"
+                  : "bg-primary text-primary-foreground"
+              )}
             >
-              Enter
+              {isCheckoutScore ? "Checkout!" : "Enter"}
             </button>
           </div>
 
@@ -234,6 +271,40 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
             Bust
           </button>
         </>
+      )}
+
+      {/* Dart count picker — fixed bottom sheet */}
+      {pendingDarts && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
+          onClick={() => setPendingDarts(null)}
+        >
+          <div
+            className="bg-card border border-border border-b-0 rounded-t-2xl p-6 w-full max-w-sm pb-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-bold text-center text-muted-foreground mb-5">
+              {pendingDarts.isBust ? "Bust — how many darts thrown?" : "Checkout! How many darts used?"}
+            </p>
+            <div className="flex gap-3">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => handleDartsConfirmed(n)}
+                  className="flex-1 py-5 rounded-2xl bg-muted border border-border font-score font-black text-3xl active:scale-95 transition-all hover:bg-muted/80 hover:border-primary/40"
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPendingDarts(null)}
+              className="w-full mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
