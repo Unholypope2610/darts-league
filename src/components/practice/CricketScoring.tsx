@@ -16,10 +16,10 @@ const TARGET_VALUE: Record<string, number> = {
 const NUMBER_TARGETS = ["20", "19", "18", "17", "16", "15"] as CricketTarget[]
 
 function MarkIcon({ marks }: { marks: number }) {
-  if (marks === 0) return <span className="text-zinc-700 text-[11px]">─</span>
-  if (marks === 1) return <span className="text-zinc-400 text-[11px]">/</span>
-  if (marks === 2) return <span className="text-yellow-400 text-[11px] font-bold">X</span>
-  return <span className="text-emerald-400 text-[11px] font-black">⊗</span>
+  if (marks === 0) return <span className="text-zinc-600 text-sm leading-none">─</span>
+  if (marks === 1) return <span className="text-zinc-300 text-sm leading-none font-bold">/</span>
+  if (marks === 2) return <span className="text-yellow-400 text-sm leading-none font-bold">X</span>
+  return <span className="text-emerald-400 text-sm leading-none font-black">⊗</span>
 }
 
 function dartLabel(dart: CricketDart): string {
@@ -78,7 +78,6 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
     setPendingDarts([])
   }
 
-  // Simulate points preview for pending darts
   function getPreviewPoints(): number {
     let preview = 0
     const tempMarks = JSON.parse(JSON.stringify(marks)) as typeof marks
@@ -117,44 +116,82 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
   }
 
   const full = pendingDarts.length >= 3
+  const isTwoPlayer = players.length === 2
 
   return (
     <div className="flex flex-col gap-3 p-4">
 
-      {/* ── Player score strip ── */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {players.map((p, i) => {
-          const isActive = i === currentPlayerIndex
-          return (
-            <div
-              key={p.playerId}
-              className={cn(
-                "shrink-0 rounded-xl border p-3 flex flex-col gap-2 min-w-[148px]",
-                isActive ? "border-primary/50 bg-primary/10" : "border-border bg-card",
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="sm" />
-                <div>
-                  <p className="text-xs font-semibold leading-none truncate max-w-[80px]">{p.name.split(" ")[0]}</p>
-                  <p className={cn("font-score text-2xl font-black leading-tight", isActive ? "text-primary" : "text-foreground")}>
-                    {points[p.playerId] ?? 0}
-                  </p>
+      {/* ── Scoreboard: 2-player split panel vs multi-player scroll ── */}
+      {isTwoPlayer ? (
+        <div className="grid grid-cols-2 rounded-xl border border-border overflow-hidden">
+          {players.map((p, i) => {
+            const isActive = i === currentPlayerIndex
+            return (
+              <div
+                key={p.playerId}
+                className={cn(
+                  "flex flex-col p-3 gap-2",
+                  isActive ? "bg-primary/10" : "bg-card",
+                  i === 0 ? "border-r border-border" : "",
+                )}
+              >
+                <div className="flex items-center gap-1.5">
+                  {isActive && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                  <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="sm" />
+                  <p className="text-xs font-semibold truncate">{p.name.split(" ")[0]}</p>
+                </div>
+                <p className={cn(
+                  "font-score font-black leading-none",
+                  isActive ? "text-5xl text-primary" : "text-4xl text-foreground/80",
+                )}>
+                  {points[p.playerId] ?? 0}
+                </p>
+                <div className="flex gap-1.5 mt-0.5">
+                  {CRICKET_TARGETS.map((t) => (
+                    <div key={t} className="flex flex-col items-center gap-0.5">
+                      <MarkIcon marks={Math.min(marks[p.playerId]?.[t] ?? 0, 3)} />
+                      <span className="text-[7px] text-zinc-700 leading-none">{t === "BULL" ? "B" : t}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              {/* Mini mark board */}
-              <div className="flex gap-2">
-                {CRICKET_TARGETS.map((t) => (
-                  <div key={t} className="flex flex-col items-center gap-0.5">
-                    <MarkIcon marks={Math.min(marks[p.playerId]?.[t] ?? 0, 3)} />
-                    <span className="text-[8px] text-zinc-600 leading-none">{t === "BULL" ? "BL" : t}</span>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {players.map((p, i) => {
+            const isActive = i === currentPlayerIndex
+            return (
+              <div
+                key={p.playerId}
+                className={cn(
+                  "shrink-0 rounded-xl border p-3 flex flex-col gap-2 min-w-[148px]",
+                  isActive ? "border-primary/50 bg-primary/10" : "border-border bg-card",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="sm" />
+                  <div>
+                    <p className="text-xs font-semibold leading-none truncate max-w-[80px]">{p.name.split(" ")[0]}</p>
+                    <p className={cn("font-score text-2xl font-black leading-tight", isActive ? "text-primary" : "text-foreground")}>
+                      {points[p.playerId] ?? 0}
+                    </p>
                   </div>
-                ))}
+                </div>
+                <div className="flex gap-1.5">
+                  {CRICKET_TARGETS.map((t) => (
+                    <div key={t} className="flex flex-col items-center gap-0.5">
+                      <MarkIcon marks={Math.min(marks[p.playerId]?.[t] ?? 0, 3)} />
+                      <span className="text-[8px] text-zinc-600 leading-none">{t === "BULL" ? "BL" : t}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Game over ── */}
       {status === "COMPLETED" && (
@@ -236,12 +273,14 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                 </button>
               </div>
 
-              {/* ── Target grid ── */}
+              {/* ── Target grid: marks col + S + D + T ── */}
               <div className="rounded-xl border border-zinc-800 overflow-hidden">
+
                 {/* Column headers */}
-                <div className="grid grid-cols-3 border-b border-zinc-800 bg-zinc-900/80">
-                  {(["Single", "Double", "Triple"] as const).map((h) => (
-                    <div key={h} className="py-1.5 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                <div className="grid grid-cols-[28px_1fr_1fr_1fr] border-b border-zinc-800 bg-zinc-900/80">
+                  <div />
+                  {(["S", "D", "T"] as const).map((h) => (
+                    <div key={h} className="py-1.5 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-widest">
                       {h}
                     </div>
                   ))}
@@ -249,62 +288,27 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
 
                 {/* Rows 20–15 */}
                 {NUMBER_TARGETS.map((target) => {
+                  const myMarks = Math.min(marks[activePlayer.playerId]?.[target] ?? 0, 3)
                   const { canScore, allDone } = getCellState(target)
                   const pv = TARGET_VALUE[target]
                   return (
-                    <div key={target} className="grid grid-cols-3 border-b border-zinc-800/60 last:border-0">
+                    <div key={target} className="grid grid-cols-[28px_1fr_1fr_1fr] border-b border-zinc-800/60">
+                      {/* Mark status column */}
+                      <div className="flex items-center justify-center border-r border-zinc-800/60">
+                        <MarkIcon marks={myMarks} />
+                      </div>
+                      {/* S / D / T buttons */}
                       {([1, 2, 3] as const).map((mult) => (
                         <button
                           key={mult}
                           onClick={() => addDart(target, mult)}
                           disabled={full}
                           className={cn(
-                            "flex flex-col items-center justify-center py-3.5 gap-0.5",
+                            "flex flex-col items-center justify-center py-2.5 gap-0.5",
                             "border-r border-zinc-800/60 last:border-0",
                             "transition-all active:scale-95 disabled:opacity-40",
                             allDone
-                              ? "bg-zinc-900/60 text-zinc-600"
-                              : canScore
-                              ? "bg-amber-500/15 hover:bg-amber-500/25"
-                              : "bg-zinc-800/30 hover:bg-zinc-700/50",
-                          )}
-                        >
-                          <span className={cn(
-                            "text-lg font-black",
-                            allDone ? "text-zinc-600" : canScore ? "text-amber-200" : "text-zinc-100",
-                          )}>
-                            {target}
-                          </span>
-                          {canScore ? (
-                            <span className="text-[10px] font-bold text-amber-400">+{pv * mult}</span>
-                          ) : (
-                            <span className={cn("text-[11px]", allDone ? "text-zinc-700" : "text-zinc-500")}>
-                              {"·".repeat(mult)}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )
-                })}
-
-                {/* Bull row — 2 cells */}
-                {(() => {
-                  const { canScore, allDone } = getCellState("BULL" as CricketTarget)
-                  const pv = 25
-                  return (
-                    <div className="grid grid-cols-2">
-                      {([1, 2] as const).map((mult) => (
-                        <button
-                          key={mult}
-                          onClick={() => addDart("BULL" as CricketTarget, mult)}
-                          disabled={full}
-                          className={cn(
-                            "flex flex-col items-center justify-center py-3.5 gap-0.5",
-                            "border-r border-zinc-800/60 last:border-0",
-                            "transition-all active:scale-95 disabled:opacity-40",
-                            allDone
-                              ? "bg-zinc-900/60 text-zinc-600"
+                              ? "bg-zinc-900/60"
                               : canScore
                               ? "bg-amber-500/15 hover:bg-amber-500/25"
                               : "bg-zinc-800/30 hover:bg-zinc-700/50",
@@ -314,17 +318,55 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
                             "text-base font-black",
                             allDone ? "text-zinc-600" : canScore ? "text-amber-200" : "text-zinc-100",
                           )}>
-                            {mult === 1 ? "Bull" : "D.Bull"}
+                            {target}
                           </span>
-                          {canScore ? (
+                          {canScore && (
                             <span className="text-[10px] font-bold text-amber-400">+{pv * mult}</span>
-                          ) : (
-                            <span className={cn("text-[11px]", allDone ? "text-zinc-700" : "text-zinc-500")}>
-                              {"·".repeat(mult)}
-                            </span>
                           )}
                         </button>
                       ))}
+                    </div>
+                  )
+                })}
+
+                {/* Bull row: marks col + Bull (1mk) + D.Bull (2mk) */}
+                {(() => {
+                  const myMarks = Math.min(marks[activePlayer.playerId]?.["BULL"] ?? 0, 3)
+                  const { canScore, allDone } = getCellState("BULL" as CricketTarget)
+                  return (
+                    <div className="flex">
+                      <div className="w-7 shrink-0 flex items-center justify-center border-r border-zinc-800/60">
+                        <MarkIcon marks={myMarks} />
+                      </div>
+                      <div className="flex-1 grid grid-cols-2">
+                        {([1, 2] as const).map((mult) => (
+                          <button
+                            key={mult}
+                            onClick={() => addDart("BULL" as CricketTarget, mult)}
+                            disabled={full}
+                            className={cn(
+                              "flex flex-col items-center justify-center py-2.5 gap-0.5",
+                              "border-r border-zinc-800/60 last:border-0",
+                              "transition-all active:scale-95 disabled:opacity-40",
+                              allDone
+                                ? "bg-zinc-900/60"
+                                : canScore
+                                ? "bg-amber-500/15 hover:bg-amber-500/25"
+                                : "bg-zinc-800/30 hover:bg-zinc-700/50",
+                            )}
+                          >
+                            <span className={cn(
+                              "text-sm font-black",
+                              allDone ? "text-zinc-600" : canScore ? "text-amber-200" : "text-zinc-100",
+                            )}>
+                              {mult === 1 ? "Bull" : "D.Bull"}
+                            </span>
+                            {canScore && (
+                              <span className="text-[10px] font-bold text-amber-400">+{25 * mult}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )
                 })()}
