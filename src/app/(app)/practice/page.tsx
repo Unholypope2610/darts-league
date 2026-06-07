@@ -33,7 +33,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
   )
 }
 
-function Bobs27Stats({ data }: { data: { games: number; averageScore: number; bestScore: number; perfectRounds: number; hitsByDouble: Record<string, { hits: number; attempts: number }> } }) {
+function Bobs27Stats({ data }: { data: { games: number; averageScore: number; bestScore: number; perfectRounds: number; overallAvgDartsHit: number; hitsByDouble: Record<string, { hits0: number; hits1: number; hits2: number; hits3: number; attempts: number }> } }) {
   const DOUBLES = ["D1","D2","D3","D4","D5","D6","D7","D8","D9","D10","D11","D12","D13","D14","D15","D16","D17","D18","D19","D20","D25"]
   return (
     <div className="flex flex-col gap-6">
@@ -42,22 +42,50 @@ function Bobs27Stats({ data }: { data: { games: number; averageScore: number; be
         <StatCard label="Average Score" value={data.averageScore} />
         <StatCard label="Best Score" value={data.bestScore} />
         <StatCard label="Perfect Rounds" value={data.perfectRounds} />
+        <StatCard label="Avg Darts Hit" value={(data.overallAvgDartsHit ?? 0).toFixed(1)} sub="Per turn, all doubles" />
       </div>
       <div className="rounded-xl border border-border bg-card p-4">
         <p className="text-sm font-semibold mb-3">Hit Rate by Double</p>
         <div className="grid grid-cols-3 gap-1.5">
           {DOUBLES.map((d) => {
-            const stats = data.hitsByDouble[d]
-            const rate = stats && stats.attempts > 0 ? Math.round((stats.hits / stats.attempts) * 100) : 0
+            const s = data.hitsByDouble[d]
+            const total = s ? s.hits0 + s.hits1 + s.hits2 + s.hits3 : 0
+            const rate = total > 0 ? Math.round(((s.hits1 + s.hits2 + s.hits3) / total) * 100) : 0
+            const segments = [
+              { count: s?.hits0 ?? 0, cls: "bg-red-500/70" },
+              { count: s?.hits1 ?? 0, cls: "bg-amber-400/80" },
+              { count: s?.hits2 ?? 0, cls: "bg-green-500/80" },
+              { count: s?.hits3 ?? 0, cls: "bg-emerald-400" },
+            ]
             return (
               <div key={d} className="flex flex-col items-center rounded-lg bg-muted p-2">
                 <p className="text-xs font-semibold text-muted-foreground">{d}</p>
                 <p className={cn("text-sm font-bold", rate >= 60 ? "text-emerald-400" : rate >= 30 ? "text-amber-400" : "text-muted-foreground")}>
-                  {stats ? `${rate}%` : "─"}
+                  {s ? `${rate}%` : "─"}
                 </p>
+                {total > 0 && (
+                  <div className="flex w-full h-1.5 rounded-full overflow-hidden mt-1 gap-px">
+                    {segments.map((seg, i) =>
+                      seg.count > 0 && <div key={i} className={cn("rounded-sm", seg.cls)} style={{ flex: seg.count }} />
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}
+        </div>
+        <div className="flex items-center gap-3 mt-3 justify-center">
+          {[
+            { cls: "bg-red-500/70", label: "0 hit" },
+            { cls: "bg-amber-400/80", label: "1 hit" },
+            { cls: "bg-green-500/80", label: "2 hit" },
+            { cls: "bg-emerald-400", label: "3 hit" },
+          ].map(({ cls, label }) => (
+            <div key={label} className="flex items-center gap-1">
+              <div className={cn("w-2.5 h-2.5 rounded-sm", cls)} />
+              <span className="text-[10px] text-muted-foreground">{label}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

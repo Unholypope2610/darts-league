@@ -41,24 +41,27 @@ export async function GET(req: Request, { params }: Params) {
   })
 
   if (dbGameMode === "BOBS_27") {
-    const hitsByDouble: Record<string, { hits: number; attempts: number }> = {}
+    const hitsByDouble: Record<string, { hits0: number; hits1: number; hits2: number; hits3: number; attempts: number }> = {}
     let totalScore = 0
     let bestScore = -Infinity
     let perfectRounds = 0
     let games = 0
+    let totalDartsHit = 0
+    let totalRounds = 0
 
     for (const s of sessions) {
       games++
-      let sessionScore = 27
       const player = s.players[0]
       if (!player) continue
-      sessionScore = player.finalScore ?? 27
+      const sessionScore = player.finalScore ?? 27
 
       for (const r of s.rounds) {
         const d = r.data as Bobs27RoundData
-        if (!hitsByDouble[d.target]) hitsByDouble[d.target] = { hits: 0, attempts: 0 }
+        if (!hitsByDouble[d.target]) hitsByDouble[d.target] = { hits0: 0, hits1: 0, hits2: 0, hits3: 0, attempts: 0 }
         hitsByDouble[d.target].attempts++
-        if (d.dartsHit > 0) hitsByDouble[d.target].hits++
+        hitsByDouble[d.target][`hits${d.dartsHit as 0 | 1 | 2 | 3}`]++
+        totalDartsHit += d.dartsHit
+        totalRounds++
         if (d.dartsHit === 3) perfectRounds++
       }
       totalScore += sessionScore
@@ -70,6 +73,7 @@ export async function GET(req: Request, { params }: Params) {
       averageScore: games > 0 ? Math.round(totalScore / games) : 0,
       bestScore: games > 0 ? bestScore : 0,
       perfectRounds,
+      overallAvgDartsHit: totalRounds > 0 ? Math.round((totalDartsHit / totalRounds) * 100) / 100 : 0,
       hitsByDouble,
     })
   }
