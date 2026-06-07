@@ -138,6 +138,12 @@ export function announceCricketDart(target: string, multiplier: number) {
   speak(`${multLabel} ${targetLabel}!`, 0.85, 1.05)
 }
 
+export function announceCricketScore(points: number) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+  if (!isCallerEnabled()) return
+  speak(String(points), 0.88, 1.05)
+}
+
 export function announceHalfItRound(
   target: { type: string; value?: number },
   pointsScored: number,

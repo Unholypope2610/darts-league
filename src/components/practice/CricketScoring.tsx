@@ -7,7 +7,7 @@ import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { cn } from "@/lib/utils/cn"
 import { Undo2 } from "lucide-react"
 import type { CricketDart } from "@/types/api"
-import { announceCricketDart } from "@/lib/utils/speech"
+import { announceCricketScore } from "@/lib/utils/speech"
 
 const TARGET_VALUE: Record<string, number> = {
   "20": 20, "19": 19, "18": 18, "17": 17, "16": 16, "15": 15, "BULL": 25,
@@ -80,9 +80,38 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
     return { isClosed, canScore: isClosed && !allOppsClosed, allDone: isClosed && allOppsClosed }
   }
 
+  function computePointsForDarts(darts: CricketDart[]): number {
+    let total = 0
+    const tempMarks = JSON.parse(JSON.stringify(marks)) as typeof marks
+    const allPlayerIds = players.map((p) => p.playerId)
+    for (const { target, multiplier } of darts) {
+      const current = tempMarks[activePlayer.playerId]?.[target] ?? 0
+      if (current >= 3) {
+        const allOppsClosed = allPlayerIds
+          .filter((pid) => pid !== activePlayer.playerId)
+          .every((pid) => (tempMarks[pid]?.[target] ?? 0) >= 3)
+        if (!allOppsClosed) total += TARGET_VALUE[target] * multiplier
+      } else {
+        const newTotal = current + multiplier
+        if (newTotal > 3) {
+          const overflow = newTotal - 3
+          const allOppsClosed = allPlayerIds
+            .filter((pid) => pid !== activePlayer.playerId)
+            .every((pid) => (tempMarks[pid]?.[target] ?? 0) >= 3)
+          if (!allOppsClosed) total += TARGET_VALUE[target] * overflow
+        }
+        if (!tempMarks[activePlayer.playerId]) tempMarks[activePlayer.playerId] = {}
+        tempMarks[activePlayer.playerId][target] = newTotal
+      }
+    }
+    return total
+  }
+
   async function handleSubmitDarts(darts: CricketDart[]) {
+    const pointsScored = computePointsForDarts(darts)
     await submitTurn(darts)
     setPendingDarts([])
+    if (pointsScored > 0) announceCricketScore(pointsScored)
     const marksTotal = darts.reduce((sum, d) => sum + d.multiplier, 0)
     if (marksTotal >= replayMarksThreshold && onReplayTrigger) {
       onReplayTrigger(activePlayer.playerId, `${marksTotal} marks!`, { marksTotal, darts })
@@ -91,7 +120,6 @@ export function CricketScoring({ myPlayerId, canControl, isLocal, onReplayTrigge
 
   function addDart(target: CricketTarget, multiplier: 1 | 2 | 3) {
     if (pendingDarts.length >= 3) return
-    if (getCellState(target).canScore) announceCricketDart(target, multiplier)
     const newDarts: CricketDart[] = [...pendingDarts, { target, multiplier }]
     setPendingDarts(newDarts)
     if (newDarts.length === 3) void handleSubmitDarts(newDarts)
