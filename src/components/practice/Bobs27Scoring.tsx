@@ -50,8 +50,7 @@ export function Bobs27Scoring({ myPlayerId, canControl, isLocal, onReplayTrigger
 
   async function handleSubmit(dartsHit: number) {
     if (!canInput) return
-    const val = currentDouble.value / 2
-    const pointsChange = dartsHit === 0 ? -val : val * dartsHit
+    const pointsChange = dartsHit === 0 ? -currentDouble.value : currentDouble.value * dartsHit
     announceBobs27Round(currentDouble.label, dartsHit, pointsChange)
     await submitRound(dartsHit)
     if (dartsHit >= replayBobs27HitsThreshold && onReplayTrigger) {
@@ -158,8 +157,8 @@ export function Bobs27Scoring({ myPlayerId, canControl, isLocal, onReplayTrigger
             <div className="grid grid-cols-4 gap-2">
               {[0, 1, 2, 3].map((hits) => {
                 const preview = hits === 0
-                  ? -(currentDouble.value / 2)
-                  : (currentDouble.value / 2) * hits
+                  ? -currentDouble.value
+                  : currentDouble.value * hits
                 return (
                   <button
                     key={hits}
