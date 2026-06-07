@@ -21,23 +21,63 @@ function roll(): number {
   return Math.random()
 }
 
-// Per-dart cricket hit probabilities [triple, double, single, miss]
-// Indexed by level-1 (0–9)
-const CRICKET_PROBS: [number, number, number, number][] = [
-  [0.04, 0.08, 0.22, 0.66], // 1
-  [0.07, 0.11, 0.27, 0.55], // 2
-  [0.11, 0.14, 0.31, 0.44], // 3
-  [0.17, 0.16, 0.33, 0.34], // 4
-  [0.24, 0.18, 0.31, 0.27], // 5
-  [0.32, 0.19, 0.28, 0.21], // 6
-  [0.41, 0.20, 0.24, 0.15], // 7
-  [0.51, 0.19, 0.20, 0.10], // 8
-  [0.60, 0.18, 0.15, 0.07], // 9
-  [0.68, 0.17, 0.11, 0.04], // 10
-]
-
 // Double hit probability for each level (Bob's 27 / x01 checkout doubles)
 const DOUBLE_HIT_PROB = [0.08, 0.14, 0.20, 0.28, 0.37, 0.47, 0.58, 0.68, 0.78, 0.87]
+
+// Triple hit probability for checkout attempts (separate from Gaussian scoring model —
+// calibrated to realistic checkout triple success rates per level)
+const CHECKOUT_TRIPLE_PROB = [0.04, 0.07, 0.11, 0.17, 0.24, 0.32, 0.41, 0.51, 0.60, 0.68]
+
+// ── Physics-based Gaussian dart model (Tibshirani, Price & Taylor 2011) ──────
+// Each dart lands at a 2D Gaussian offset from the aim point.
+// σ (mm) is the skill parameter — calibrated to academic reference points:
+// σ=17→professional county (~89 avg), σ=25→moderate, σ=60→fairly inaccurate.
+
+function randn(): number {
+  let u = 0, v = 0
+  while (u === 0) u = Math.random()
+  while (v === 0) v = Math.random()
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v)
+}
+
+// Dartboard numbers clockwise from top (index 0 = segment 20 at 0°, each span = 18°)
+const BOARD_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
+
+// σ (mm) per level
+const X01_SIGMA = [100, 80, 62, 48, 37, 28, 22, 17, 12, 8]
+
+// Aim coordinates (mm from board centre, x=east, y=north). r=103 = treble ring midpoint.
+// Angles clockwise from north: 20=0°, 19=198°, 18=36°
+const AIM_T20 = { x: 0, y: 103 }
+const AIM_T19 = { x: 103 * Math.sin((198 * Math.PI) / 180), y: 103 * Math.cos((198 * Math.PI) / 180) }
+const AIM_T18 = { x: 103 * Math.sin((36  * Math.PI) / 180), y: 103 * Math.cos((36  * Math.PI) / 180) }
+
+// Treble centre aim for each Cricket target (BULL aimed at board centre)
+const CRICKET_AIMS: Record<string, { x: number; y: number }> = {
+  "20":   AIM_T20,
+  "19":   AIM_T19,
+  "18":   { x: 103 * Math.sin((36  * Math.PI) / 180), y: 103 * Math.cos((36  * Math.PI) / 180) },
+  "17":   { x: 103 * Math.sin((162 * Math.PI) / 180), y: 103 * Math.cos((162 * Math.PI) / 180) },
+  "16":   { x: 103 * Math.sin((234 * Math.PI) / 180), y: 103 * Math.cos((234 * Math.PI) / 180) },
+  "15":   { x: 103 * Math.sin((126 * Math.PI) / 180), y: 103 * Math.cos((126 * Math.PI) / 180) },
+  "BULL": { x: 0, y: 0 },
+}
+
+function landingToScore(x: number, y: number): { score: number; segment: number } {
+  const r = Math.sqrt(x * x + y * y)
+  if (r > 170)  return { score: 0,  segment: 0  }
+  if (r <= 6.35) return { score: 50, segment: 25 }
+  if (r <= 15.9) return { score: 25, segment: 25 }
+  const angleDeg = (Math.atan2(x, y) * 180 / Math.PI + 360) % 360
+  const idx = Math.round(angleDeg / 18) % 20
+  const n = BOARD_NUMBERS[idx]
+  const score = r <= 99 ? n : r <= 107 ? n * 3 : r <= 162 ? n : n * 2
+  return { score, segment: n }
+}
+
+function throwDart(aimX: number, aimY: number, sigma: number): { score: number; segment: number } {
+  return landingToScore(aimX + sigma * randn(), aimY + sigma * randn())
+}
 
 // ── Cricket ───────────────────────────────────────────────────────────────────
 
@@ -68,12 +108,15 @@ function chooseCricketTarget(
 }
 
 function simulateCricketDart(level: number, target: CricketTarget): CricketDart | null {
-  const [tripleP, doubleP, singleP] = CRICKET_PROBS[level - 1]
-  const r = roll()
-  if (r < tripleP) return { target, multiplier: 3 }
-  if (r < tripleP + doubleP) return { target, multiplier: 2 }
-  if (r < tripleP + doubleP + singleP) return { target, multiplier: 1 }
-  return null // miss
+  const aim = CRICKET_AIMS[target]
+  const dart = throwDart(aim.x, aim.y, X01_SIGMA[level - 1])
+  if (target === "BULL") {
+    if (dart.segment !== 25) return null
+    return { target, multiplier: dart.score === 50 ? 2 : 1 }
+  }
+  const n = parseInt(target, 10)
+  if (dart.segment !== n) return null
+  return { target, multiplier: (dart.score / n) as 1 | 2 | 3 }
 }
 
 export function computeBotCricketTurn(
@@ -147,21 +190,6 @@ export function computeBotHalfItTurn(
 }
 
 // ── x01 ───────────────────────────────────────────────────────────────────────
-
-// Per-dart probabilities for scoring visits (aiming at T20)
-// [T20=60, S20=20, adjacent=3, miss=0]
-const X01_SCORING_PROBS: [number, number, number, number][] = [
-  [0.03, 0.14, 0.18, 0.65], // 1
-  [0.05, 0.18, 0.20, 0.57], // 2
-  [0.09, 0.22, 0.25, 0.44], // 3
-  [0.13, 0.26, 0.25, 0.36], // 4
-  [0.18, 0.30, 0.25, 0.27], // 5
-  [0.24, 0.31, 0.24, 0.21], // 6
-  [0.30, 0.32, 0.23, 0.15], // 7
-  [0.38, 0.31, 0.21, 0.10], // 8
-  [0.46, 0.29, 0.18, 0.07], // 9
-  [0.55, 0.27, 0.14, 0.04], // 10
-]
 
 // Remainders impossible to finish on (Double Out)
 const IMPOSSIBLE_DOUBLES_OUT = new Set([159, 162, 163, 165, 166, 168, 169])
@@ -359,10 +387,8 @@ function simulateDartAtTarget(level: number, target: DartTarget): boolean {
   switch (target.type) {
     case "DOUBLE":
       return roll() < DOUBLE_HIT_PROB[level - 1]
-    case "TRIPLE": {
-      const [tripleP] = CRICKET_PROBS[level - 1]
-      return roll() < tripleP
-    }
+    case "TRIPLE":
+      return roll() < CHECKOUT_TRIPLE_PROB[level - 1]
     case "BULL": {
       // Bull is moderately harder than a double
       const p = DOUBLE_HIT_PROB[level - 1] * 0.75
@@ -373,15 +399,41 @@ function simulateDartAtTarget(level: number, target: DartTarget): boolean {
   }
 }
 
-function simulateScoringVisit(level: number): number {
-  const [t20p, s20p, adjP] = X01_SCORING_PROBS[level - 1]
+// Board management aims, in order of fallback: T20 → T19 → T18
+function nextBoardAim(current: { x: number; y: number }): { x: number; y: number } {
+  if (current === AIM_T20) return AIM_T19
+  if (current === AIM_T19) return AIM_T18
+  return AIM_T18 // already on T18, stay
+}
+
+function simulateScoringVisit(level: number, startRemainder: number): number {
+  const sigma = X01_SIGMA[level - 1]
+  let aim = AIM_T20
   let total = 0
+  let runningRem = startRemainder
+
   for (let i = 0; i < 3; i++) {
-    const r = roll()
-    if (r < t20p) total += 60
-    else if (r < t20p + s20p) total += 20
-    else if (r < t20p + s20p + adjP) total += 3
-    // else miss = 0
+    // Smart opening: if T20 would leave an impossible double-out remainder, use T19 instead.
+    // Only matters when still aiming T20 and level is high enough to think ahead.
+    if (level >= 5 && aim === AIM_T20 && runningRem - 60 > 0 && IMPOSSIBLE_DOUBLES_OUT.has(runningRem - 60)) {
+      aim = AIM_T19
+    }
+
+    const dart = throwDart(aim.x, aim.y, sigma)
+    total += dart.score
+    runningRem -= dart.score
+
+    if (i < 2) {
+      if (level >= 5 && (dart.segment === 1 || dart.segment === 5)) {
+        // Adjacent miss to T20 (hit the 1 or 5 bed) — switch to next treble.
+        aim = nextBoardAim(aim)
+      } else if (level >= 6 && dart.score === dart.segment * 3 && dart.segment !== 25) {
+        // Dart landed in the treble ring of whatever was aimed at — physical blocker.
+        // Higher-skill bots recognise the obstruction and cascade to the next treble.
+        const blockerChance = (level - 5) * 0.11 // 0.11→L6 … 0.55→L10
+        if (roll() < blockerChance) aim = nextBoardAim(aim)
+      }
+    }
   }
   return total
 }
@@ -410,7 +462,7 @@ export function computeBotX01Visit(
   // Decide whether to attempt checkout or score
   if (!isCheckoutRange || isImpossible || !route) {
     // Pure scoring visit
-    const score = simulateScoringVisit(level)
+    const score = simulateScoringVisit(level, remainder)
     const newRemainder = remainder - score
     if (newRemainder < 0 || newRemainder === 1) {
       return { scoreThrown: 0, dartsUsed: 3, doublesAttempted: 0, isBust: true, isCheckout: false }
@@ -467,23 +519,18 @@ export function computeBotX01Visit(
   // Route exhausted (or missed all darts) — remaining darts fill with scoring attempts
   while (dartsUsed < 3) {
     dartsUsed++
-    const r = roll()
-    const [t20p, s20p, adjP] = X01_SCORING_PROBS[level - 1]
-    let ds = 0
-    if (r < t20p) ds = 60
-    else if (r < t20p + s20p) ds = 20
-    else if (r < t20p + s20p + adjP) ds = 3
-    const newRem = runningRemainder - ds
+    const dart = throwDart(AIM_T20.x, AIM_T20.y, X01_SIGMA[level - 1])
+    const newRem = runningRemainder - dart.score
     if (newRem < 0 || newRem === 1) {
       return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
     }
     if (newRem === 0) {
       if (finishType === "STRAIGHT_OUT") {
-        return { scoreThrown: scoreThrown + ds, dartsUsed, doublesAttempted, isBust: false, isCheckout: true }
+        return { scoreThrown: scoreThrown + dart.score, dartsUsed, doublesAttempted, isBust: false, isCheckout: true }
       }
       return { scoreThrown: 0, dartsUsed, doublesAttempted, isBust: true, isCheckout: false }
     }
-    scoreThrown += ds
+    scoreThrown += dart.score
     runningRemainder = newRem
   }
 
