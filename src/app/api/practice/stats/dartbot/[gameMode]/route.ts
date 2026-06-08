@@ -188,9 +188,11 @@ export async function GET(req: Request, { params }: Params) {
     let worstLegDarts = 0
     let totalLegsWon = 0
     let totalLegsLost = 0
+    let f9TotalScore = 0
+    let f9TotalVisits = 0
+    const checkoutScoresSet = new Set<number>()
 
     for (const s of sessions) {
-      // Group visits by leg number
       const visitsByLeg: Record<number, X01RoundData[]> = {}
       for (const r of s.rounds) {
         const d = r.data as X01RoundData
@@ -206,10 +208,10 @@ export async function GET(req: Request, { params }: Params) {
         if (d.isCheckout) {
           totalDoublesHit++
           if (d.scoreThrown > highestCheckout) highestCheckout = d.scoreThrown
+          checkoutScoresSet.add(d.scoreThrown)
         }
       }
 
-      // Per-leg stats
       for (const legVisits of Object.values(visitsByLeg)) {
         const legDarts = legVisits.reduce((acc, v) => acc + v.dartsUsed, 0)
         const legWon = legVisits.some((v) => v.isCheckout)
@@ -220,11 +222,28 @@ export async function GET(req: Request, { params }: Params) {
           totalLegsLost++
           if (legDarts > worstLegDarts) worstLegDarts = legDarts
         }
+
+        // First 9 average: first 3 visits per leg
+        for (let i = 0; i < Math.min(3, legVisits.length); i++) {
+          const v = legVisits[i]
+          f9TotalScore += v.isBust ? 0 : v.scoreThrown
+          f9TotalVisits++
+        }
       }
     }
 
     const threedartAvg =
       totalDartsUsed > 0 ? Math.round((totalScoreThrown / totalDartsUsed) * 3 * 10) / 10 : 0
+    const first9Avg =
+      f9TotalVisits > 0 ? Math.round((f9TotalScore / f9TotalVisits) * 10) / 10 : 0
+    const topCheckouts = [...checkoutScoresSet].sort((a, b) => b - a).slice(0, 3)
+    const recentForm = sessions.slice(0, 5).map((s) => {
+      const botPlayer = s.players.find((p) => p.isBot)
+      return {
+        result: (s.winnerId === playerId ? "W" : "L") as "W" | "L",
+        botLevel: botPlayer?.botLevel ?? 0,
+      }
+    })
 
     return NextResponse.json({
       games: sessions.length,
@@ -232,13 +251,16 @@ export async function GET(req: Request, { params }: Params) {
       losses,
       perLevel,
       threedartAvg,
+      first9Avg,
       doublesHitPct: totalDoublesAttempted > 0 ? Math.round((totalDoublesHit / totalDoublesAttempted) * 100) : 0,
       highestCheckout: highestCheckout > 0 ? highestCheckout : null,
+      topCheckouts,
       count180s,
       bestLegDarts: bestLegDarts < Infinity ? bestLegDarts : null,
       worstLegDarts: worstLegDarts > 0 ? worstLegDarts : null,
       totalLegsWon,
       totalLegsLost,
+      recentForm,
     })
   }
 

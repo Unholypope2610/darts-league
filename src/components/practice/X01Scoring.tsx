@@ -53,6 +53,10 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   const [checkoutDartsUsed, setCheckoutDartsUsed] = useState(3)
   const [checkoutDoublesAttempted, setCheckoutDoublesAttempted] = useState<number | null>(null)
 
+  // Doubles prompt for non-checkout visits (same conditions as live match)
+  const [pendingDoubles, setPendingDoubles] = useState<{ score: number; isBust: boolean } | null>(null)
+  const [doublesCount, setDoublesCount] = useState<number | null>(null)
+
   if (players.length === 0) return null
 
   const activePlayer = players[currentPlayerIndex]
@@ -62,7 +66,16 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
 
   const isBotTurn = activePlayer?.isBot
   const isMyTurn = canControl && !isBotTurn
-  const canInput = isMyTurn && status === "IN_PROGRESS" && !isTransitioning && !pendingCheckout
+  const canInput = isMyTurn && status === "IN_PROGRESS" && !isTransitioning && !pendingCheckout && !pendingDoubles
+
+  function needsDoublesTracking(prev: number, next: number, isBust: boolean): boolean {
+    if (isBust) return true
+    if (prev <= 50 && prev % 2 === 0) return true
+    if (prev < 40 && prev % 2 !== 0) return true
+    if (prev > 50 && next > 0 && next <= 50) return true
+    if (prev % 2 !== 0 && prev > 40 && prev <= 50 && next > 0 && next < 40) return true
+    return false
+  }
 
   const activeRemainder = remainders[activePlayer?.playerId ?? ""] ?? startingScore
   const checkoutSuggestion = !isBotTurn && activeRemainder <= 170 && activeRemainder >= 2
@@ -80,6 +93,12 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
       setPendingCheckout({ score: scoreValue })
       return
     }
+    const newRem = activeRemainder - scoreValue
+    if (needsDoublesTracking(activeRemainder, newRem, false)) {
+      setDoublesCount(null)
+      setPendingDoubles({ score: scoreValue, isBust: false })
+      return
+    }
     const nextPlayerId = opponent?.playerId ?? ""
     const nextRemainder = remainders[nextPlayerId] ?? startingScore
     announceVisit(scoreValue, nextRemainder, opponent?.name ?? "", false, false)
@@ -88,8 +107,23 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
 
   async function handleBust() {
     if (!canInput) return
-    const doublesAttempted = activeRemainder <= 170 ? 1 : 0
-    await submitVisit(0, 3, doublesAttempted)
+    setDoublesCount(null)
+    setPendingDoubles({ score: 0, isBust: true })
+  }
+
+  async function handleDoublesConfirm(da: number) {
+    if (!pendingDoubles) return
+    const fresh = useX01PracticeStore.getState()
+    if (fresh.status !== "IN_PROGRESS" || fresh.isTransitioning || fresh.players[fresh.currentPlayerIndex]?.isBot) {
+      setPendingDoubles(null)
+      return
+    }
+    const { score, isBust } = pendingDoubles
+    setPendingDoubles(null)
+    const nextPlayerId = opponent?.playerId ?? ""
+    const nextRemainder = remainders[nextPlayerId] ?? startingScore
+    announceVisit(score, nextRemainder, opponent?.name ?? "", false, isBust)
+    await submitVisit(score, 3, da)
   }
 
   async function handleCheckoutConfirm() {
@@ -359,6 +393,58 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
 
             <button
               onClick={handleCheckoutSkip}
+              className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Skip (don&apos;t record doubles)
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Doubles prompt for non-checkout visits (when remainder hits ≤50 or bust) */}
+      {pendingDoubles && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60" />
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="relative w-full max-w-sm bg-card rounded-2xl border border-border shadow-2xl px-6 py-6 flex flex-col gap-5"
+          >
+            <div className="text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">
+                {pendingDoubles.isBust ? "Bust" : "Doubles"}
+              </p>
+              <p className="text-lg font-black">How many darts at the double this visit?</p>
+            </div>
+
+            <div className="flex gap-2">
+              {[0, 1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setDoublesCount(n)}
+                  className={cn(
+                    "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95",
+                    doublesCount === n
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => doublesCount !== null && handleDoublesConfirm(doublesCount)}
+              disabled={doublesCount === null}
+              className="w-full py-3 rounded-xl text-sm font-bold bg-primary text-primary-foreground transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Confirm
+            </button>
+
+            <button
+              onClick={() => handleDoublesConfirm(0)}
               className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Skip (don&apos;t record doubles)

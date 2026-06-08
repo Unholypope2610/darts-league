@@ -181,22 +181,66 @@ function HalfItStats({ data }: { data: {
 function X01Stats({ data }: { data: {
   games: number; wins: number; losses: number
   perLevel: Record<number, { wins: number; losses: number }>
-  threedartAvg: number; doublesHitPct: number; highestCheckout: number | null
-  count180s: number; bestLegDarts: number | null; worstLegDarts: number | null
+  threedartAvg: number; first9Avg: number; doublesHitPct: number; highestCheckout: number | null
+  topCheckouts: number[]; count180s: number; bestLegDarts: number | null; worstLegDarts: number | null
   totalLegsWon: number; totalLegsLost: number
+  recentForm: { result: "W" | "L"; botLevel: number }[]
 }}) {
   return (
     <div className="flex flex-col gap-6">
       <WinLossCard wins={data.wins} losses={data.losses} />
+
+      {/* Recent Form */}
+      {data.recentForm.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-sm font-semibold mb-3">Recent Form</p>
+          <div className="flex gap-2">
+            {[...data.recentForm].reverse().map((f, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                <span className={cn(
+                  "w-9 h-9 rounded-lg flex items-center justify-center text-sm font-black",
+                  f.result === "W" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : "bg-red-500/15 text-red-400 border border-red-500/30"
+                )}>
+                  {f.result}
+                </span>
+                <span className="text-xs text-muted-foreground">L{f.botLevel}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <PerLevelTable perLevel={data.perLevel} />
+
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="3-Dart Avg" value={data.threedartAvg} />
+        <StatCard label="First 9 Avg" value={data.first9Avg ?? "─"} sub="First 3 visits per leg" />
         <StatCard label="Doubles %" value={`${data.doublesHitPct}%`} sub="Checkout conversion" />
         <StatCard label="Highest Checkout" value={data.highestCheckout ?? "─"} />
         <StatCard label="180s" value={data.count180s} />
         <StatCard label="Best Leg" value={data.bestLegDarts != null ? `${data.bestLegDarts} darts` : "─"} />
         <StatCard label="Legs Won / Lost" value={`${data.totalLegsWon} / ${data.totalLegsLost}`} />
       </div>
+
+      {/* Top Checkouts */}
+      {data.topCheckouts.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Target className="w-4 h-4 text-primary" />
+            Top Checkouts
+          </p>
+          <div className="flex gap-3">
+            {data.topCheckouts.map((score, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1 rounded-xl bg-primary/10 border border-primary/20 py-3">
+                <span className="text-xs font-bold text-primary uppercase tracking-widest">
+                  {i === 0 ? "Best" : i === 1 ? "2nd" : "3rd"}
+                </span>
+                <span className="font-score font-black text-2xl text-primary">{score}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
