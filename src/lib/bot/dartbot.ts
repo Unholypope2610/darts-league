@@ -75,8 +75,10 @@ function landingToScore(x: number, y: number): { score: number; segment: number 
   return { score, segment: n }
 }
 
-function throwDart(aimX: number, aimY: number, sigma: number): { score: number; segment: number } {
-  return landingToScore(aimX + sigma * randn(), aimY + sigma * randn())
+function throwDart(aimX: number, aimY: number, sigma: number): { score: number; segment: number; x: number; y: number } {
+  const x = aimX + sigma * randn()
+  const y = aimY + sigma * randn()
+  return { ...landingToScore(x, y), x, y }
 }
 
 // ── Cricket ───────────────────────────────────────────────────────────────────
@@ -445,14 +447,32 @@ function simulateScoringVisit(level: number, startRemainder: number): number {
     runningRem -= dart.score
 
     if (i < 2) {
-      if (level >= 5 && (dart.segment === 1 || dart.segment === 5)) {
-        // Adjacent miss to T20 (hit the 1 or 5 bed) — switch to next treble.
-        aim = nextBoardAim(aim)
-      } else if (level >= 6 && dart.score === dart.segment * 3 && dart.segment !== 25) {
-        // Dart landed in the treble ring of whatever was aimed at — physical blocker.
-        // Higher-skill bots recognise the obstruction and cascade to the next treble.
-        const blockerChance = (level - 5) * 0.11 // 0.11→L6 … 0.55→L10
-        if (roll() < blockerChance) aim = nextBoardAim(aim)
+      if (level >= 4 && (dart.segment === 1 || dart.segment === 5)) {
+        // Adjacent miss — hit the 1 or 5 bed. Variable probability switch (avg ~28%).
+        if (roll() < roll() * 0.55) aim = nextBoardAim(aim)
+      } else if (level >= 5) {
+        // Physical blocker: dart landed within 22mm of the current aim centre.
+        const dx = dart.x - aim.x
+        const dy = dart.y - aim.y
+        const distToAim = Math.sqrt(dx * dx + dy * dy)
+        if (distToAim < 22) {
+          // Strategy check: would switching leave a reachable checkout remainder?
+          const nextAim = nextBoardAim(aim)
+          const nextAimScore = nextAim === AIM_T19 ? 57 : nextAim === AIM_T18 ? 54 : 0
+          const remIfNext = runningRem - nextAimScore
+          const strategicSwitch = nextAimScore > 0
+            && remIfNext > 0
+            && remIfNext <= 110
+            && !IMPOSSIBLE_DOUBLES_OUT.has(remIfNext)
+
+          if (level >= 7) {
+            if (strategicSwitch && roll() < 0.85) aim = nextBoardAim(aim)
+          } else {
+            // L5–6: strategic switch + small pure-obstruction chance
+            if (strategicSwitch && roll() < 0.50) aim = nextBoardAim(aim)
+            else if (roll() < 0.12) aim = nextBoardAim(aim)
+          }
+        }
       }
     }
   }
