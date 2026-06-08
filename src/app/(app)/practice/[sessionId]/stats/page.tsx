@@ -230,14 +230,33 @@ function X01Summary({ session }: { session: PracticeSessionWithRounds }) {
         const count180s = visits.filter((v) => !v.isBust && v.scoreThrown === 180).length
 
         // Best leg: fewest darts in a won leg
-        const legDartsMap: Record<number, { darts: number; won: boolean }> = {}
+        const legDartsMap: Record<number, { darts: number; won: boolean; visits: X01RoundData[] }> = {}
         for (const v of visits) {
-          if (!legDartsMap[v.legNumber]) legDartsMap[v.legNumber] = { darts: 0, won: false }
+          if (!legDartsMap[v.legNumber]) legDartsMap[v.legNumber] = { darts: 0, won: false, visits: [] }
           legDartsMap[v.legNumber].darts += v.dartsUsed
+          legDartsMap[v.legNumber].visits.push(v)
           if (v.isCheckout) legDartsMap[v.legNumber].won = true
         }
         const wonLegDarts = Object.values(legDartsMap).filter((l) => l.won).map((l) => l.darts)
         const bestLeg = wonLegDarts.length > 0 ? Math.min(...wonLegDarts) : null
+
+        // First 9 average: first 3 visits per leg
+        let f9Score = 0
+        let f9Visits = 0
+        for (const leg of Object.values(legDartsMap)) {
+          for (let i = 0; i < Math.min(3, leg.visits.length); i++) {
+            f9Score += leg.visits[i].isBust ? 0 : leg.visits[i].scoreThrown
+            f9Visits++
+          }
+        }
+        const first9Avg = f9Visits > 0 ? ((f9Score / f9Visits)).toFixed(2) : "0.00"
+
+        // Doubles %
+        const totalDoublesAttempted = visits.reduce((s, v) => s + (v.doublesAttempted ?? 0), 0)
+        const totalDoublesHit = visits.filter((v) => v.isCheckout).length
+        const doublesPct = totalDoublesAttempted > 0
+          ? `${Math.round((totalDoublesHit / totalDoublesAttempted) * 100)}%`
+          : "—"
 
         const isWinner = session.winnerId === p.playerId
 
@@ -260,6 +279,8 @@ function X01Summary({ session }: { session: PracticeSessionWithRounds }) {
             <div className="grid grid-cols-2 gap-2 text-center">
               {[
                 { label: "Average", value: avg },
+                { label: "First 9 Avg", value: first9Avg },
+                { label: "Doubles %", value: doublesPct },
                 { label: "Highest CO", value: highestCheckout ?? "—" },
                 { label: "180s", value: count180s },
                 { label: "Best Leg", value: bestLeg != null ? `${bestLeg}d` : "—" },
