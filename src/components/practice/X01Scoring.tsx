@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { motion } from "framer-motion"
 import { useX01PracticeStore } from "@/stores/x01practice.store"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
 import { getCheckoutSuggestionText } from "@/lib/algorithms/checkout-suggestions"
@@ -48,11 +49,9 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   const submitVisit = useX01PracticeStore((s) => s.submitVisit)
   const undoLastVisit = useX01PracticeStore((s) => s.undoLastVisit)
 
-  const [pendingDarts, setPendingDarts] = useState<{
-    score: number
-    isBust: boolean
-    doublesAttempted: number
-  } | null>(null)
+  const [pendingCheckout, setPendingCheckout] = useState<{ score: number } | null>(null)
+  const [checkoutDartsUsed, setCheckoutDartsUsed] = useState(3)
+  const [checkoutDoublesAttempted, setCheckoutDoublesAttempted] = useState<number | null>(null)
 
   if (players.length === 0) return null
 
@@ -63,7 +62,7 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
 
   const isBotTurn = activePlayer?.isBot
   const isMyTurn = canControl && !isBotTurn
-  const canInput = isMyTurn && status === "IN_PROGRESS" && !isTransitioning && !pendingDarts
+  const canInput = isMyTurn && status === "IN_PROGRESS" && !isTransitioning && !pendingCheckout
 
   const activeRemainder = remainders[activePlayer?.playerId ?? ""] ?? startingScore
   const checkoutSuggestion = !isBotTurn && activeRemainder <= 170 && activeRemainder >= 2
@@ -76,7 +75,9 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   async function handleSubmit() {
     if (!canInput || scoreValue > activeRemainder || scoreValue < 0) return
     if (isCheckoutScore) {
-      setPendingDarts({ score: scoreValue, isBust: false, doublesAttempted: 1 })
+      setCheckoutDartsUsed(3)
+      setCheckoutDoublesAttempted(null)
+      setPendingCheckout({ score: scoreValue })
       return
     }
     const nextPlayerId = opponent?.playerId ?? ""
@@ -88,23 +89,37 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   async function handleBust() {
     if (!canInput) return
     const doublesAttempted = activeRemainder <= 170 ? 1 : 0
-    setPendingDarts({ score: 0, isBust: true, doublesAttempted })
+    await submitVisit(0, 3, doublesAttempted)
   }
 
-  async function handleDartsConfirmed(dartsUsed: number) {
-    if (!pendingDarts) return
-    // Re-read store to guard against the game ending while the dart picker was open
+  async function handleCheckoutConfirm() {
+    if (!pendingCheckout || checkoutDoublesAttempted === null) return
     const fresh = useX01PracticeStore.getState()
     if (fresh.status !== "IN_PROGRESS" || fresh.isTransitioning || fresh.players[fresh.currentPlayerIndex]?.isBot) {
-      setPendingDarts(null)
+      setPendingCheckout(null)
       return
     }
-    const { score, isBust, doublesAttempted } = pendingDarts
-    setPendingDarts(null)
+    const { score } = pendingCheckout
+    setPendingCheckout(null)
     const nextPlayerId = opponent?.playerId ?? ""
     const nextRemainder = remainders[nextPlayerId] ?? startingScore
-    announceVisit(score, nextRemainder, opponent?.name ?? "", !isBust && score > 0, isBust)
-    await submitVisit(score, dartsUsed, doublesAttempted)
+    announceVisit(score, nextRemainder, opponent?.name ?? "", true, false)
+    await submitVisit(score, checkoutDartsUsed, checkoutDoublesAttempted)
+  }
+
+  async function handleCheckoutSkip() {
+    if (!pendingCheckout) return
+    const fresh = useX01PracticeStore.getState()
+    if (fresh.status !== "IN_PROGRESS" || fresh.isTransitioning || fresh.players[fresh.currentPlayerIndex]?.isBot) {
+      setPendingCheckout(null)
+      return
+    }
+    const { score } = pendingCheckout
+    setPendingCheckout(null)
+    const nextPlayerId = opponent?.playerId ?? ""
+    const nextRemainder = remainders[nextPlayerId] ?? startingScore
+    announceVisit(score, nextRemainder, opponent?.name ?? "", true, false)
+    await submitVisit(score, checkoutDartsUsed, 0)
   }
 
   const humanLegs = legsWon[humanPlayer?.playerId ?? ""] ?? 0
@@ -221,7 +236,7 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
                 {dartInput}
               </span>
             </div>
-            {lastRoundId && !pendingDarts && (
+            {lastRoundId && !pendingCheckout && (
               <button onClick={undoLastVisit} className="p-2 rounded-xl bg-muted border border-border hover:bg-muted/80 transition-all active:scale-95">
                 <Undo2 className="size-4 text-muted-foreground" />
               </button>
@@ -279,37 +294,76 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
         </>
       )}
 
-      {/* Dart count picker — fixed bottom sheet */}
-      {pendingDarts && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
-          onClick={() => setPendingDarts(null)}
-        >
-          <div
-            className="bg-card border border-border border-b-0 rounded-t-2xl p-6 w-full max-w-sm pb-8"
-            onClick={(e) => e.stopPropagation()}
+      {/* Checkout picker — matches DoublesPrompt style from regular 501 */}
+      {pendingCheckout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setPendingCheckout(null)} />
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            className="relative w-full max-w-sm bg-card rounded-2xl border border-border shadow-2xl px-6 py-6 flex flex-col gap-5"
           >
-            <p className="text-sm font-bold text-center text-muted-foreground mb-5">
-              {pendingDarts.isBust ? "Bust — how many darts thrown?" : "Checkout! How many darts used?"}
-            </p>
-            <div className="flex gap-3">
-              {[1, 2, 3].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => handleDartsConfirmed(n)}
-                  className="flex-1 py-5 rounded-2xl bg-muted border border-border font-score font-black text-3xl active:scale-95 transition-all hover:bg-muted/80 hover:border-primary/40"
-                >
-                  {n}
-                </button>
-              ))}
+            <div className="text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Checkout!</p>
+              <p className="text-lg font-black">Darts at the Double</p>
             </div>
+
+            <div>
+              <p className="text-sm font-semibold mb-2">How many darts did you use to finish?</p>
+              <div className="flex gap-2">
+                {[1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCheckoutDartsUsed(n)}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95",
+                      checkoutDartsUsed === n
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold mb-2">How many were at the double?</p>
+              <div className="flex gap-2">
+                {[1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCheckoutDoublesAttempted(n)}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95",
+                      checkoutDoublesAttempted === n
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
-              onClick={() => setPendingDarts(null)}
-              className="w-full mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              onClick={handleCheckoutConfirm}
+              disabled={checkoutDoublesAttempted === null}
+              className="w-full py-3 rounded-xl text-sm font-bold bg-primary text-primary-foreground transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Cancel
+              Confirm
             </button>
-          </div>
+
+            <button
+              onClick={handleCheckoutSkip}
+              className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Skip (don&apos;t record doubles)
+            </button>
+          </motion.div>
         </div>
       )}
     </div>
