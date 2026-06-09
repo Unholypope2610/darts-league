@@ -34,7 +34,7 @@ const X01_FORMATS = [
 const LEGS_OPTIONS = [1, 2, 3, 4, 5]
 
 // Stat indicators per level (index 0 = Lv.1), derived from probability tables
-const BOT_STAT_X01    = [15, 22, 32, 41, 53, 64, 75, 89, 102, 116] // 3-dart avg
+const BOT_STAT_X01    = [15, 22, 32, 38, 45, 55, 75, 89, 102, 116] // 3-dart avg
 const BOT_STAT_CRICKET = [1.5, 2.1, 2.8, 3.5, 4.2, 4.9, 5.6, 6.3, 6.9, 7.5] // MPR
 const BOT_STAT_BOBS27  = [8, 14, 20, 28, 37, 47, 58, 68, 78, 87] // hit % per dart
 const BOT_STAT_HALFIT  = [10, 18, 27, 37, 47, 57, 67, 76, 84, 91] // scoring %

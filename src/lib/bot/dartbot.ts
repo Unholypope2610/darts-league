@@ -44,7 +44,7 @@ function randn(): number {
 const BOARD_NUMBERS = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5]
 
 // σ (mm) per level
-const X01_SIGMA = [100, 80, 62, 48, 37, 28, 22, 17, 12, 8]
+const X01_SIGMA = [100, 80, 62, 45, 30, 22, 19, 17, 12, 8]
 
 // Aim coordinates (mm from board centre, x=east, y=north). r=103 = treble ring midpoint.
 // Angles clockwise from north: 20=0°, 19=198°, 18=36°
