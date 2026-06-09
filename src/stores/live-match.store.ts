@@ -19,6 +19,7 @@ interface LiveMatchStore {
   finishType: FinishType
   isSets: boolean
   legSize: number
+  matchFirstStarter: string | null
   playerALegsWon: number
   playerBLegsWon: number
   playerACurrentSetLegsWon: number
@@ -100,6 +101,7 @@ const initialState = {
   finishType: "DOUBLE_OUT" as FinishType,
   isSets: false,
   legSize: 3,
+  matchFirstStarter: null,
   playerALegsWon: 0,
   playerBLegsWon: 0,
   playerACurrentSetLegsWon: 0,
@@ -146,6 +148,7 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.finishType = match.finishType as FinishType
         state.isSets = match.isSets
         state.legSize = match.legSize ?? 3
+        state.matchFirstStarter = match.legs.find((l) => l.legNumber === 1)?.starterId ?? null
         state.playerALegsWon = match.playerAScore
         state.playerBLegsWon = match.playerBScore
 
@@ -321,11 +324,20 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
               if (data.legWinnerId === state.playerA?.id) s.playerALegsWon += 1
               else s.playerBLegsWon += 1
             }
-            // Alternate starters: next leg goes to whoever did NOT start this one
-            const thisLegStarterId = state.visits[0]?.playerId ?? state.currentTurnPlayerId
-            s.pendingNextStarter = thisLegStarterId === state.playerA?.id
-              ? (state.playerB?.id ?? null)
-              : (state.playerA?.id ?? null)
+            if (s.isSets && data.setWinnerId && s.matchFirstStarter) {
+              // Set-level alternation: starter of each new set alternates by set count
+              const totalSetsCompleted = s.playerALegsWon + s.playerBLegsWon
+              const otherPlayer = s.matchFirstStarter === s.playerA?.id ? s.playerB?.id : s.playerA?.id
+              s.pendingNextStarter = (totalSetsCompleted % 2 === 0)
+                ? s.matchFirstStarter
+                : (otherPlayer ?? null)
+            } else {
+              // Leg-level alternation: next leg goes to whoever did NOT start this one
+              const thisLegStarterId = state.visits[0]?.playerId ?? state.currentTurnPlayerId
+              s.pendingNextStarter = thisLegStarterId === state.playerA?.id
+                ? (state.playerB?.id ?? null)
+                : (state.playerA?.id ?? null)
+            }
           }
 
           if (data.matchWinnerId || data.isMatchDraw) {
@@ -645,11 +657,20 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
             if (data.legWinnerId === state.playerA?.id) state.playerALegsWon += 1
             else state.playerBLegsWon += 1
           }
-          // Alternate starters: next leg goes to whoever did NOT start this one
-          const thisLegStarterId = preState.visits[0]?.playerId ?? data.visit.playerId
-          state.pendingNextStarter = thisLegStarterId === state.playerA?.id
-            ? (state.playerB?.id ?? null)
-            : (state.playerA?.id ?? null)
+          if (state.isSets && data.setWinnerId && state.matchFirstStarter) {
+            // Set-level alternation: starter of each new set alternates by set count
+            const totalSetsCompleted = state.playerALegsWon + state.playerBLegsWon
+            const otherPlayer = state.matchFirstStarter === state.playerA?.id ? state.playerB?.id : state.playerA?.id
+            state.pendingNextStarter = (totalSetsCompleted % 2 === 0)
+              ? state.matchFirstStarter
+              : (otherPlayer ?? null)
+          } else {
+            // Leg-level alternation: next leg goes to whoever did NOT start this one
+            const thisLegStarterId = preState.visits[0]?.playerId ?? data.visit.playerId
+            state.pendingNextStarter = thisLegStarterId === state.playerA?.id
+              ? (state.playerB?.id ?? null)
+              : (state.playerA?.id ?? null)
+          }
         }
 
         if (data.matchWinnerId || data.isMatchDraw) {
