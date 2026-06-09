@@ -36,8 +36,10 @@ interface PreMatchModalProps {
   defaultBestOf?: number
   defaultStartingScore?: number
   defaultFinishType?: string
+  defaultIsSets?: boolean
+  defaultLegSize?: number
   locked?: boolean
-  onStart: (config: { starterId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean }) => void
+  onStart: (config: { starterId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean; isSets: boolean; legSize?: number }) => void
   onClose?: () => void
 }
 
@@ -48,6 +50,8 @@ export function PreMatchModal({
   defaultBestOf = 7,
   defaultStartingScore = 501,
   defaultFinishType = "DOUBLE_OUT",
+  defaultIsSets = false,
+  defaultLegSize = 3,
   locked = false,
   onStart,
   onClose,
@@ -55,6 +59,8 @@ export function PreMatchModal({
   const [bestOf, setBestOf] = useState<number>(defaultBestOf)
   const [startingScore, setStartingScore] = useState<number>(defaultStartingScore)
   const [finishType, setFinishType] = useState<string>(defaultFinishType)
+  const [isSets, setIsSets] = useState<boolean>(defaultIsSets)
+  const [legSize, setLegSize] = useState<number>(defaultLegSize)
   const [isLocal, setIsLocal] = useState(false)
   const [callerEnabled, setCallerEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true
@@ -72,7 +78,12 @@ export function PreMatchModal({
           {locked ? (
             <>
               <LockedField label="Starting Score" value={String(startingScore)} />
-              <LockedField label="Format" value={bestOf === 1 ? "First to 1" : `Best of ${bestOf} legs`} />
+              <LockedField
+                label="Format"
+                value={isSets
+                  ? `Best of ${bestOf} sets, Bo${legSize} legs/set`
+                  : (bestOf === 1 ? "First to 1" : `Best of ${bestOf} legs`)}
+              />
               <LockedField label="Finish Type" value={FINISH_TYPE_LABELS[finishType] ?? finishType} />
             </>
           ) : (
@@ -90,18 +101,60 @@ export function PreMatchModal({
                 </Select>
               </div>
 
-              {/* Best of */}
-              <div className="flex flex-col gap-2">
-                <Label>Format</Label>
-                <Select value={String(bestOf)} onValueChange={(v) => setBestOf(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
-                      <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Best of ${n} legs`}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Play in Sets toggle */}
+              <div className="flex items-center justify-between">
+                <Label>Play in Sets</Label>
+                <button
+                  type="button"
+                  onClick={() => setIsSets((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isSets ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isSets ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
               </div>
+
+              {isSets ? (
+                <>
+                  {/* Sets count */}
+                  <div className="flex flex-col gap-2">
+                    <Label>Sets</Label>
+                    <Select value={String(bestOf)} onValueChange={(v) => setBestOf(Number(v))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[3, 5, 7].map((n) => (
+                          <SelectItem key={n} value={String(n)}>Best of {n} sets</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Legs per set */}
+                  <div className="flex flex-col gap-2">
+                    <Label>Legs per Set</Label>
+                    <Select value={String(legSize)} onValueChange={(v) => setLegSize(Number(v))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Best of ${n} legs`}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : (
+                /* Best of (legs) */
+                <div className="flex flex-col gap-2">
+                  <Label>Format</Label>
+                  <Select value={String(bestOf)} onValueChange={(v) => setBestOf(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Best of ${n} legs`}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Finish type */}
               <div className="flex flex-col gap-2">
@@ -163,7 +216,7 @@ export function PreMatchModal({
           </div>
 
           <Button
-            onClick={() => { localStorage.setItem("masterCallerEnabled", String(callerEnabled)); prewarmSpeech(); onStart({ starterId: playerA.id, bestOf, startingScore, finishType, isLocal }) }}
+            onClick={() => { localStorage.setItem("masterCallerEnabled", String(callerEnabled)); prewarmSpeech(); onStart({ starterId: playerA.id, bestOf, startingScore, finishType, isLocal, isSets, legSize: isSets ? legSize : undefined }) }}
             className="w-full"
             size="lg"
           >

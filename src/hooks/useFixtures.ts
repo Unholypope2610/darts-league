@@ -39,7 +39,7 @@ export function useStartFixture() {
   return useMutation({
     mutationFn: ({ fixtureId, config }: {
       fixtureId: string
-      config: { startingPlayerId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean }
+      config: { startingPlayerId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean; isSets?: boolean; legSize?: number | null }
     }) =>
       fetch(`/api/fixtures/${fixtureId}/start`, {
         method: "POST",

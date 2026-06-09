@@ -68,7 +68,11 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
     playerBRemainder,
     playerALegsWon,
     playerBLegsWon,
+    playerACurrentSetLegsWon,
+    playerBCurrentSetLegsWon,
     bestOf,
+    isSets,
+    legSize,
     currentTurnPlayerId,
     currentLegId,
     isLocal,
@@ -215,6 +219,9 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
                   canControl={canControlA}
                   isLegStarter={legStarterId === playerA.id}
                   isLocal={isLocal}
+                  isSets={isSets}
+                  legSize={legSize}
+                  setLegsWon={playerACurrentSetLegsWon}
                 />
                 <PlayerPanel
                   matchId={matchId ?? ""}
@@ -231,11 +238,21 @@ export function LiveScoringLayout({ myRole, onToggleLocal }: LiveScoringLayoutPr
                   canControl={canControlB}
                   isLegStarter={legStarterId === playerB.id}
                   isLocal={isLocal}
+                  isSets={isSets}
+                  legSize={legSize}
+                  setLegsWon={playerBCurrentSetLegsWon}
                 />
               </>
             )
           })()}
         </div>
+
+        {/* Set indicator — only shown in sets mode */}
+        {isSets && (
+          <div className="text-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Set {playerALegsWon + playerBLegsWon + 1}
+          </div>
+        )}
 
         {/* Turn indicator — only shown in local (one-device) mode */}
         {myRole === "local" && !blockInteraction && (

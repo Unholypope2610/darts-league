@@ -27,6 +27,9 @@ interface PlayerPanelProps {
   isLegStarter?: boolean
   isLocal?: boolean
   className?: string
+  isSets?: boolean
+  legSize?: number
+  setLegsWon?: number
 }
 
 function runningAverage(visits: VisitRecord[], playerId: string): string {
@@ -58,8 +61,12 @@ export function PlayerPanel({
   isLegStarter = false,
   isLocal = false,
   className,
+  isSets = false,
+  legSize = 3,
+  setLegsWon = 0,
 }: PlayerPanelProps) {
   const legsNeeded = Math.ceil(bestOf / 2)
+  const setLegsNeeded = Math.ceil(legSize / 2)
   const avg = runningAverage(allVisits, playerId)
   const recent = lastThreeVisits(visits, playerId)
   const legDarts = visits.filter((v) => v.playerId === playerId).reduce((acc, v) => acc + v.dartsUsed, 0)
@@ -117,20 +124,57 @@ export function PlayerPanel({
         {camError && <p className="text-[10px] text-red-400 text-center">{camError}</p>}
       </div>
 
-      {/* Legs won pips */}
-      <div className="flex gap-1.5">
-        {Array.from({ length: legsNeeded }).map((_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "w-5 h-5 rounded-full border-2",
-              i < legsWon
-                ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-500/50"
-                : "bg-muted border-muted-foreground/50",
-            )}
-          />
-        ))}
-      </div>
+      {/* Legs / Sets won pips */}
+      {isSets ? (
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground w-8 text-right">Sets</span>
+            <div className="flex gap-1.5">
+              {Array.from({ length: legsNeeded }).map((_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "w-5 h-5 rounded-full border-2",
+                    i < legsWon
+                      ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-500/50"
+                      : "bg-muted border-muted-foreground/50",
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground w-8 text-right">Legs</span>
+            <div className="flex gap-1.5">
+              {Array.from({ length: setLegsNeeded }).map((_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "w-3.5 h-3.5 rounded-full border-2",
+                    i < setLegsWon
+                      ? "bg-primary border-primary shadow-sm"
+                      : "bg-muted border-muted-foreground/50",
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-1.5">
+          {Array.from({ length: legsNeeded }).map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "w-5 h-5 rounded-full border-2",
+                i < legsWon
+                  ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-500/50"
+                  : "bg-muted border-muted-foreground/50",
+              )}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Cam section — in local mode only show for the active player (one shared camera);
           in online mode always show when streaming so each player can manage their own cam. */}

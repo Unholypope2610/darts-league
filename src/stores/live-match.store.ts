@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 import type { FinishType } from "@/lib/utils/darts"
-import { getNewRemainder, isMatchOver, matchWinner } from "@/lib/utils/darts"
+import { getNewRemainder, isMatchOver, matchWinner, computeSetScores } from "@/lib/utils/darts"
 import type { MatchWithLegs, PlayerMeta, VisitRecord, RecordVisitResponse } from "@/types/api"
 import { announceVisit, announceMatchWin } from "@/lib/utils/speech"
 import { toast } from "sonner"
@@ -18,8 +18,12 @@ interface LiveMatchStore {
   bestOf: number
   finishType: FinishType
   isSets: boolean
+  legSize: number
   playerALegsWon: number
   playerBLegsWon: number
+  playerACurrentSetLegsWon: number
+  playerBCurrentSetLegsWon: number
+  setWinnerId: string | null
 
   // Current leg
   currentLegId: string | null
@@ -95,8 +99,12 @@ const initialState = {
   bestOf: 7,
   finishType: "DOUBLE_OUT" as FinishType,
   isSets: false,
+  legSize: 3,
   playerALegsWon: 0,
   playerBLegsWon: 0,
+  playerACurrentSetLegsWon: 0,
+  playerBCurrentSetLegsWon: 0,
+  setWinnerId: null,
   currentLegId: null,
   currentTurnPlayerId: null,
   playerARemainder: 501,
@@ -137,8 +145,15 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         state.bestOf = match.bestOf
         state.finishType = match.finishType as FinishType
         state.isSets = match.isSets
+        state.legSize = match.legSize ?? 3
         state.playerALegsWon = match.playerAScore
         state.playerBLegsWon = match.playerBScore
+
+        if (match.isSets && match.legSize) {
+          const { aSetLegs, bSetLegs } = computeSetScores(match.legs, match.legSize, match.playerAId)
+          state.playerACurrentSetLegsWon = aSetLegs
+          state.playerBCurrentSetLegsWon = bSetLegs
+        }
         state.winnerId = match.winnerId
         state.isMatchWon = match.completedAt !== null
         state.isMatchDraw = match.completedAt !== null && match.winnerId === null
@@ -296,8 +311,16 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
           if (data.legWinnerId) {
             s.legWinnerId = data.legWinnerId
             s.isLegWinAnimating = true
-            if (data.legWinnerId === state.playerA?.id) s.playerALegsWon += 1
-            else s.playerBLegsWon += 1
+            if (s.isSets) {
+              s.playerACurrentSetLegsWon = data.currentSetLegsA ?? 0
+              s.playerBCurrentSetLegsWon = data.currentSetLegsB ?? 0
+              s.setWinnerId = data.setWinnerId ?? null
+              if (data.setWinnerId === state.playerA?.id) s.playerALegsWon += 1
+              else if (data.setWinnerId === state.playerB?.id) s.playerBLegsWon += 1
+            } else {
+              if (data.legWinnerId === state.playerA?.id) s.playerALegsWon += 1
+              else s.playerBLegsWon += 1
+            }
             // Alternate starters: next leg goes to whoever did NOT start this one
             const thisLegStarterId = state.visits[0]?.playerId ?? state.currentTurnPlayerId
             s.pendingNextStarter = thisLegStarterId === state.playerA?.id
@@ -612,8 +635,16 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         if (data.legWinnerId) {
           state.legWinnerId = data.legWinnerId
           state.isLegWinAnimating = true
-          if (data.legWinnerId === state.playerA?.id) state.playerALegsWon += 1
-          else state.playerBLegsWon += 1
+          if (state.isSets) {
+            state.playerACurrentSetLegsWon = data.currentSetLegsA ?? 0
+            state.playerBCurrentSetLegsWon = data.currentSetLegsB ?? 0
+            state.setWinnerId = data.setWinnerId ?? null
+            if (data.setWinnerId === state.playerA?.id) state.playerALegsWon += 1
+            else if (data.setWinnerId === state.playerB?.id) state.playerBLegsWon += 1
+          } else {
+            if (data.legWinnerId === state.playerA?.id) state.playerALegsWon += 1
+            else state.playerBLegsWon += 1
+          }
           // Alternate starters: next leg goes to whoever did NOT start this one
           const thisLegStarterId = preState.visits[0]?.playerId ?? data.visit.playerId
           state.pendingNextStarter = thisLegStarterId === state.playerA?.id
@@ -694,8 +725,10 @@ export const useLiveMatchStore = create<LiveMatchStore>()(
         if (legWinnerId) {
           s.legWinnerId = legWinnerId
           s.isLegWinAnimating = true
-          if (legWinnerId === s.playerA?.id) s.playerALegsWon += 1
-          else s.playerBLegsWon += 1
+          if (!s.isSets) {
+            if (legWinnerId === s.playerA?.id) s.playerALegsWon += 1
+            else s.playerBLegsWon += 1
+          }
           s.pendingNextStarter = legWinnerId === s.playerA?.id
             ? (s.playerB?.id ?? null)
             : (s.playerA?.id ?? null)

@@ -59,6 +59,8 @@ export function CompetitionWizard({ cloneFrom }: CompetitionWizardProps = {}) {
   const [div1Players, setDiv1Players] = useState<string[]>(cloneFrom?.div1PlayerIds ?? [])
   const [div2Players, setDiv2Players] = useState<string[]>(cloneFrom?.div2PlayerIds ?? [])
   const [isRanked, setIsRanked] = useState(cloneFrom?.isRanked ?? false)
+  const [isSets, setIsSets] = useState(false)
+  const [legSize, setLegSize] = useState(3)
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(step2Schema),
@@ -82,7 +84,7 @@ export function CompetitionWizard({ cloneFrom }: CompetitionWizardProps = {}) {
   function handleCreate() {
     handleSubmit(
       (data) => {
-        const payload: Record<string, unknown> = { ...data, type, isRanked }
+        const payload: Record<string, unknown> = { ...data, type, isRanked, isSets, legSize: isSets ? legSize : null }
         if (type === "SINGLE_LEAGUE" || type === "KNOCKOUT") {
           payload.playerIds = selectedPlayers
         } else {
@@ -161,15 +163,43 @@ export function CompetitionWizard({ cloneFrom }: CompetitionWizardProps = {}) {
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Format</Label>
+              <Label>{isSets ? "Sets" : "Format"}</Label>
               <Select value={String(bestOf)} onValueChange={(v) => setValue("bestOf", Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {isSets
+                    ? [3, 5, 7].map((n) => <SelectItem key={n} value={String(n)}>Best of {n} sets</SelectItem>)
+                    : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Bo${n}`}</SelectItem>)
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Play in Sets toggle */}
+          <div className="flex items-center justify-between">
+            <Label>Play in Sets</Label>
+            <button
+              type="button"
+              onClick={() => setIsSets((v) => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isSets ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isSets ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          {isSets && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Legs per Set</Label>
+              <Select value={String(legSize)} onValueChange={(v) => setLegSize(Number(v))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => <SelectItem key={n} value={String(n)}>{n === 1 ? "First to 1" : `Bo${n}`}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          )}
+
           <div className="flex flex-col gap-1.5">
             <Label>Finish Type</Label>
             <Select value={finishType} onValueChange={(v) => setValue("finishType", v as "DOUBLE_OUT")}>
@@ -286,7 +316,7 @@ export function CompetitionWizard({ cloneFrom }: CompetitionWizardProps = {}) {
             <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="font-medium">{watch("name") || <span className="text-red-400">Missing</span>}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{TYPE_INFO[type].label}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Season</span><span className="font-medium">{watch("season")}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Format</span><span className="font-medium">Bo{bestOf} • {startingScore} • {finishType.replace("_", " ")}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Format</span><span className="font-medium">{isSets ? `Bo${bestOf} sets, Bo${legSize} legs` : (bestOf === 1 ? "First to 1" : `Bo${bestOf}`)} • {startingScore} • {finishType.replace("_", " ")}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Players</span><span className="font-medium">{type === "DIVISIONS" ? `${div1Players.length} + ${div2Players.length}` : selectedPlayers.length}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Ranking Event</span><span className={cn("font-medium", isRanked ? "text-violet-400" : "text-muted-foreground")}>{isRanked ? "Yes — points awarded" : "No"}</span></div>
           </div>

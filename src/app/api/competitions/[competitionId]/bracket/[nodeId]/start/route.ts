@@ -15,7 +15,7 @@ export async function POST(
   const [competition, node] = await Promise.all([
     prisma.competition.findUnique({
       where: { id: competitionId },
-      select: { bestOf: true, startingScore: true, finishType: true, bracketBestOf: true, bracketStartingScore: true, bracketFinishType: true },
+      select: { bestOf: true, startingScore: true, finishType: true, isSets: true, legSize: true, bracketBestOf: true, bracketStartingScore: true, bracketFinishType: true },
     }),
     prisma.bracketNode.findUnique({ where: { id: nodeId } }),
   ])
@@ -32,7 +32,8 @@ export async function POST(
       startingScore: competition.bracketStartingScore ?? competition.startingScore,
       bestOf: competition.bracketBestOf ?? competition.bestOf,
       finishType: competition.bracketFinishType ?? competition.finishType,
-      isSets: false,
+      isSets: competition.isSets ?? false,
+      legSize: competition.legSize ?? null,
       bracketNodeId: node.id,
     },
     include: { playerA: { select: { name: true } }, playerB: { select: { name: true } } },

@@ -21,7 +21,7 @@ interface FixtureCardProps {
     playerA: { id: string; name: string; avatarUrl?: string | null }
     playerB: { id: string; name: string; avatarUrl?: string | null }
     match?: { playerAScore: number; playerBScore: number } | null
-    competition?: { bestOf: number; startingScore: number; finishType: string } | null
+    competition?: { bestOf: number; startingScore: number; finishType: string; isSets?: boolean; legSize?: number | null } | null
   }
   canScore?: boolean
   competitionCompleted?: boolean
@@ -98,7 +98,7 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
     }
   }
 
-  function handleStart(config: { starterId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean }) {
+  function handleStart(config: { starterId: string; bestOf: number; startingScore: number; finishType: string; isLocal: boolean; isSets: boolean; legSize?: number }) {
     startFixture(
       {
         fixtureId: fixture.id,
@@ -108,6 +108,8 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
           startingScore: config.startingScore,
           finishType: config.finishType,
           isLocal: config.isLocal,
+          isSets: config.isSets,
+          legSize: config.legSize,
         },
       },
       {
@@ -310,6 +312,8 @@ export function FixtureCard({ fixture, canScore, competitionCompleted }: Fixture
           defaultBestOf={fixture.competition?.bestOf ?? 7}
           defaultStartingScore={fixture.competition?.startingScore ?? 501}
           defaultFinishType={fixture.competition?.finishType ?? "DOUBLE_OUT"}
+          defaultIsSets={fixture.competition?.isSets ?? false}
+          defaultLegSize={fixture.competition?.legSize ?? 3}
           locked={!!fixture.competition}
           onStart={handleStart}
           onClose={() => setModalOpen(false)}

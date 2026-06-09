@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { recordVisitSchema } from "@/lib/validations/visit.schema"
-import { getNewRemainder, isMatchOver, isMatchDraw, matchWinner } from "@/lib/utils/darts"
+import { getNewRemainder, isMatchOver, isMatchDraw, matchWinner, computeSetScores } from "@/lib/utils/darts"
 import type { RecordVisitResponse } from "@/types/api"
 
 export async function POST(
@@ -64,6 +64,9 @@ export async function POST(
   let legWinnerId: string | null = null
   let matchWinnerId: string | null = null
   let matchDraw = false
+  let setWinnerId: string | null = null
+  let currentSetLegsA = 0
+  let currentSetLegsB = 0
 
   if (isCheckout) {
     // Only count the winning player's darts (not the opponent's)
@@ -79,18 +82,42 @@ export async function POST(
 
     legWinnerId = playerId
 
-    // Update match score
     const isPlayerA = playerId === match.playerAId
-    const updatedMatch = await prisma.match.update({
-      where: { id: matchId },
-      data: {
-        playerAScore: isPlayerA ? { increment: 1 } : undefined,
-        playerBScore: !isPlayerA ? { increment: 1 } : undefined,
-      },
-    })
+    let newAScore: number
+    let newBScore: number
 
-    const newAScore = updatedMatch.playerAScore
-    const newBScore = updatedMatch.playerBScore
+    if (match.isSets && match.legSize) {
+      // Derive set scores by replaying all completed legs
+      const allLegs = await prisma.leg.findMany({
+        where: { matchId },
+        orderBy: { legNumber: "asc" },
+        select: { winnerId: true },
+      })
+      const { aSets, bSets, aSetLegs, bSetLegs } = computeSetScores(allLegs, match.legSize, match.playerAId)
+      currentSetLegsA = aSetLegs
+      currentSetLegsB = bSetLegs
+
+      // Check if a set was just won
+      if (aSets > match.playerAScore) setWinnerId = match.playerAId
+      else if (bSets > match.playerBScore) setWinnerId = match.playerBId
+
+      if (setWinnerId) {
+        await prisma.match.update({ where: { id: matchId }, data: { playerAScore: aSets, playerBScore: bSets } })
+      }
+      newAScore = aSets
+      newBScore = bSets
+    } else {
+      // Legs mode — existing increment approach
+      const updatedMatch = await prisma.match.update({
+        where: { id: matchId },
+        data: {
+          playerAScore: isPlayerA ? { increment: 1 } : undefined,
+          playerBScore: !isPlayerA ? { increment: 1 } : undefined,
+        },
+      })
+      newAScore = updatedMatch.playerAScore
+      newBScore = updatedMatch.playerBScore
+    }
 
     if (isMatchOver(newAScore, newBScore, match.bestOf)) {
       const winner = matchWinner(newAScore, newBScore, match.bestOf, match.playerAId, match.playerBId)
@@ -149,6 +176,9 @@ export async function POST(
     matchWinnerId,
     isMatchDraw: matchDraw,
     newRemainder: runningRemainder,
+    setWinnerId,
+    currentSetLegsA,
+    currentSetLegsB,
   }
 
   return NextResponse.json(response)

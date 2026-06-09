@@ -47,13 +47,15 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
   const [startingScore, setStartingScore] = useState(501)
   const [finishType, setFinishType] = useState("DOUBLE_OUT")
   const [isLocal, setIsLocal] = useState(false)
+  const [isSets, setIsSets] = useState(false)
+  const [legSize, setLegSize] = useState(3)
 
   const { mutate: createMatch, isPending } = useMutation({
     mutationFn: () =>
       fetch("/api/matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerAId, playerBId, bestOf, startingScore, finishType, startingPlayerId: startingPlayerId || playerAId, isLocal }),
+        body: JSON.stringify({ playerAId, playerBId, bestOf, startingScore, finishType, startingPlayerId: startingPlayerId || playerAId, isLocal, isSets, legSize: isSets ? legSize : undefined }),
       }).then((r) => r.json()),
     onSuccess: (match) => {
       qc.invalidateQueries({ queryKey: ["casual-matches"] })
@@ -162,24 +164,84 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Format</label>
-              <Select value={String(bestOf)} onValueChange={(v) => { if (v) setBestOf(Number(v)) }}>
-                <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">First to 1</SelectItem>
-                  {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
-                    <SelectItem key={n} value={String(n)}>Best of {n}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Play in Sets toggle */}
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Play in Sets</label>
+            <button
+              type="button"
+              onClick={() => setIsSets((v) => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isSets ? "bg-emerald-500" : "bg-zinc-600"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isSets ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
 
+          {isSets ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Sets</label>
+                <Select value={String(bestOf)} onValueChange={(v) => { if (v) setBestOf(Number(v)) }}>
+                  <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[3, 5, 7].map((n) => (
+                      <SelectItem key={n} value={String(n)}>Best of {n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Legs/Set</label>
+                <Select value={String(legSize)} onValueChange={(v) => { if (v) setLegSize(Number(v)) }}>
+                  <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">First to 1</SelectItem>
+                    {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
+                      <SelectItem key={n} value={String(n)}>Best of {n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Format</label>
+                <Select value={String(bestOf)} onValueChange={(v) => { if (v) setBestOf(Number(v)) }}>
+                  <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">First to 1</SelectItem>
+                    {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((n) => (
+                      <SelectItem key={n} value={String(n)}>Best of {n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Starting</label>
+                <Select value={String(startingScore)} onValueChange={(v) => { if (v) setStartingScore(Number(v)) }}>
+                  <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[301, 501, 701].map((s) => (
+                      <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {/* Starting score (always visible in sets mode) */}
+          {isSets && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Starting</label>
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Starting Score</label>
               <Select value={String(startingScore)} onValueChange={(v) => { if (v) setStartingScore(Number(v)) }}>
                 <SelectTrigger style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)" }}>
                   <SelectValue />
@@ -191,7 +253,7 @@ function NewMatchModal({ open, onClose }: { open: boolean; onClose: () => void }
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Finish</label>

@@ -184,6 +184,9 @@ export interface RecordVisitResponse {
   matchWinnerId: string | null
   isMatchDraw: boolean
   newRemainder: number
+  setWinnerId?: string | null
+  currentSetLegsA?: number
+  currentSetLegsB?: number
 }
 
 // ── Practice Arena ────────────────────────────────────────────────────────────

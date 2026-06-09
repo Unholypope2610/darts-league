@@ -75,6 +75,22 @@ export function matchWinner(
   return null  // draw — null winner
 }
 
+export function computeSetScores(
+  legs: { winnerId: string | null }[],
+  legSize: number,
+  playerAId: string,
+): { aSets: number; bSets: number; aSetLegs: number; bSetLegs: number } {
+  const needed = Math.ceil(legSize / 2)
+  let aSets = 0, bSets = 0, aSetLegs = 0, bSetLegs = 0
+  for (const leg of legs) {
+    if (!leg.winnerId) continue
+    if (leg.winnerId === playerAId) aSetLegs++; else bSetLegs++
+    if (aSetLegs >= needed) { aSets++; aSetLegs = 0; bSetLegs = 0 }
+    else if (bSetLegs >= needed) { bSets++; aSetLegs = 0; bSetLegs = 0 }
+  }
+  return { aSets, bSets, aSetLegs, bSetLegs }
+}
+
 // Highest score achievable in one visit
 export const MAX_VISIT_SCORE = 180
 
