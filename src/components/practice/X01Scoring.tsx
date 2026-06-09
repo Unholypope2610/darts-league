@@ -41,6 +41,7 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   const remainders = useX01PracticeStore((s) => s.remainders)
   const dartInput = useX01PracticeStore((s) => s.dartInput)
   const isTransitioning = useX01PracticeStore((s) => s.isTransitioning)
+  const currentLegStarterIndex = useX01PracticeStore((s) => s.currentLegStarterIndex)
   const lastRoundId = useX01PracticeStore((s) => s.lastRoundId)
   const allVisits = useX01PracticeStore((s) => s.allVisits)
   const currentLegVisits = useX01PracticeStore((s) => s.currentLegVisits)
@@ -289,6 +290,9 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
                   <div key={i} className={cn("size-2 rounded-full", i < legs ? "bg-primary" : "bg-muted border border-border")} />
                 ))}
               </div>
+              {idx === currentLegStarterIndex && (
+                <span className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wide">throws first</span>
+              )}
               {isActive && !isBotTurn && (
                 <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
               )}

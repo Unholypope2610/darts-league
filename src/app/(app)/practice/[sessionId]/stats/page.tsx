@@ -1,6 +1,6 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import { PlayerAvatar } from "@/components/players/PlayerAvatar"
@@ -207,7 +207,53 @@ function HalfItSummary({ session }: { session: PracticeSessionWithRounds }) {
   )
 }
 
+function calcX01Stats(visits: X01RoundData[]) {
+  const totalScore = visits.reduce((s, v) => s + (v.isBust ? 0 : v.scoreThrown), 0)
+  const totalDarts = visits.reduce((s, v) => s + v.dartsUsed, 0)
+  const avg = totalDarts > 0 ? ((totalScore / totalDarts) * 3).toFixed(2) : "0.00"
+  const checkouts = visits.filter((v) => v.isCheckout)
+  const highestCO = checkouts.length > 0 ? Math.max(...checkouts.map((v) => v.scoreThrown)) : null
+  const count180s = visits.filter((v) => !v.isBust && v.scoreThrown === 180).length
+  const totalDA = visits.reduce((s, v) => s + (v.doublesAttempted ?? 0), 0)
+  const doublesPct = totalDA > 0 ? `${Math.round((checkouts.length / totalDA) * 100)}%` : "—"
+
+  // Build per-leg maps for best leg + first 9
+  const legDartsMap: Record<number, { darts: number; won: boolean; visits: X01RoundData[] }> = {}
+  for (const v of visits) {
+    if (!legDartsMap[v.legNumber]) legDartsMap[v.legNumber] = { darts: 0, won: false, visits: [] }
+    legDartsMap[v.legNumber].darts += v.dartsUsed
+    legDartsMap[v.legNumber].visits.push(v)
+    if (v.isCheckout) legDartsMap[v.legNumber].won = true
+  }
+  const wonLegDarts = Object.values(legDartsMap).filter((l) => l.won).map((l) => l.darts)
+  const bestLeg = wonLegDarts.length > 0 ? Math.min(...wonLegDarts) : null
+
+  let f9Score = 0, f9Count = 0
+  for (const leg of Object.values(legDartsMap)) {
+    for (let i = 0; i < Math.min(3, leg.visits.length); i++) {
+      f9Score += leg.visits[i].isBust ? 0 : leg.visits[i].scoreThrown
+      f9Count++
+    }
+  }
+  const first9 = f9Count > 0 ? (f9Score / f9Count).toFixed(2) : "0.00"
+
+  return { avg, first9, doublesPct, highestCO, count180s, bestLeg, totalDarts, legsWon: checkouts.length }
+}
+
 function X01Summary({ session }: { session: PracticeSessionWithRounds }) {
+  const [currentPage, setCurrentPage] = useState(0)
+
+  // Group all rounds by legNumber
+  const legMap: Record<number, Array<{ playerId: string; roundNumber: number; data: X01RoundData }>> = {}
+  for (const r of session.rounds) {
+    const d = r.data as X01RoundData
+    legMap[d.legNumber] = legMap[d.legNumber] ?? []
+    legMap[d.legNumber].push({ playerId: r.playerId, roundNumber: r.roundNumber, data: d })
+  }
+  const legNums = Object.keys(legMap).map(Number).sort((a, b) => a - b)
+  const totalPages = 1 + legNums.length
+
+  // Per-player visits for overview
   const playerVisits: Record<string, X01RoundData[]> = {}
   for (const p of session.players) playerVisits[p.playerId] = []
   for (const r of session.rounds) {
@@ -215,86 +261,180 @@ function X01Summary({ session }: { session: PracticeSessionWithRounds }) {
     playerVisits[r.playerId].push(r.data as X01RoundData)
   }
 
+  const tabs = ["Overview", ...legNums.map((n) => `Leg ${n}`)]
+
   return (
     <div className="flex flex-col gap-4">
-      {session.players.map((p) => {
-        const visits = playerVisits[p.playerId] ?? []
-        const legsWon = visits.filter((v) => v.isCheckout).length
+      {/* Tab navigation */}
+      {legNums.length > 0 && (
+        <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1">
+          {tabs.map((label, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentPage(i)}
+              className={cn(
+                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                i === currentPage
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground bg-muted/50",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
-        const totalScore = visits.reduce((s, v) => s + (v.isBust ? 0 : v.scoreThrown), 0)
-        const totalDarts = visits.reduce((s, v) => s + v.dartsUsed, 0)
-        const avg = totalDarts > 0 ? ((totalScore / totalDarts) * 3).toFixed(2) : "0.00"
+      {/* Overview */}
+      {currentPage === 0 && (
+        <div className="flex flex-col gap-4">
+          {session.players.map((p) => {
+            const stats = calcX01Stats(playerVisits[p.playerId] ?? [])
+            const isWinner = session.winnerId === p.playerId
+            return (
+              <div key={p.playerId} className={cn("rounded-xl border p-4 bg-card", isWinner ? "border-amber-500/40" : "border-border")}>
+                <div className="flex items-center gap-3 mb-3">
+                  {p.isBot
+                    ? <div className="size-10 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center shrink-0"><Bot className="size-5 text-violet-400" /></div>
+                    : <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="md" />
+                  }
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold">{p.isBot ? "DartBot" : p.name}</p>
+                      {isWinner && <Trophy className="w-4 h-4 text-amber-400" />}
+                      {p.isBot && p.botLevel != null && <span className="text-xs text-violet-400">Lv.{p.botLevel}</span>}
+                    </div>
+                    <p className="font-score text-2xl font-black text-primary">{stats.legsWon} {stats.legsWon === 1 ? "leg" : "legs"}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  {[
+                    { label: "Average", value: stats.avg },
+                    { label: "First 9 Avg", value: stats.first9 },
+                    { label: "Doubles %", value: stats.doublesPct },
+                    { label: "Highest CO", value: stats.highestCO ?? "—" },
+                    { label: "180s", value: stats.count180s },
+                    { label: "Best Leg", value: stats.bestLeg != null ? `${stats.bestLeg}d` : "—" },
+                    { label: "Total Darts", value: stats.totalDarts },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-lg bg-muted p-2">
+                      <p className="font-score font-bold text-lg">{value}</p>
+                      <p className="text-[10px] text-muted-foreground">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-        const checkouts = visits.filter((v) => v.isCheckout).map((v) => v.scoreThrown)
-        const highestCheckout = checkouts.length > 0 ? Math.max(...checkouts) : null
-        const count180s = visits.filter((v) => !v.isBust && v.scoreThrown === 180).length
+      {/* Per-leg view */}
+      {currentPage > 0 && (() => {
+        const legNum = legNums[currentPage - 1]
+        const legRounds = legMap[legNum] ?? []
+        const starterPlayerId = legRounds[0]?.playerId ?? null
+        const winnerPlayerId = legRounds.find((r) => r.data.isCheckout)?.playerId ?? null
+        const starterPlayer = session.players.find((p) => p.playerId === starterPlayerId)
+        const winnerPlayer = session.players.find((p) => p.playerId === winnerPlayerId)
 
-        // Best leg: fewest darts in a won leg
-        const legDartsMap: Record<number, { darts: number; won: boolean; visits: X01RoundData[] }> = {}
-        for (const v of visits) {
-          if (!legDartsMap[v.legNumber]) legDartsMap[v.legNumber] = { darts: 0, won: false, visits: [] }
-          legDartsMap[v.legNumber].darts += v.dartsUsed
-          legDartsMap[v.legNumber].visits.push(v)
-          if (v.isCheckout) legDartsMap[v.legNumber].won = true
-        }
-        const wonLegDarts = Object.values(legDartsMap).filter((l) => l.won).map((l) => l.darts)
-        const bestLeg = wonLegDarts.length > 0 ? Math.min(...wonLegDarts) : null
+        // Per-player visits for this leg
+        const legVisitsA = legRounds.filter((r) => r.playerId === session.players[0]?.playerId).map((r) => r.data)
+        const legVisitsB = legRounds.filter((r) => r.playerId === session.players[1]?.playerId).map((r) => r.data)
+        const playerA = session.players[0]
+        const playerB = session.players[1]
 
-        // First 9 average: first 3 visits per leg
-        let f9Score = 0
-        let f9Visits = 0
-        for (const leg of Object.values(legDartsMap)) {
-          for (let i = 0; i < Math.min(3, leg.visits.length); i++) {
-            f9Score += leg.visits[i].isBust ? 0 : leg.visits[i].scoreThrown
-            f9Visits++
-          }
-        }
-        const first9Avg = f9Visits > 0 ? ((f9Score / f9Visits)).toFixed(2) : "0.00"
+        const statsA = calcX01Stats(legVisitsA)
+        const statsB = calcX01Stats(legVisitsB)
 
-        // Doubles %
-        const totalDoublesAttempted = visits.reduce((s, v) => s + (v.doublesAttempted ?? 0), 0)
-        const totalDoublesHit = visits.filter((v) => v.isCheckout).length
-        const doublesPct = totalDoublesAttempted > 0
-          ? `${Math.round((totalDoublesHit / totalDoublesAttempted) * 100)}%`
-          : "—"
+        const maxLen = Math.max(legVisitsA.length, legVisitsB.length)
 
-        const isWinner = session.winnerId === p.playerId
+        const statRows = [
+          { label: "Darts", a: statsA.totalDarts || "—", b: statsB.totalDarts || "—" },
+          { label: "Average", a: statsA.avg, b: statsB.avg },
+          { label: "First 9", a: statsA.first9, b: statsB.first9 },
+          { label: "Doubles %", a: statsA.doublesPct, b: statsB.doublesPct },
+          { label: "180s", a: statsA.count180s, b: statsB.count180s },
+          { label: "Highest CO", a: statsA.highestCO ?? "—", b: statsB.highestCO ?? "—" },
+        ]
 
         return (
-          <div key={p.playerId} className={cn("rounded-xl border p-4 bg-card", isWinner ? "border-amber-500/40" : "border-border")}>
-            <div className="flex items-center gap-3 mb-3">
-              {p.isBot
-                ? <div className="size-10 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center shrink-0"><Bot className="size-5 text-violet-400" /></div>
-                : <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} size="md" />
-              }
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-bold">{p.isBot ? "DartBot" : p.name}</p>
-                  {isWinner && <Trophy className="w-4 h-4 text-amber-400" />}
-                  {p.isBot && p.botLevel != null && <span className="text-xs text-violet-400">Lv.{p.botLevel}</span>}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+              <span>🎯 {starterPlayer ? (starterPlayer.isBot ? "DartBot" : starterPlayer.name) : "?"} threw first</span>
+              {winnerPlayer && (
+                <span className="text-amber-400 font-semibold">
+                  🏆 {winnerPlayer.isBot ? "DartBot" : winnerPlayer.name} won
+                </span>
+              )}
+            </div>
+
+            {/* Stats comparison table */}
+            <div className="rounded-xl border border-border overflow-hidden bg-card">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground truncate">
+                      {playerA ? (playerA.isBot ? "DartBot" : playerA.name.split(" ")[0]) : ""}
+                    </th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground w-24">Stat</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground truncate">
+                      {playerB ? (playerB.isBot ? "DartBot" : playerB.name.split(" ")[0]) : ""}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statRows.map((row) => (
+                    <tr key={row.label} className="border-b border-border/50 last:border-0">
+                      <td className="px-3 py-2 text-right font-score font-bold">{row.a}</td>
+                      <td className="px-3 py-2 text-center text-xs text-muted-foreground">{row.label}</td>
+                      <td className="px-3 py-2 text-left font-score font-bold">{row.b}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Visit history */}
+            {maxLen > 0 && (
+              <div className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+                <div className="grid grid-cols-2 border-b border-border">
+                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground text-center truncate">
+                    {playerA ? (playerA.isBot ? "DartBot" : playerA.name.split(" ")[0]) : ""}
+                  </div>
+                  <div className="px-3 py-2 text-xs font-medium text-muted-foreground text-center truncate border-l border-border">
+                    {playerB ? (playerB.isBot ? "DartBot" : playerB.name.split(" ")[0]) : ""}
+                  </div>
                 </div>
-                <p className="font-score text-2xl font-black text-primary">{legsWon} {legsWon === 1 ? "leg" : "legs"}</p>
+                {Array.from({ length: maxLen }).map((_, i) => {
+                  const va = legVisitsA[i]
+                  const vb = legVisitsB[i]
+                  return (
+                    <div key={i} className="grid grid-cols-2 border-b border-border/50 last:border-0">
+                      {[va, vb].map((v, col) => (
+                        <div key={col} className={cn("px-3 py-2 flex items-center justify-between", col === 1 && "border-l border-border/50")}>
+                          {v ? (
+                            <>
+                              <span className={cn("font-score text-sm font-bold",
+                                v.isBust ? "text-red-500 line-through" : v.isCheckout ? "text-emerald-400" : "text-foreground"
+                              )}>
+                                {v.isBust ? "BUST" : v.scoreThrown}
+                              </span>
+                              <span className="font-score text-xs text-muted-foreground">{v.newRemainder}</span>
+                            </>
+                          ) : (
+                            <span />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-center">
-              {[
-                { label: "Average", value: avg },
-                { label: "First 9 Avg", value: first9Avg },
-                { label: "Doubles %", value: doublesPct },
-                { label: "Highest CO", value: highestCheckout ?? "—" },
-                { label: "180s", value: count180s },
-                { label: "Best Leg", value: bestLeg != null ? `${bestLeg}d` : "—" },
-                { label: "Total Darts", value: totalDarts },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-lg bg-muted p-2">
-                  <p className="font-score font-bold text-lg">{value}</p>
-                  <p className="text-[10px] text-muted-foreground">{label}</p>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
         )
-      })}
+      })()}
     </div>
   )
 }

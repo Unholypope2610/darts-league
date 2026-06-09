@@ -14,6 +14,7 @@ interface X01PracticeStore {
   finishType: "DOUBLE_OUT" | "STRAIGHT_OUT"
   legsTarget: number
   currentLeg: number
+  currentLegStarterIndex: number
   legsWon: Record<string, number>            // playerId → legs won
   remainders: Record<string, number>          // playerId → current remainder
   currentLegVisits: Record<string, X01RoundData[]>  // visits in the active leg
@@ -51,6 +52,7 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
     finishType: "DOUBLE_OUT",
     legsTarget: 1,
     currentLeg: 1,
+    currentLegStarterIndex: 0,
     legsWon: {},
     remainders: {},
     currentLegVisits: {},
@@ -119,6 +121,7 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
         }
 
         s.currentLeg = currentLeg
+        s.currentLegStarterIndex = legFirstPlayer[currentLeg] ?? 0
         s.legsWon = legsWon
         s.remainders = remainders
         s.allVisits = allVisits
@@ -240,8 +243,8 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
       if (isCheckout && newStatus !== "COMPLETED") {
         setTimeout(() => {
           const st = get()
-          const winnerIdx = st.players.findIndex((p) => p.playerId === player.playerId)
-          const loserIdx = (winnerIdx + 1) % st.players.length
+          // Strict alternation: next leg's starter is whoever did NOT start this leg
+          const nextStarterIdx = (st.currentLegStarterIndex + 1) % st.players.length
           const newLeg = st.currentLeg + 1
           const resetRemainders: Record<string, number> = {}
           const resetLegVisits: Record<string, X01RoundData[]> = {}
@@ -253,7 +256,8 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
             s.currentLeg = newLeg
             s.remainders = resetRemainders
             s.currentLegVisits = resetLegVisits
-            s.currentPlayerIndex = loserIdx
+            s.currentPlayerIndex = nextStarterIdx
+            s.currentLegStarterIndex = nextStarterIdx
             s.isTransitioning = false
           })
         }, 1800)
@@ -324,6 +328,7 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
         s.finishType = "DOUBLE_OUT"
         s.legsTarget = 1
         s.currentLeg = 1
+        s.currentLegStarterIndex = 0
         s.legsWon = {}
         s.remainders = {}
         s.currentLegVisits = {}
