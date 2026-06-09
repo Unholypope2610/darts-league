@@ -391,7 +391,7 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
           {/* Bust button */}
           <button
             onClick={handleBust}
-            disabled={!canInput}
+            disabled={!canInput || activeRemainder > 181}
             className="mx-4 mt-2 mb-4 py-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 font-bold text-sm active:scale-95 transition-all disabled:opacity-40"
           >
             Bust
