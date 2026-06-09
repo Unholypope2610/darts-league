@@ -21,6 +21,7 @@ interface X01PracticeStore {
   dartInput: string
   isTransitioning: boolean                    // true during leg changeover animation
   lastRoundId: string | null
+  visitRoundIds: Record<string, string[]>     // playerId → roundIds parallel to allVisits
 
   hydrate: (session: PracticeSessionWithRounds) => void
   inputDigit: (d: string) => void
@@ -28,6 +29,7 @@ interface X01PracticeStore {
   submitVisit: (scoreThrown: number, dartsUsed: number, doublesAttempted: number) => Promise<void>
   submitBust: () => Promise<void>
   undoLastVisit: () => Promise<void>
+  editVisit: (roundId: string, newScore: number) => Promise<void>
   reset: () => void
 }
 
@@ -56,6 +58,7 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
     dartInput: "0",
     isTransitioning: false,
     lastRoundId: null,
+    visitRoundIds: {},
 
     hydrate(session) {
       set((s) => {
@@ -73,11 +76,13 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
         const allVisits: Record<string, X01RoundData[]> = {}
         const currentLegVisits: Record<string, X01RoundData[]> = {}
 
+        const visitRoundIds: Record<string, string[]> = {}
         for (const p of session.players) {
           remainders[p.playerId] = starting
           legsWon[p.playerId] = 0
           allVisits[p.playerId] = []
           currentLegVisits[p.playerId] = []
+          visitRoundIds[p.playerId] = []
         }
 
         // Replay rounds to rebuild state
@@ -88,6 +93,8 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
           const d = r.data as X01RoundData
           allVisits[r.playerId] = allVisits[r.playerId] ?? []
           allVisits[r.playerId].push(d)
+          visitRoundIds[r.playerId] = visitRoundIds[r.playerId] ?? []
+          visitRoundIds[r.playerId].push(r.id)
 
           if (d.legNumber === currentLeg) {
             currentLegVisits[r.playerId] = currentLegVisits[r.playerId] ?? []
@@ -116,6 +123,7 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
         s.remainders = remainders
         s.allVisits = allVisits
         s.currentLegVisits = currentLegVisits
+        s.visitRoundIds = visitRoundIds
 
         // Determine whose turn it is
         // Count visits in current leg to find position
@@ -207,6 +215,9 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
         s.currentLegVisits[player.playerId] = [...(s.currentLegVisits[player.playerId] ?? []), roundData]
         s.dartInput = "0"
         s.lastRoundId = saved.id ?? null
+        if (saved.id) {
+          s.visitRoundIds[player.playerId] = [...(s.visitRoundIds[player.playerId] ?? []), saved.id]
+        }
 
         if (isCheckout) {
           s.legsWon = newLegsWon
@@ -278,6 +289,7 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
       set((s) => {
         s.remainders[prevPlayer.playerId] = restoredRemainder
         s.allVisits[prevPlayer.playerId] = prevVisits
+        s.visitRoundIds[prevPlayer.playerId] = (s.visitRoundIds[prevPlayer.playerId] ?? []).slice(0, -1)
         const legVisits = (s.currentLegVisits[prevPlayer.playerId] ?? []).slice(0, -1)
         s.currentLegVisits[prevPlayer.playerId] = legVisits
         s.currentPlayerIndex = prevIdx
@@ -286,6 +298,19 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
         s.lastRoundId = null
         s.isTransitioning = false
       })
+    },
+
+    async editVisit(roundId: string, newScore: number) {
+      const state = get()
+      if (!state.sessionId) return
+      await fetch(`/api/practice/${state.sessionId}/rounds`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roundId, newScore }),
+      })
+      // Re-fetch and re-hydrate to rebuild full chain
+      const session = await fetch(`/api/practice/${state.sessionId}`).then((r) => r.json())
+      get().hydrate(session)
     },
 
     reset() {
@@ -303,6 +328,7 @@ export const useX01PracticeStore = create<X01PracticeStore>()(
         s.remainders = {}
         s.currentLegVisits = {}
         s.allVisits = {}
+        s.visitRoundIds = {}
         s.dartInput = "0"
         s.isTransitioning = false
         s.lastRoundId = null

@@ -44,10 +44,12 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   const lastRoundId = useX01PracticeStore((s) => s.lastRoundId)
   const allVisits = useX01PracticeStore((s) => s.allVisits)
   const currentLegVisits = useX01PracticeStore((s) => s.currentLegVisits)
+  const visitRoundIds = useX01PracticeStore((s) => s.visitRoundIds)
   const inputDigit = useX01PracticeStore((s) => s.inputDigit)
   const clearInput = useX01PracticeStore((s) => s.clearInput)
   const submitVisit = useX01PracticeStore((s) => s.submitVisit)
   const undoLastVisit = useX01PracticeStore((s) => s.undoLastVisit)
+  const editVisit = useX01PracticeStore((s) => s.editVisit)
 
   const [pendingCheckout, setPendingCheckout] = useState<{ score: number } | null>(null)
   const [checkoutDartsUsed, setCheckoutDartsUsed] = useState(3)
@@ -56,6 +58,10 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
   // Doubles prompt for non-checkout visits (same conditions as live match)
   const [pendingDoubles, setPendingDoubles] = useState<{ score: number; isBust: boolean } | null>(null)
   const [doublesCount, setDoublesCount] = useState<number | null>(null)
+
+  // Inline score edit
+  const [editingRoundId, setEditingRoundId] = useState<string | null>(null)
+  const [editVal, setEditVal] = useState("")
 
   if (players.length === 0) return null
 
@@ -184,6 +190,12 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
           const legs = legsWon[p.playerId] ?? 0
           const avg = computeAvg(allVisits[p.playerId] ?? [])
           const legDarts = computeLegDarts(currentLegVisits[p.playerId] ?? [])
+          const legVisits = currentLegVisits[p.playerId] ?? []
+          const recentVisits = legVisits.slice(-3)
+          const allVisitsForPlayer = allVisits[p.playerId] ?? []
+          const legStart = allVisitsForPlayer.length - legVisits.length
+          const playerRoundIds = visitRoundIds[p.playerId] ?? []
+
           return (
             <div
               key={p.playerId}
@@ -213,6 +225,65 @@ export function X01Scoring({ myPlayerId, canControl }: Props) {
               <p className="text-[10px] text-muted-foreground tabular-nums">
                 {avg} avg · {legDarts}d
               </p>
+              {/* Last 3 scores */}
+              {recentVisits.length > 0 && (
+                <div className="flex gap-1 flex-wrap justify-center">
+                  {recentVisits.map((v, i) => {
+                    const absIdx = legStart + (legVisits.length - recentVisits.length) + i
+                    const roundId = playerRoundIds[absIdx]
+                    const canEdit = !p.isBot && !v.isCheckout && !!roundId
+                    if (canEdit && editingRoundId === roundId) {
+                      return (
+                        <div key={i} className="flex items-center gap-1">
+                          <input
+                            autoFocus
+                            type="number"
+                            min={0}
+                            max={180}
+                            value={editVal}
+                            onChange={(e) => setEditVal(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const n = parseInt(editVal, 10)
+                                if (!isNaN(n) && n >= 0 && n <= 180) editVisit(roundId, n)
+                                setEditingRoundId(null)
+                              }
+                              if (e.key === "Escape") setEditingRoundId(null)
+                            }}
+                            className="w-10 bg-muted rounded px-1 py-0.5 text-xs font-score font-bold text-center border border-primary outline-none"
+                          />
+                          <button
+                            onClick={() => {
+                              const n = parseInt(editVal, 10)
+                              if (!isNaN(n) && n >= 0 && n <= 180) editVisit(roundId, n)
+                              setEditingRoundId(null)
+                            }}
+                            className="text-emerald-400 text-xs font-bold touch-manipulation"
+                          >✓</button>
+                          <button onClick={() => setEditingRoundId(null)} className="text-muted-foreground text-xs font-bold touch-manipulation">✕</button>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={i} className="flex items-center gap-0.5">
+                        <span className={cn(
+                          "font-score text-[10px] font-bold px-1.5 py-0.5 rounded",
+                          v.isBust ? "bg-red-500/20 text-red-400" : "bg-muted text-muted-foreground"
+                        )}>
+                          {v.isBust ? "BUST" : v.scoreThrown}
+                        </span>
+                        {canEdit && (
+                          <button
+                            onClick={() => { setEditVal(String(v.scoreThrown)); setEditingRoundId(roundId) }}
+                            className="text-muted-foreground/50 hover:text-muted-foreground text-[9px] touch-manipulation leading-none"
+                            aria-label="Edit score"
+                          >✏</button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               <div className="flex gap-1">
                 {Array.from({ length: legsTarget }).map((_, i) => (
                   <div key={i} className={cn("size-2 rounded-full", i < legs ? "bg-primary" : "bg-muted border border-border")} />
