@@ -19,7 +19,7 @@ const sizeClasses = {
   xl: "w-20 h-20 text-2xl",
 }
 
-// 2× the CSS pixel size for retina displays
+// 2× the CSS pixel size for retina displays — passed to Next.js Image sizes hint
 const sizePixels = {
   sm: 56,
   md: 72,
@@ -37,32 +37,27 @@ function getInitials(name: string): string {
 }
 
 export function PlayerAvatar({ name, avatarUrl, size = "md", className }: PlayerAvatarProps) {
-  const [imgLoaded, setImgLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const px = sizePixels[size]
 
-  // Show fallback until image is confirmed loaded, or if there's no URL / load error
-  const showFallback = !avatarUrl || imgError || !imgLoaded
-
   return (
     <Avatar className={cn(sizeClasses[size], className)}>
+      {/* Fallback sits in normal flow; the Image is position:absolute (fill) so it
+          naturally covers the fallback once pixels arrive, with no display:none trick
+          that would block Next.js lazy loading from ever firing onLoad. */}
+      <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+        {getInitials(name)}
+      </AvatarFallback>
       {avatarUrl && !imgError && (
         <Image
           src={avatarUrl}
           alt={name}
-          width={px}
-          height={px}
-          // Keep in DOM so the browser fetches it, but hide until loaded to prevent
-          // AvatarFallback overlap (Radix's fallback only auto-hides for its own AvatarImage)
-          className={cn("aspect-square h-full w-full object-cover", !imgLoaded && "hidden")}
-          onLoad={() => setImgLoaded(true)}
+          fill
+          loading="eager"
+          sizes={`${px}px`}
+          className="object-cover"
           onError={() => setImgError(true)}
         />
-      )}
-      {showFallback && (
-        <AvatarFallback className="bg-primary/20 text-primary font-semibold">
-          {getInitials(name)}
-        </AvatarFallback>
       )}
     </Avatar>
   )
