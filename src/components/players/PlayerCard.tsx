@@ -98,6 +98,24 @@ export function PlayerCard({ player, rank }: PlayerCardProps) {
           </div>
         </div>
 
+        {/* Legs + darts row */}
+        {(player.legsWon > 0 || player.legsLost > 0 || player.totalDartsThrown > 0) && (
+          <div className="grid grid-cols-3 gap-1 text-center">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Legs W</span>
+              <span className="font-score font-bold text-sm text-emerald-400">{player.legsWon}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Legs L</span>
+              <span className="font-score font-bold text-sm text-red-400">{player.legsLost}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Darts</span>
+              <span className="font-score font-bold text-sm text-primary">{player.totalDartsThrown.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
         {/* Badges row */}
         {(player.count180s > 0 || player.topCheckouts.length > 0 || player.doublesPercentage > 0 || player.first9Average > 0 || player.bestLeg !== null) && (
           <div className="flex items-center gap-1.5 flex-wrap">

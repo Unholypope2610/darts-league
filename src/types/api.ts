@@ -66,6 +66,9 @@ export interface Player {
   rankedTitles: number
   first9Average: number
   bestLeg: number | null
+  legsWon: number
+  legsLost: number
+  totalDartsThrown: number
   replayScoreThreshold: number
   replayCheckoutThreshold: number
   replayBobs27HitsThreshold: number

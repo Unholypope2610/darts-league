@@ -42,15 +42,23 @@ export async function GET() {
     const first9Visits = visits.filter((v) => v.visitNumber <= 3)
     const first9Average = parseFloat(calculateAverage(first9Visits).toFixed(2))
 
-    const allLegsDarts = [
+    const allLegs = [
+      ...p.matchesAsA.flatMap((m) => m.legs),
+      ...p.matchesAsB.flatMap((m) => m.legs),
+    ]
+    const legsWon = allLegs.filter((l) => l.winnerId === p.id).length
+    const legsLost = allLegs.filter((l) => l.winnerId !== null && l.winnerId !== p.id).length
+    const totalDartsThrown = visits.reduce((sum, v) => sum + v.dartsUsed, 0)
+
+    const legs501 = [
       ...p.matchesAsA.filter((m) => m.startingScore === 501).flatMap((m) => m.legs),
       ...p.matchesAsB.filter((m) => m.startingScore === 501).flatMap((m) => m.legs),
     ]
-    const wonLegDarts = allLegsDarts.filter((l) => l.winnerId === p.id).map((l) => l.dartsThrown)
+    const wonLegDarts = legs501.filter((l) => l.winnerId === p.id).map((l) => l.dartsThrown)
     const bestLegDarts = wonLegDarts.length > 0 ? Math.min(...wonLegDarts) : null
 
     const { matchesAsA: _a, matchesAsB: _b, visits: _v, _count, competitionsWon, ...rest } = p
-    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO, recentForm, titles: _count.competitionsWon, rankedTitles: competitionsWon.length, first9Average, bestLeg: bestLegDarts }
+    return { ...rest, won, lost, drawn, average, doublesPercentage: dblPercent, count180s: c180s, topCheckouts: topCO, recentForm, titles: _count.competitionsWon, rankedTitles: competitionsWon.length, first9Average, bestLeg: bestLegDarts, legsWon, legsLost, totalDartsThrown }
   })
 
   return NextResponse.json(withStats)
