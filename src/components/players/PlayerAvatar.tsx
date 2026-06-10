@@ -37,8 +37,12 @@ function getInitials(name: string): string {
 }
 
 export function PlayerAvatar({ name, avatarUrl, size = "md", className }: PlayerAvatarProps) {
+  const [imgLoaded, setImgLoaded] = useState(false)
   const [imgError, setImgError] = useState(false)
   const px = sizePixels[size]
+
+  // Show fallback until image is confirmed loaded, or if there's no URL / load error
+  const showFallback = !avatarUrl || imgError || !imgLoaded
 
   return (
     <Avatar className={cn(sizeClasses[size], className)}>
@@ -48,13 +52,18 @@ export function PlayerAvatar({ name, avatarUrl, size = "md", className }: Player
           alt={name}
           width={px}
           height={px}
-          className="aspect-square h-full w-full object-cover"
+          // Keep in DOM so the browser fetches it, but hide until loaded to prevent
+          // AvatarFallback overlap (Radix's fallback only auto-hides for its own AvatarImage)
+          className={cn("aspect-square h-full w-full object-cover", !imgLoaded && "hidden")}
+          onLoad={() => setImgLoaded(true)}
           onError={() => setImgError(true)}
         />
       )}
-      <AvatarFallback className="bg-primary/20 text-primary font-semibold">
-        {getInitials(name)}
-      </AvatarFallback>
+      {showFallback && (
+        <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+          {getInitials(name)}
+        </AvatarFallback>
+      )}
     </Avatar>
   )
 }
