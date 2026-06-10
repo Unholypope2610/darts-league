@@ -613,7 +613,7 @@ export function HalfItScoring({ myPlayerId, canControl, isLocal, camIsStreaming,
                       <td key={p.playerId} className="py-1.5 px-2 text-right font-score">
                         {isCurrent && p.playerId === activePlayer.playerId ? (
                           <span className="text-primary">►</span>
-                        ) : isPast && pr ? (
+                        ) : pr ? (
                           <span className={
                             pr.wasHalved ? "text-red-400"
                             : pr.pointsScored > 0 ? "text-emerald-400"

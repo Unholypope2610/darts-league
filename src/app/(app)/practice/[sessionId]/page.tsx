@@ -189,15 +189,13 @@ export default function PracticeSessionPage({ params }: PageProps) {
   const chat = useMatchChat({ matchId: sessionId, userId: me?.id ?? "", userName, isOpen: isChatOpen })
 
   // Camera — broadcaster uses their playerId (or "local" for local mode)
-  // All non-broadcasters spectate the first player's stream
+  // Each viewer spectates the first other player's stream (skips self)
   const broadcasterPlayerId = isLocal ? "local" : (myPlayerId ?? "")
-  const spectatePlayerId = data?.players[0]?.playerId ?? ""
+  const spectatePlayerId = isLocal
+    ? ""
+    : (data?.players.find((p) => p.playerId !== myPlayerId)?.playerId ?? "")
   const cam = useBoardCamBroadcast(sessionId, broadcasterPlayerId, canControl)
-  const { remoteStream } = useBoardCamSpectate(
-    sessionId,
-    // Spectators watch the first player; broadcasters don't self-spectate
-    !canControl ? spectatePlayerId : ""
-  )
+  const { remoteStream } = useBoardCamSpectate(sessionId, spectatePlayerId)
   const camVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   useEffect(() => {
@@ -278,7 +276,7 @@ export default function PracticeSessionPage({ params }: PageProps) {
                   Live
                 </span>
               )}
-              {!canControl && remoteStream && (
+              {!cam.isStreaming && remoteStream && (
                 <span className="flex items-center gap-1 text-xs font-bold text-emerald-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Watching
@@ -324,8 +322,8 @@ export default function PracticeSessionPage({ params }: PageProps) {
             <video ref={camVideoRef} autoPlay playsInline muted
               className={cn("w-full aspect-video rounded-lg object-cover bg-black mt-3", camHidden && "hidden")} />
           )}
-          {/* Remote stream (spectator) — same pattern */}
-          {!canControl && remoteStream && (
+          {/* Remote stream — shown for any viewer with an active incoming stream */}
+          {remoteStream && (
             <video ref={remoteVideoRef} autoPlay playsInline
               className={cn("w-full aspect-video rounded-lg object-cover bg-black mt-3", camHidden && "hidden")} />
           )}
