@@ -114,9 +114,11 @@ export function PracticeReplayPrompt({ pending, sessionId, gameMode, onDismiss }
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
-      const contentType = result.blob.type || "video/webm"
+      const rawType = result.blob.type || "video/webm"
+      const isWebm = rawType.includes("webm")
+      const contentType = isWebm ? "video/webm" : "video/mp4"
       let blob = result.blob
-      if (contentType.includes("webm")) {
+      if (isWebm) {
         try { blob = await injectDuration(result.blob, result.durationMs) } catch { /* use original */ }
       }
 

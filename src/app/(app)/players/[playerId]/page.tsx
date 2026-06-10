@@ -395,6 +395,7 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [shareStatus, setShareStatus] = useState<"idle" | "loading" | "downloaded">("idle")
   const [downloadStatus, setDownloadStatus] = useState<"idle" | "loading">("idle")
+  const [videoError, setVideoError] = useState(false)
 
   useEffect(() => {
     const handler = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
@@ -472,30 +473,66 @@ function ReplayCard({ replay, onDelete, isDeleting, canDelete }: {
           isFullscreen && "flex items-center justify-center h-screen",
         )}
       >
-        <video
-          src={replay.viewUrl ?? replay.storageUrl}
-          controls
-          playsInline
-          preload="metadata"
-          controlsList="nofullscreen nodownload"
-          className={cn("w-full object-contain", isFullscreen ? "h-full" : "max-h-64")}
-          ref={(el) => {
-            if (!el) return
-            el.onloadedmetadata = () => {
-              if (!Number.isFinite(el.duration) || el.duration === 0) {
-                el.currentTime = 1e101
-                el.onseeked = () => { el.onseeked = null; el.currentTime = 0 }
-              }
-            }
-          }}
-        />
-        <button
-          onClick={() => isFullscreen ? document.exitFullscreen() : containerRef.current?.requestFullscreen()}
-          className="absolute bottom-2 right-2 z-20 p-1.5 rounded bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors"
-          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-        >
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </button>
+        {replay.storageKey.endsWith(".webm") && typeof document !== "undefined" &&
+          document.createElement("video").canPlayType("video/webm") === "" ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-10 px-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              This replay was saved in WebM format and can&apos;t play on Safari.
+            </p>
+            <button
+              onClick={handleDownload}
+              disabled={downloadStatus === "loading"}
+              className="text-xs px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-500 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {downloadStatus === "loading" ? "Downloading…" : "Download to watch"}
+            </button>
+          </div>
+        ) : (
+          <>
+            {videoError ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-10 px-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  This video couldn&apos;t be played on this device.
+                </p>
+                <button
+                  onClick={handleDownload}
+                  disabled={downloadStatus === "loading"}
+                  className="text-xs px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:border-zinc-500 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {downloadStatus === "loading" ? "Downloading…" : "Download to watch"}
+                </button>
+              </div>
+            ) : (
+              <video
+                src={replay.viewUrl ?? replay.storageUrl}
+                controls
+                playsInline
+                preload="metadata"
+                controlsList="nofullscreen nodownload"
+                className={cn("w-full object-contain", isFullscreen ? "h-full" : "max-h-64")}
+                onError={() => setVideoError(true)}
+                ref={(el) => {
+                  if (!el) return
+                  el.onloadedmetadata = () => {
+                    if (!Number.isFinite(el.duration) || el.duration === 0) {
+                      el.currentTime = 1e101
+                      el.onseeked = () => { el.onseeked = null; el.currentTime = 0 }
+                    }
+                  }
+                }}
+              />
+            )}
+            {!videoError && (
+              <button
+                onClick={() => isFullscreen ? document.exitFullscreen() : containerRef.current?.requestFullscreen()}
+                className="absolute bottom-2 right-2 z-20 p-1.5 rounded bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors"
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            )}
+          </>
+        )}
       </div>
       <div className="px-4 py-3 flex items-center justify-between gap-3">
         <div>

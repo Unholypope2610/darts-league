@@ -122,8 +122,13 @@ export function ActionReplayPrompt() {
     if (timerRef.current) clearInterval(timerRef.current)
 
     try {
-      const contentType = result.blob.type || "video/webm"
-      const isWebm = contentType.includes("webm")
+      const rawType = result.blob.type || "video/webm"
+      const isWebm = rawType.includes("webm")
+      // Strip codec parameters — store as plain video/mp4 or video/webm.
+      // iOS Safari refuses to play files served with Content-Type: video/mp4;codecs=avc1
+      // even though it recorded them. The codec suffix is only needed by MediaRecorder,
+      // not for serving/playback.
+      const contentType = isWebm ? "video/webm" : "video/mp4"
 
       // Inject Duration element only for WebM (EBML-specific — not applicable to MP4)
       let blob = result.blob

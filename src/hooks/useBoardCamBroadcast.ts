@@ -389,18 +389,14 @@ export function useBoardCamBroadcast(matchId: string, playerId: string, enabled 
   }, [playerId])
 
   const startRecorder = useCallback((stream: MediaStream) => {
-    // iOS Safari only supports MP4/H.264 for recording; Android/Chrome prefer WebM
-    // because requestData() produces reliable rolling chunks for WebM on Chrome,
-    // whereas Chrome's MP4 recorder has platform-specific chunk emission quirks.
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-    const mimeType = isIOS
-      ? (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" :
-         MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
-         MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : null)
-      : (MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
-         MediaRecorder.isTypeSupported("video/webm") ? "video/webm" :
-         MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" : null)
+    // Prefer MP4/H.264 on all platforms — it's the only format Safari/iOS can play.
+    // Replays are often saved by one player (Chrome/Android) but viewed by another (Safari/iOS).
+    // normalizeMP4Timestamps handles Chrome's fMP4 baseMediaDecodeTime offset quirk.
+    const mimeType =
+      MediaRecorder.isTypeSupported("video/mp4;codecs=avc1") ? "video/mp4;codecs=avc1" :
+      MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" :
+      MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" :
+      MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : null
     if (!mimeType) {
       setError("Recording unavailable — your browser doesn't support the required video format")
       return
