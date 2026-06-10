@@ -724,6 +724,11 @@ export function useBoardCamBroadcast(matchId: string, playerId: string, enabled 
       })
 
       channel.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          // Tell waiting spectators the broadcaster is live so they send READY immediately
+          // rather than waiting up to 8 s for their next scheduled retry.
+          channel.send({ type: "broadcast", event: "BROADCASTER_READY", payload: {} })
+        }
         if (status === "CHANNEL_ERROR") setError("Live stream connection failed — check your connection")
       })
     } catch {

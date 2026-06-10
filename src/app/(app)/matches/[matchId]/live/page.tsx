@@ -217,16 +217,20 @@ export default function LiveMatchPage({ params }: PageProps) {
       {/* Invisible drag boundary covering the full viewport */}
       <div ref={dragBoundsRef} className="fixed inset-0 pointer-events-none z-[39]" />
 
-      {/* Manual resync button — bottom-left, for when state gets stuck after backgrounding */}
+      {/* Manual resync button — draggable, for when state gets stuck after backgrounding */}
       {!isMatchWon && (
-        <button
+        <motion.button
+          drag
+          dragConstraints={dragBoundsRef}
+          dragMomentum={false}
+          whileTap={{ scale: 0.95 }}
           onClick={async () => { setIsSyncing(true); await forceResync(); setIsSyncing(false) }}
           disabled={isSyncing}
-          className="fixed bottom-6 left-4 z-40 size-10 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center shadow-md active:scale-95 transition-all disabled:opacity-50"
+          className="fixed bottom-6 left-4 z-40 size-10 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center shadow-md transition-all disabled:opacity-50"
           aria-label="Resync match state"
         >
           <RefreshCw className={`size-4 ${isSyncing ? "animate-spin" : ""}`} />
-        </button>
+        </motion.button>
       )}
 
       {/* Floating chat button — draggable */}

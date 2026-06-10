@@ -408,14 +408,18 @@ export default function PracticeSessionPage({ params }: PageProps) {
 
       {/* Resync button */}
       {gameStatus !== "COMPLETED" && (
-        <button
+        <motion.button
+          drag
+          dragConstraints={dragBoundsRef}
+          dragMomentum={false}
+          whileTap={{ scale: 0.95 }}
           onClick={async () => { setIsSyncing(true); await forceResync(); setIsSyncing(false) }}
           disabled={isSyncing}
-          className="fixed bottom-6 left-4 z-40 size-10 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center shadow-md active:scale-95 transition-all disabled:opacity-50"
+          className="fixed bottom-6 left-4 z-40 size-10 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center shadow-md transition-all disabled:opacity-50"
           aria-label="Resync"
         >
           <RefreshCw className={`size-4 ${isSyncing ? "animate-spin" : ""}`} />
-        </button>
+        </motion.button>
       )}
 
       {/* Chat button */}

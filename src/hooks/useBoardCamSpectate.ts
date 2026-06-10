@@ -42,6 +42,11 @@ export function useBoardCamSpectate(matchId: string, playerId: string) {
       }, delayMs)
     }
 
+    // Broadcaster just came online — resend READY immediately instead of waiting for retry
+    channel.on("broadcast", { event: "BROADCASTER_READY" }, () => {
+      if (!connected) sendReady()
+    })
+
     // Register before subscribing so no candidates from our offer are missed
     channel.on("broadcast", { event: "ICE_CANDIDATE_B" }, async ({ payload }) => {
       const { spectatorId: sid, candidate } = payload as { spectatorId: string; candidate: RTCIceCandidateInit }
