@@ -1,4 +1,8 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+"use client"
+
+import { useState } from "react"
+import Image from "next/image"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils/cn"
 
 interface PlayerAvatarProps {
@@ -15,6 +19,14 @@ const sizeClasses = {
   xl: "w-20 h-20 text-2xl",
 }
 
+// 2× the CSS pixel size for retina displays
+const sizePixels = {
+  sm: 56,
+  md: 72,
+  lg: 96,
+  xl: 160,
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -25,9 +37,21 @@ function getInitials(name: string): string {
 }
 
 export function PlayerAvatar({ name, avatarUrl, size = "md", className }: PlayerAvatarProps) {
+  const [imgError, setImgError] = useState(false)
+  const px = sizePixels[size]
+
   return (
     <Avatar className={cn(sizeClasses[size], className)}>
-      {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
+      {avatarUrl && !imgError && (
+        <Image
+          src={avatarUrl}
+          alt={name}
+          width={px}
+          height={px}
+          className="aspect-square h-full w-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      )}
       <AvatarFallback className="bg-primary/20 text-primary font-semibold">
         {getInitials(name)}
       </AvatarFallback>
